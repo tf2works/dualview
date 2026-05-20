@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>DualView - Portrait</title>
+  <style>
+    :root {
+      --border: #c0c0c0;
+      --bg: #f8f8f8;
+      --fg: #1a1a1a;
+      --label-bg: rgba(0,0,0,0.55);
+      --resize-overlay: rgba(230,126,0,0.12);
+      --resize-border: #e67e00;
+    }
+    [data-theme="dark"] {
+      --border: #444;
+      --bg: #1a1a1a;
+      --fg: #e8e8e8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      transition: outline 0.2s;
+    }
+
+    /* Mode redimensionnement */
+    body.resize-mode {
+      outline: 3px solid var(--resize-border);
+      outline-offset: -3px;
+    }
+
+    /* Overlay redimensionnement */
+    #resize-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--resize-overlay);
+      z-index: 9998;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    body.resize-mode #resize-overlay { display: flex; }
+
+    #resize-msg {
+      background: rgba(230,126,0,0.9);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    /* Bandeau OBS label */
+    #obs-label {
+      position: fixed;
+      top: 6px;
+      right: 8px;
+      background: var(--label-bg);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    #webview-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    webview {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      border: none;
+    }
+
+    /* Page d'accueil (quand pas d'URL) */
+    #empty-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--fg);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    #empty-state .icon { font-size: 48px; }
+    #empty-state .text { font-size: 15px; font-weight: 500; }
+    #empty-state .sub  { font-size: 12px; text-align: center; padding: 0 20px; }
+  </style>
+</head>
+<body>
+
+  <div id="obs-label">🔴 PORTRAIT — 9:16</div>
+
+  <div id="resize-overlay">
+    <div id="resize-msg">
+      ↔ Redimensionnez cette fenêtre<br>
+      <span style="font-weight:400;font-size:11px;">Cliquez "Valider" dans le contrôle pour reprendre</span>
+    </div>
+  </div>
+
+  <div id="webview-container">
+    <div id="empty-state">
+      <div class="icon">📱</div>
+      <div class="text">Vue Portrait (Mobile)</div>
+      <div class="sub">Entrez une URL dans la fenêtre de contrôle</div>
+    </div>
+    <webview
+      id="webview"
+      src="about:blank"
+      useragent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+      allowpopups
+      style="display:none;"
+    ></webview>
+  </div>
+
+  <script>
+    const webview = document.getElementById('webview');
+    const emptyState = document.getElementById('empty-state');
+
+    // ── Thème ──────────────────────────────────────────────
+    window.dualview.getTheme().then(theme => {
+      document.documentElement.setAttribute('data-theme', theme);
+    });
+    window.dualview.on('theme-changed', theme => {
+      document.documentElement.setAttribute('data-theme', theme);
+    });
+
+    // ── Mode redimensionnement ────────────────────────────
+    window.dualview.on('resize-mode', (active) => {
+      if (active) {
+        document.body.classList.add('resize-mode');
+      } else {
+        document.body.classList.remove('resize-mode');
+      }
+    });
+
+    // ── Appliquer le scroll (reçu depuis paysage) ─────────
+    window.dualview.on('apply-scroll', (scrollPct) => {
+      if (webview.getURL && webview.getURL() !== 'about:blank') {
+        webview.executeJavaScript(`
+          (function() {
+            const el = document.documentElement;
+            const maxScroll = el.scrollHeight - el.clientHeight;
+            if (maxScroll > 0) {
+              const target = ${scrollPct} * maxScroll;
+              window.scrollTo({ top: target, behavior: 'smooth' });
+            }
+          })();
+          true;
+        `).catch(() => {});
+      }
+    });
+
+    // ── Chargement d'URL ──────────────────────────────────
+    function loadUrl(url) {
+      if (!url || url === 'about:blank') {
+        webview.style.display = 'none';
+        emptyState.style.display = 'flex';
+        return;
+      }
+      emptyState.style.display = 'none';
+      webview.style.display = 'flex';
+      webview.src = url;
+    }
+
+    window.dualview.on('load-url', loadUrl);
+
+    // ── URL initiale ──────────────────────────────────────
+    window.dualview.getCurrentUrl().then(url => {
+      if (url) loadUrl(url);
+    });
+  </script>
+</body>
+</html>
