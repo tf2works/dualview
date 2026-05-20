@@ -4,88 +4,34 @@
   <meta charset="UTF-8">
   <title>DualView - Paysage</title>
   <style>
-    :root {
-      --border: #c0c0c0;
-      --bg: #f8f8f8;
-      --fg: #1a1a1a;
-      --label-bg: rgba(0,0,0,0.55);
-    }
-    [data-theme="dark"] {
-      --border: #444;
-      --bg: #1a1a1a;
-      --fg: #e8e8e8;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background: var(--bg);
-      color: var(--fg);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    }
-
-    /* Bandeau OBS label */
-    #obs-label {
-      position: fixed;
-      top: 6px;
-      right: 8px;
-      background: var(--label-bg);
-      color: white;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 4px;
-      letter-spacing: 0.5px;
-      z-index: 9999;
-      pointer-events: none;
-      opacity: 0.7;
-    }
-
-    #webview-container {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-    }
-
-    webview {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      border: none;
-    }
-
-    /* Page d'accueil (quand pas d'URL) */
-    #empty-state {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: var(--fg);
-      opacity: 0.5;
-      pointer-events: none;
-    }
-
-    #empty-state .icon { font-size: 48px; }
-    #empty-state .text { font-size: 16px; font-weight: 500; }
-    #empty-state .sub  { font-size: 13px; }
+    :root { --bg:#f8f8f8; --fg:#1a1a1a; --label-bg:rgba(0,0,0,0.55); --ind-bg:rgba(0,0,0,0.6); }
+    [data-theme="dark"] { --bg:#1a1a1a; --fg:#e8e8e8; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--fg); display:flex; flex-direction:column; height:100vh; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+    #obs-label { position:fixed; top:6px; right:8px; background:var(--label-bg); color:white; font-size:10px; font-weight:600; padding:2px 7px; border-radius:4px; z-index:9999; pointer-events:none; opacity:0.7; }
+    #video-indicator { position:fixed; bottom:8px; right:8px; background:var(--ind-bg); color:white; font-size:10px; font-weight:500; padding:3px 8px; border-radius:4px; z-index:9999; pointer-events:none; opacity:0; transition:opacity 0.3s; display:flex; align-items:center; gap:5px; }
+    #video-indicator.visible { opacity:0.85; }
+    #video-indicator .dot { width:6px; height:6px; border-radius:50%; background:#4caf50; }
+    #video-indicator.paused .dot { background:#ff9800; }
+    #webview-container { flex:1; position:relative; overflow:hidden; }
+    webview { width:100%; height:100%; display:flex; border:none; }
+    #empty-state { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--fg); opacity:0.5; pointer-events:none; }
+    #empty-state .icon { font-size:48px; }
+    #empty-state .text { font-size:16px; font-weight:500; }
+    #empty-state .sub  { font-size:13px; }
   </style>
 </head>
 <body>
-
-  <div id="obs-label">🔴 PAYSAGE — 16:9</div>
-
+  <div id="obs-label">PAYSAGE 16:9</div>
+  <div id="video-indicator" class="paused">
+    <span class="dot"></span>
+    <span id="video-indicator-text">Video detectee</span>
+  </div>
   <div id="webview-container">
     <div id="empty-state">
-      <div class="icon">🖥️</div>
+      <div class="icon">&#128421;</div>
       <div class="text">Vue Paysage (Desktop)</div>
-      <div class="sub">Entrez une URL dans la fenêtre de contrôle</div>
+      <div class="sub">Entrez une URL dans la fenetre de controle</div>
     </div>
     <webview
       id="webview"
@@ -97,93 +43,184 @@
   </div>
 
   <script>
-    const webview = document.getElementById('webview');
-    const emptyState = document.getElementById('empty-state');
+    const webview      = document.getElementById('webview');
+    const emptyState   = document.getElementById('empty-state');
+    const indicator    = document.getElementById('video-indicator');
+    const indicatorTxt = document.getElementById('video-indicator-text');
 
-    // ── Thème ──────────────────────────────────────────────
-    window.dualview.getTheme().then(theme => {
-      document.documentElement.setAttribute('data-theme', theme);
-    });
-    window.dualview.on('theme-changed', theme => {
-      document.documentElement.setAttribute('data-theme', theme);
-    });
+    // ── Theme ──────────────────────────────────────────────
+    window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
+    window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
 
-    // ── Gestion du scroll ─────────────────────────────────
-    let scrollTimeout = null;
-    let isApplyingScroll = false;
+    // ── Indicateur video ───────────────────────────────────
+    function showIndicator(text, paused) {
+      indicatorTxt.textContent = text;
+      indicator.classList.toggle('paused', paused);
+      indicator.classList.add('visible');
+    }
+    function hideIndicator() { indicator.classList.remove('visible'); }
 
-    // Envoyer le scroll vers le processus principal (→ portrait)
-    webview.addEventListener('dom-ready', () => {
-      webview.addEventListener('ipc-message', () => {});
-
-      // Injecter le listener de scroll dans la webview
-      webview.executeJavaScript(`
-        (function() {
-          let lastScrollSent = -1;
-          window.addEventListener('scroll', function() {
-            const el = document.documentElement;
-            const scrollTop = el.scrollTop || document.body.scrollTop;
-            const maxScroll = el.scrollHeight - el.clientHeight;
-            if (maxScroll <= 0) return;
-            const pct = scrollTop / maxScroll;
-            if (Math.abs(pct - lastScrollSent) > 0.001) {
-              lastScrollSent = pct;
-              // On ne peut pas utiliser IPC depuis la webview directement
-              // On stocke dans une variable globale que le parent lira
-              window.__dualviewScrollPct = pct;
-            }
-          }, { passive: true });
-        })();
-        true;
-      `).catch(() => {});
-    });
-
-    // Polling du scroll depuis la webview (toutes les 100ms)
-    let lastScrollPct = -1;
-    setInterval(() => {
-      if (webview.getURL && webview.getURL() !== 'about:blank') {
-        webview.executeJavaScript('window.__dualviewScrollPct || 0')
-          .then(pct => {
-            if (typeof pct === 'number' && Math.abs(pct - lastScrollPct) > 0.001) {
-              lastScrollPct = pct;
-              window.dualview.sendScroll(pct);
-            }
-          })
-          .catch(() => {});
-      }
-    }, 100);
-
-    // ── Chargement d'URL ──────────────────────────────────
-    function loadUrl(url) {
-      if (!url || url === 'about:blank') {
-        webview.style.display = 'none';
-        emptyState.style.display = 'flex';
-        return;
-      }
-      emptyState.style.display = 'none';
-      webview.style.display = 'flex';
-      webview.src = url;
+    // ── Nav back/forward ───────────────────────────────────
+    // FIX v0.2.2 : webview.canGoBack() est appele ici dans le renderer,
+    // pas dans main.js (qui ne peut lire que le BrowserWindow parent).
+    function sendNavState() {
+      const state = {
+        canGoBack:    webview.canGoBack    ? webview.canGoBack()    : false,
+        canGoForward: webview.canGoForward ? webview.canGoForward() : false
+      };
+      window.dualview.notifyNavState(state);
     }
 
+    // Recevoir les commandes back/forward du main et les appliquer a la webview
+    window.dualview.on('webview-go-back', () => {
+      if (webview.canGoBack && webview.canGoBack()) webview.goBack();
+    });
+    window.dualview.on('webview-go-forward', () => {
+      if (webview.canGoForward && webview.canGoForward()) webview.goForward();
+    });
+
+    // ── Script detecteur video (injecte dans la webview) ──
+    const VIDEO_WATCHER_SCRIPT = `
+(function() {
+  if (window.__dualviewVideoWatcher) return;
+  window.__dualviewVideoWatcher = true;
+  window.__dualviewVideoState = { playing:false, currentTime:0, platform:'generic', hasVideo:false };
+
+  function detectPlatform() {
+    const h = location.hostname;
+    if (h.includes('youtube.com'))   return 'youtube';
+    if (h.includes('tiktok.com'))    return 'tiktok';
+    if (h.includes('instagram.com')) return 'instagram';
+    return 'generic';
+  }
+
+  function getSelectors(p) {
+    if (p==='youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+    if (p==='tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
+    if (p==='instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
+    return ['video'];
+  }
+
+  function findBestVideo(sels) {
+    for (const s of sels) {
+      const list = Array.from(document.querySelectorAll(s)).filter(v=>{
+        const r=v.getBoundingClientRect(); return r.width>100&&r.height>100;
+      });
+      if (list.length>0) {
+        list.sort((a,b)=>{const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();return(rb.width*rb.height)-(ra.width*ra.height);});
+        return list[0];
+      }
+    }
+    return null;
+  }
+
+  const platform=detectPlatform(), sels=getSelectors(platform);
+  let videoEl=null, attempts=0;
+
+  function attach(video) {
+    if (video.__dualviewAttached) return;
+    video.__dualviewAttached=true; videoEl=video;
+    window.__dualviewVideoState={hasVideo:true,platform,playing:!video.paused,currentTime:video.currentTime};
+    video.addEventListener('play',  ()=>{ window.__dualviewVideoState.playing=true;  window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'play', time:video.currentTime,platform}; });
+    video.addEventListener('pause', ()=>{ window.__dualviewVideoState.playing=false; window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'pause',time:video.currentTime,platform}; });
+    video.addEventListener('seeked',()=>{ window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'seek',time:video.currentTime,platform}; });
+  }
+
+  const findInt=setInterval(()=>{
+    attempts++;
+    const v=findBestVideo(sels);
+    if (v) { attach(v); clearInterval(findInt); }
+    else if (attempts>=60) clearInterval(findInt);
+    if (videoEl&&!document.contains(videoEl)) { const nv=findBestVideo(sels); if(nv){videoEl.__dualviewAttached=false;attach(nv);} }
+  },500);
+
+  new MutationObserver(()=>{ if(!videoEl||!document.contains(videoEl)){const v=findBestVideo(sels);if(v)attach(v);} })
+    .observe(document.body,{childList:true,subtree:true});
+  true;
+})();`;
+
+    // ── Polling etat video ─────────────────────────────────
+    let lastVideoEvent=null, lastTimeSyncAt=0;
+    const TIME_SYNC_MS=5000;
+
+    function pollVideoState() {
+      if (!webview.getURL||webview.getURL()==='about:blank') return;
+      webview.executeJavaScript('window.__dualviewVideoEvent||null')
+        .then(evt=>{
+          if (!evt) return;
+          const key=evt.type+'_'+Math.round(evt.time*10);
+          if (key===lastVideoEvent) return;
+          lastVideoEvent=key;
+          webview.executeJavaScript('window.__dualviewVideoEvent=null;true;').catch(()=>{});
+          if (evt.type==='play')  { showIndicator('Lecture ('+evt.platform+')',false); window.dualview.sendVideoPlay(evt.time); }
+          if (evt.type==='pause') { showIndicator('Pause ('+evt.platform+')',true);   window.dualview.sendVideoPause(evt.time); }
+          if (evt.type==='seek')  { window.dualview.sendVideoPlay(evt.time); }
+        }).catch(()=>{});
+
+      const now=Date.now();
+      if (now-lastTimeSyncAt>=TIME_SYNC_MS) {
+        lastTimeSyncAt=now;
+        webview.executeJavaScript('window.__dualviewVideoState||null')
+          .then(s=>{
+            if (s&&s.hasVideo&&s.playing)  showIndicator('Lecture ('+s.platform+')',false);
+            else if (s&&s.hasVideo)        showIndicator('Pause ('+s.platform+')',true);
+            else                           hideIndicator();
+            if (s&&s.hasVideo&&s.playing)  window.dualview.sendVideoTimeUpdate(s.currentTime);
+          }).catch(()=>{});
+      }
+    }
+    setInterval(pollVideoState,150);
+
+    // ── Scroll ─────────────────────────────────────────────
+    const SCROLL_INJECT=`
+(function(){
+  if(window.__dualviewScrollWatcher)return;
+  window.__dualviewScrollWatcher=true;
+  let last=-1;
+  window.addEventListener('scroll',()=>{
+    const el=document.documentElement,top=el.scrollTop||document.body.scrollTop,max=el.scrollHeight-el.clientHeight;
+    if(max<=0)return;
+    const pct=top/max;
+    if(Math.abs(pct-last)>0.001){last=pct;window.__dualviewScrollPct=pct;}
+  },{passive:true});
+})();true;`;
+
+    let lastScrollPct=-1;
+    setInterval(()=>{
+      if(!webview.getURL||webview.getURL()==='about:blank') return;
+      webview.executeJavaScript('window.__dualviewScrollPct||0')
+        .then(pct=>{ if(typeof pct==='number'&&Math.abs(pct-lastScrollPct)>0.001){lastScrollPct=pct;window.dualview.sendScroll(pct);} })
+        .catch(()=>{});
+    },100);
+
+    // ── Chargement URL ─────────────────────────────────────
+    function loadUrl(url) {
+      if (!url||url==='about:blank') { webview.style.display='none'; emptyState.style.display='flex'; hideIndicator(); return; }
+      emptyState.style.display='none'; webview.style.display='flex';
+      webview.src=url;
+    }
     window.dualview.on('load-url', loadUrl);
 
-    // Écouter les navigations in-page pour informer le contrôle
+    webview.addEventListener('dom-ready', () => {
+      lastVideoEvent=null; lastTimeSyncAt=0; hideIndicator();
+      webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(()=>{});
+      webview.executeJavaScript(SCROLL_INJECT).catch(()=>{});
+      setTimeout(()=>webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(()=>{}),2000);
+      setTimeout(()=>webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(()=>{}),5000);
+      // Envoyer l'etat nav apres chargement
+      sendNavState();
+    });
+
     webview.addEventListener('did-navigate', (e) => {
-      if (e.url && e.url !== 'about:blank') {
-        window.dualview.sendNavigate(e.url);
-      }
+      if (e.url&&e.url!=='about:blank') window.dualview.sendNavigate(e.url);
+      sendNavState();
     });
-
     webview.addEventListener('did-navigate-in-page', (e) => {
-      if (e.url && e.url !== 'about:blank') {
-        window.dualview.sendNavigate(e.url);
-      }
+      if (e.url&&e.url!=='about:blank') window.dualview.sendNavigate(e.url);
+      sendNavState();
     });
 
-    // ── URL initiale ──────────────────────────────────────
-    window.dualview.getCurrentUrl().then(url => {
-      if (url) loadUrl(url);
-    });
+    window.dualview.getCurrentUrl().then(url=>{ if(url) loadUrl(url); });
   </script>
 </body>
 </html>

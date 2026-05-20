@@ -18,7 +18,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 # Configuration
 $APP_NAME       = "DualView"
-$APP_VERSION    = "0.1.0"
+$APP_VERSION    = "0.2.2"
 $SCRIPT_DIR     = Split-Path -Parent $PSCommandPath
 $NODE_INSTALLER = "https://nodejs.org/dist/latest-v22.x/node-v22.15.0-x64.msi"
 $NODE_MIN_VER   = [Version]"22.0.0"

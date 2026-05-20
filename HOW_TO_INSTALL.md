@@ -1,91 +1,87 @@
-# DualView v0.1.0 - Instructions d'installation
+# DualView v0.2.1 - Instructions d'installation
 
-## Contenu du dossier
+## Nouveautes v0.2.1
 
-```
-dualview/
-+-- HOW_TO_INSTALL.md   <- Vous lisez ce fichier
-+-- install.bat         <- Lanceur (double-clic pour demarrer)
-+-- install.ps1         <- Script de build PowerShell
-+-- package.json        <- Configuration de l'application
-+-- src/                <- Code source
-+-- assets/             <- Ressources
-```
+- Bloqueur de publicites integre (YouTube, Google Ads, trackers)
+  La mention "Bloqueur pub actif" apparait dans la barre de statut.
+- Boutons navigation Precedent / Suivant dans la barre de controle
+  Les fleches se desactivent automatiquement si aucun historique.
+
+## Nouveautes v0.2.0
+
+- Synchronisation video play/pause (paysage -> portrait)
+- Synchronisation de position toutes les 5 secondes
+- Compatible YouTube, TikTok, Instagram, tout site avec balise video
 
 ---
 
-## Etape 1 - Lancer le build
+## Installation
+
+### Etape 1 - Lancer le build
 
 Double-cliquez sur **install.bat**
 
-Une fenetre PowerShell s'ouvre en mode Administrateur et :
-- Verifie que vous etes sur Windows 11
-- Installe Node.js v22 automatiquement si absent
-- Installe les dependances du projet
-- Compile **DualView-Setup-0.1.0.exe** dans ce meme dossier
+Le script va compiler **DualView-Setup-0.2.1.exe** dans ce dossier.
+Duree : 5 a 15 minutes selon la connexion.
 
-Duree estimee : 5 a 15 minutes selon votre connexion internet.
+Si Windows demande confirmation -> cliquez Oui / Executer.
 
-Note : Windows peut afficher un avertissement de securite
-"Voulez-vous executer ce script ?" - cliquez Oui / Executer une fois.
+### Etape 2 - Installer
 
----
-
-## Etape 2 - Installer l'application
-
-Une fois le build termine, double-cliquez sur :
-
-**DualView-Setup-0.1.0.exe**
-
-L'installateur vous guide. Il vous demande :
-- Le dossier d'installation (par defaut : Program Files)
-- Si vous voulez un raccourci dans le Menu Demarrer
-
+Double-cliquez sur **DualView-Setup-0.2.1.exe**
 Aucun raccourci Bureau n'est cree automatiquement.
 
+### Etape 3 - Lancer
+
+Cherchez DualView dans le Menu Demarrer.
+
 ---
 
-## Etape 3 - Lancer DualView
+## Fenetres
 
-Cherchez **DualView** dans le Menu Demarrer.
-
-Au lancement, trois fenetres apparaissent :
-- DualView - Controle  : barre d'adresse + onglets
+- DualView - Controle  : barre d'adresse + onglets + navigation
 - DualView - Paysage   : vue Desktop 16:9
 - DualView - Portrait  : vue Mobile 9:16
 
 ---
 
-## Utilisation rapide
+## Bloqueur de publicites
 
-1. Saisissez une URL dans la barre d'adresse (fenetre Controle)
-2. Appuyez sur Entree ou cliquez Charger
-3. Les deux fenetres chargent la page simultanement
-4. Scrollez dans la fenetre Paysage -> Portrait suit automatiquement
+Actif par defaut des le lancement, sans configuration.
+Bloque : Google Ads, DoubleClick, imasdk (YouTube pre-roll),
+         Google Analytics, pagead, pubads, securepubads.
+
+La fenetre Paysage et Portrait beneficient toutes deux du blocage
+car il est applique au niveau de la session Electron entiere.
+
+---
+
+## Boutons de navigation
+
+Fleche gauche (Precedent) et fleche droite (Suivant) dans la barre.
+Desactives automatiquement si aucune page precedente/suivante.
+La navigation s'applique simultanement aux deux fenetres.
+
+---
+
+## Synchronisation video
+
+Les deux fenetres chargent la page independamment.
+DualView detecte les evenements play/pause/seek dans Paysage
+et les applique a Portrait avec correction de position (+-3s).
+Correction anti-derive toutes les 5 secondes (tolerance +-5s).
+
+Plateformes : YouTube, TikTok, Instagram, generique.
 
 ---
 
 ## Configuration OBS
 
-Dans OBS, ajoutez deux sources "Capture de fenetre" :
-- Selectionnez "DualView - Paysage" pour la vue Desktop
-- Selectionnez "DualView - Portrait" pour la vue Mobile
+Deux sources "Capture de fenetre" :
+- "DualView - Paysage" : vue Desktop
+- "DualView - Portrait" : vue Mobile
 
-Les titres de fenetres sont stables : changer d'onglet ne les modifie pas.
-
----
-
-## Problemes connus
-
-Le script s'arrete avec une erreur de connexion
-  -> Verifiez votre connexion internet et relancez install.bat
-
-"Execution de scripts desactivee"
-  -> Clic droit sur install.ps1 -> Executer avec PowerShell
-
-L'antivirus bloque le .exe genere
-  -> Ajoutez une exception pour le dossier de build (comportement normal
-     pour les executables Electron non signes par un certificat)
+Les titres sont stables entre les changements d'onglets.
 
 ---
 

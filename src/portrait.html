@@ -5,107 +5,59 @@
   <title>DualView - Portrait</title>
   <style>
     :root {
-      --border: #c0c0c0;
-      --bg: #f8f8f8;
-      --fg: #1a1a1a;
+      --bg: #f8f8f8; --fg: #1a1a1a;
       --label-bg: rgba(0,0,0,0.55);
       --resize-overlay: rgba(230,126,0,0.12);
       --resize-border: #e67e00;
     }
-    [data-theme="dark"] {
-      --border: #444;
-      --bg: #1a1a1a;
-      --fg: #e8e8e8;
-    }
+    [data-theme="dark"] { --bg: #1a1a1a; --fg: #e8e8e8; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: var(--bg);
-      color: var(--fg);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
+      background: var(--bg); color: var(--fg);
+      display: flex; flex-direction: column;
+      height: 100vh; overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      transition: outline 0.2s;
     }
 
-    /* Mode redimensionnement */
-    body.resize-mode {
-      outline: 3px solid var(--resize-border);
-      outline-offset: -3px;
-    }
+    body.resize-mode { outline: 3px solid var(--resize-border); outline-offset: -3px; }
 
-    /* Overlay redimensionnement */
     #resize-overlay {
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background: var(--resize-overlay);
-      z-index: 9998;
-      display: none;
-      align-items: center;
-      justify-content: center;
+      z-index: 9998; display: none;
+      align-items: center; justify-content: center;
       pointer-events: none;
     }
-
     body.resize-mode #resize-overlay { display: flex; }
 
     #resize-msg {
-      background: rgba(230,126,0,0.9);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      text-align: center;
-      pointer-events: none;
+      background: rgba(230,126,0,0.9); color: white;
+      padding: 10px 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 600;
+      text-align: center; pointer-events: none;
     }
 
-    /* Bandeau OBS label */
     #obs-label {
-      position: fixed;
-      top: 6px;
-      right: 8px;
-      background: var(--label-bg);
-      color: white;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 4px;
-      letter-spacing: 0.5px;
-      z-index: 9999;
-      pointer-events: none;
-      opacity: 0.7;
+      position: fixed; top: 6px; right: 8px;
+      background: var(--label-bg); color: white;
+      font-size: 10px; font-weight: 600;
+      padding: 2px 7px; border-radius: 4px;
+      letter-spacing: 0.5px; z-index: 9999;
+      pointer-events: none; opacity: 0.7;
     }
 
-    #webview-container {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-    }
+    #webview-container { flex: 1; position: relative; overflow: hidden; }
 
-    webview {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      border: none;
-    }
+    webview { width: 100%; height: 100%; display: flex; border: none; }
 
-    /* Page d'accueil (quand pas d'URL) */
     #empty-state {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: var(--fg);
-      opacity: 0.5;
-      pointer-events: none;
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; color: var(--fg); opacity: 0.5; pointer-events: none;
     }
-
     #empty-state .icon { font-size: 48px; }
     #empty-state .text { font-size: 15px; font-weight: 500; }
     #empty-state .sub  { font-size: 12px; text-align: center; padding: 0 20px; }
@@ -113,20 +65,20 @@
 </head>
 <body>
 
-  <div id="obs-label">🔴 PORTRAIT — 9:16</div>
+  <div id="obs-label">PORTRAIT 9:16</div>
 
   <div id="resize-overlay">
     <div id="resize-msg">
-      ↔ Redimensionnez cette fenêtre<br>
-      <span style="font-weight:400;font-size:11px;">Cliquez "Valider" dans le contrôle pour reprendre</span>
+      Redimensionnez cette fenetre<br>
+      <span style="font-weight:400;font-size:11px;">Cliquez Valider dans le controle pour reprendre</span>
     </div>
   </div>
 
   <div id="webview-container">
     <div id="empty-state">
-      <div class="icon">📱</div>
+      <div class="icon">&#128241;</div>
       <div class="text">Vue Portrait (Mobile)</div>
-      <div class="sub">Entrez une URL dans la fenêtre de contrôle</div>
+      <div class="sub">Entrez une URL dans la fenetre de controle</div>
     </div>
     <webview
       id="webview"
@@ -138,41 +90,149 @@
   </div>
 
   <script>
-    const webview = document.getElementById('webview');
+    const webview    = document.getElementById('webview');
     const emptyState = document.getElementById('empty-state');
 
-    // ── Thème ──────────────────────────────────────────────
-    window.dualview.getTheme().then(theme => {
-      document.documentElement.setAttribute('data-theme', theme);
+    // ── Theme ─────────────────────────────────────────────
+    window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
+    window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
+
+    // ── Nav back/forward ───────────────────────────────────
+    window.dualview.on('webview-go-back', () => {
+      if (webview.canGoBack && webview.canGoBack()) webview.goBack();
     });
-    window.dualview.on('theme-changed', theme => {
-      document.documentElement.setAttribute('data-theme', theme);
+    window.dualview.on('webview-go-forward', () => {
+      if (webview.canGoForward && webview.canGoForward()) webview.goForward();
     });
 
     // ── Mode redimensionnement ────────────────────────────
-    window.dualview.on('resize-mode', (active) => {
-      if (active) {
-        document.body.classList.add('resize-mode');
-      } else {
-        document.body.classList.remove('resize-mode');
-      }
+    window.dualview.on('resize-mode', active => {
+      document.body.classList.toggle('resize-mode', active);
     });
 
-    // ── Appliquer le scroll (reçu depuis paysage) ─────────
-    window.dualview.on('apply-scroll', (scrollPct) => {
-      if (webview.getURL && webview.getURL() !== 'about:blank') {
-        webview.executeJavaScript(`
-          (function() {
-            const el = document.documentElement;
-            const maxScroll = el.scrollHeight - el.clientHeight;
-            if (maxScroll > 0) {
-              const target = ${scrollPct} * maxScroll;
-              window.scrollTo({ top: target, behavior: 'smooth' });
-            }
-          })();
-          true;
-        `).catch(() => {});
+    // ── Script executeur video injecte dans la webview portrait ──
+    // Compatible YouTube, TikTok, Instagram, generique
+    const VIDEO_EXECUTOR_SCRIPT = `
+(function() {
+  if (window.__dualviewExecutorReady) return;
+  window.__dualviewExecutorReady = true;
+  window.__dualviewPendingCmd = null;
+
+  function detectPlatform() {
+    const host = location.hostname;
+    if (host.includes('youtube.com'))   return 'youtube';
+    if (host.includes('tiktok.com'))    return 'tiktok';
+    if (host.includes('instagram.com')) return 'instagram';
+    return 'generic';
+  }
+
+  function getVideoSelectors(platform) {
+    switch (platform) {
+      case 'youtube':
+        return ['video.html5-main-video', '#movie_player video', 'ytd-player video', 'video'];
+      case 'tiktok':
+        return ['video[class*="video"]', '.video-player video', '[class*="player"] video', 'video'];
+      case 'instagram':
+        return ['video[playsinline]', 'article video', '[role="presentation"] video', 'video'];
+      default:
+        return ['video'];
+    }
+  }
+
+  function findBestVideo(selectors) {
+    for (const sel of selectors) {
+      const videos = Array.from(document.querySelectorAll(sel));
+      const visible = videos.filter(v => {
+        const r = v.getBoundingClientRect();
+        return r.width > 100 && r.height > 100;
+      });
+      if (visible.length > 0) {
+        visible.sort((a, b) => {
+          const ra = a.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          return (rb.width * rb.height) - (ra.width * ra.height);
+        });
+        return visible[0];
       }
+    }
+    return null;
+  }
+
+  const platform  = detectPlatform();
+  const selectors = getVideoSelectors(platform);
+
+  window.__dualviewApplyCmd = function(cmd) {
+    const video = findBestVideo(selectors);
+    if (!video) {
+      window.__dualviewPendingCmd = cmd;
+      return false;
+    }
+
+    if (cmd.action === 'pause') {
+      video.pause();
+      // Sync le currentTime si l'ecart est > 3s
+      if (Math.abs(video.currentTime - cmd.currentTime) > 3) {
+        video.currentTime = cmd.currentTime;
+      }
+    } else if (cmd.action === 'play') {
+      // Sync le currentTime si l'ecart est > 3s
+      if (Math.abs(video.currentTime - cmd.currentTime) > 3) {
+        video.currentTime = cmd.currentTime;
+      }
+      const p = video.play();
+      if (p && p.catch) p.catch(() => {});
+    } else if (cmd.action === 'seek') {
+      // Sync periodique: corriger seulement si derive > 5s
+      if (Math.abs(video.currentTime - cmd.currentTime) > 5) {
+        video.currentTime = cmd.currentTime;
+        if (!video.paused) {
+          const p = video.play();
+          if (p && p.catch) p.catch(() => {});
+        }
+      }
+    }
+    return true;
+  };
+
+  // Appliquer les commandes en attente si la video se charge
+  const observer = new MutationObserver(function() {
+    if (window.__dualviewPendingCmd) {
+      const ok = window.__dualviewApplyCmd(window.__dualviewPendingCmd);
+      if (ok) window.__dualviewPendingCmd = null;
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  true;
+})();
+`;
+
+    // ── Reception des commandes video depuis le main ───────
+    window.dualview.on('video-cmd', (cmd) => {
+      if (!webview.getURL || webview.getURL() === 'about:blank') return;
+
+      // S'assurer que le script executeur est injecte
+      webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
+        .then(() => {
+          // Appliquer la commande
+          const cmdStr = JSON.stringify(cmd);
+          return webview.executeJavaScript(
+            'window.__dualviewApplyCmd(' + cmdStr + '); true;'
+          );
+        })
+        .catch(() => {});
+    });
+
+    // ── Scroll ────────────────────────────────────────────
+    window.dualview.on('apply-scroll', (scrollPct) => {
+      if (!webview.getURL || webview.getURL() === 'about:blank') return;
+      webview.executeJavaScript(`
+        (function() {
+          const el = document.documentElement;
+          const max = el.scrollHeight - el.clientHeight;
+          if (max > 0) window.scrollTo({ top: ${scrollPct} * max, behavior: 'smooth' });
+        })(); true;
+      `).catch(() => {});
     });
 
     // ── Chargement d'URL ──────────────────────────────────
@@ -189,10 +249,15 @@
 
     window.dualview.on('load-url', loadUrl);
 
-    // ── URL initiale ──────────────────────────────────────
-    window.dualview.getCurrentUrl().then(url => {
-      if (url) loadUrl(url);
+    // Re-injecter le script executeur apres chaque navigation
+    webview.addEventListener('dom-ready', () => {
+      webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT).catch(() => {});
+      setTimeout(() => {
+        webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT).catch(() => {});
+      }, 2000);
     });
+
+    window.dualview.getCurrentUrl().then(url => { if (url) loadUrl(url); });
   </script>
 </body>
 </html>
