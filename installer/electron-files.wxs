@@ -1,0 +1,242 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!-- Genere par build-installer.ps1 - ne pas editer manuellement -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Directory Id="dir_locales" Name="locales">
+      </Directory>
+      <Directory Id="dir_resources" Name="resources">
+      </Directory>
+    </DirectoryRef>
+
+    <ComponentGroup Id="ElectronFiles">
+      <Component Id="c0" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\chrome_100_percent.pak" />
+      </Component>
+      <Component Id="c1" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\chrome_200_percent.pak" />
+      </Component>
+      <Component Id="c2" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\d3dcompiler_47.dll" />
+      </Component>
+      <Component Id="c3" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\DualView.exe" />
+      </Component>
+      <Component Id="c4" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\dxcompiler.dll" />
+      </Component>
+      <Component Id="c5" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\dxil.dll" />
+      </Component>
+      <Component Id="c6" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\ffmpeg.dll" />
+      </Component>
+      <Component Id="c7" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\icudtl.dat" />
+      </Component>
+      <Component Id="c8" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\libEGL.dll" />
+      </Component>
+      <Component Id="c9" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\libGLESv2.dll" />
+      </Component>
+      <Component Id="c10" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\LICENSE.electron.txt" />
+      </Component>
+      <Component Id="c11" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\LICENSES.chromium.html" />
+      </Component>
+      <Component Id="c12" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\af.pak" />
+      </Component>
+      <Component Id="c13" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\am.pak" />
+      </Component>
+      <Component Id="c14" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ar.pak" />
+      </Component>
+      <Component Id="c15" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\bg.pak" />
+      </Component>
+      <Component Id="c16" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\bn.pak" />
+      </Component>
+      <Component Id="c17" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ca.pak" />
+      </Component>
+      <Component Id="c18" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\cs.pak" />
+      </Component>
+      <Component Id="c19" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\da.pak" />
+      </Component>
+      <Component Id="c20" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\de.pak" />
+      </Component>
+      <Component Id="c21" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\el.pak" />
+      </Component>
+      <Component Id="c22" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\en-GB.pak" />
+      </Component>
+      <Component Id="c23" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\en-US.pak" />
+      </Component>
+      <Component Id="c24" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\es.pak" />
+      </Component>
+      <Component Id="c25" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\es-419.pak" />
+      </Component>
+      <Component Id="c26" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\et.pak" />
+      </Component>
+      <Component Id="c27" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\fa.pak" />
+      </Component>
+      <Component Id="c28" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\fi.pak" />
+      </Component>
+      <Component Id="c29" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\fil.pak" />
+      </Component>
+      <Component Id="c30" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\fr.pak" />
+      </Component>
+      <Component Id="c31" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\gu.pak" />
+      </Component>
+      <Component Id="c32" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\he.pak" />
+      </Component>
+      <Component Id="c33" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\hi.pak" />
+      </Component>
+      <Component Id="c34" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\hr.pak" />
+      </Component>
+      <Component Id="c35" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\hu.pak" />
+      </Component>
+      <Component Id="c36" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\id.pak" />
+      </Component>
+      <Component Id="c37" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\it.pak" />
+      </Component>
+      <Component Id="c38" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ja.pak" />
+      </Component>
+      <Component Id="c39" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\kn.pak" />
+      </Component>
+      <Component Id="c40" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ko.pak" />
+      </Component>
+      <Component Id="c41" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\lt.pak" />
+      </Component>
+      <Component Id="c42" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\lv.pak" />
+      </Component>
+      <Component Id="c43" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ml.pak" />
+      </Component>
+      <Component Id="c44" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\mr.pak" />
+      </Component>
+      <Component Id="c45" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ms.pak" />
+      </Component>
+      <Component Id="c46" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\nb.pak" />
+      </Component>
+      <Component Id="c47" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\nl.pak" />
+      </Component>
+      <Component Id="c48" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\pl.pak" />
+      </Component>
+      <Component Id="c49" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\pt-BR.pak" />
+      </Component>
+      <Component Id="c50" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\pt-PT.pak" />
+      </Component>
+      <Component Id="c51" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ro.pak" />
+      </Component>
+      <Component Id="c52" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ru.pak" />
+      </Component>
+      <Component Id="c53" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\sk.pak" />
+      </Component>
+      <Component Id="c54" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\sl.pak" />
+      </Component>
+      <Component Id="c55" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\sr.pak" />
+      </Component>
+      <Component Id="c56" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\sv.pak" />
+      </Component>
+      <Component Id="c57" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\sw.pak" />
+      </Component>
+      <Component Id="c58" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ta.pak" />
+      </Component>
+      <Component Id="c59" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\te.pak" />
+      </Component>
+      <Component Id="c60" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\th.pak" />
+      </Component>
+      <Component Id="c61" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\tr.pak" />
+      </Component>
+      <Component Id="c62" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\uk.pak" />
+      </Component>
+      <Component Id="c63" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\ur.pak" />
+      </Component>
+      <Component Id="c64" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\vi.pak" />
+      </Component>
+      <Component Id="c65" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\zh-CN.pak" />
+      </Component>
+      <Component Id="c66" Guid="*" Directory="dir_locales">
+        <File Source="$(var.ElectronDir)\locales\zh-TW.pak" />
+      </Component>
+      <Component Id="c67" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\resources.pak" />
+      </Component>
+      <Component Id="c68" Guid="*" Directory="dir_resources">
+        <File Source="$(var.ElectronDir)\resources\app.asar" />
+      </Component>
+      <Component Id="c69" Guid="*" Directory="dir_resources">
+        <File Source="$(var.ElectronDir)\resources\elevate.exe" />
+      </Component>
+      <Component Id="c70" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\snapshot_blob.bin" />
+      </Component>
+      <Component Id="c71" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\v8_context_snapshot.bin" />
+      </Component>
+      <Component Id="c72" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\vk_swiftshader.dll" />
+      </Component>
+      <Component Id="c73" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\vk_swiftshader_icd.json" />
+      </Component>
+      <Component Id="c74" Guid="*" Directory="INSTALLFOLDER">
+        <File Source="$(var.ElectronDir)\vulkan-1.dll" />
+      </Component>
+    </ComponentGroup>
+
+  </Fragment>
+</Wix>

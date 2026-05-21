@@ -1,263 +1,319 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>DualView - Portrait</title>
-  <style>
-    :root {
-      --bg: #f8f8f8; --fg: #1a1a1a;
-      --label-bg: rgba(0,0,0,0.55);
-      --resize-overlay: rgba(230,126,0,0.12);
-      --resize-border: #e67e00;
-    }
-    [data-theme="dark"] { --bg: #1a1a1a; --fg: #e8e8e8; }
+    <meta charset="UTF-8">
+    <title>DualView - Portrait</title>
+    <style>
+        :root {
+            --bg: #f8f8f8;
+            --fg: #1a1a1a;
+            --label-bg: rgba(0,0,0,0.55);
+            --resize-overlay: rgba(230,126,0,0.12);
+            --resize-border: #e67e00;
+        }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+        [data-theme="dark"] {
+            --bg: #1a1a1a;
+            --fg: #e8e8e8;
+        }
 
-    body {
-      background: var(--bg); color: var(--fg);
-      display: flex; flex-direction: column;
-      height: 100vh; overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-    body.resize-mode { outline: 3px solid var(--resize-border); outline-offset: -3px; }
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
 
-    #resize-overlay {
-      position: fixed; inset: 0;
-      background: var(--resize-overlay);
-      z-index: 9998; display: none;
-      align-items: center; justify-content: center;
-      pointer-events: none;
-    }
-    body.resize-mode #resize-overlay { display: flex; }
+            body.resize-mode {
+                outline: 3px solid var(--resize-border);
+                outline-offset: -3px;
+            }
 
-    #resize-msg {
-      background: rgba(230,126,0,0.9); color: white;
-      padding: 10px 20px; border-radius: 8px;
-      font-size: 13px; font-weight: 600;
-      text-align: center; pointer-events: none;
-    }
+        #resize-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--resize-overlay);
+            z-index: 9998;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
 
-    #obs-label {
-      position: fixed; top: 6px; right: 8px;
-      background: var(--label-bg); color: white;
-      font-size: 10px; font-weight: 600;
-      padding: 2px 7px; border-radius: 4px;
-      letter-spacing: 0.5px; z-index: 9999;
-      pointer-events: none; opacity: 0.7;
-    }
+        body.resize-mode #resize-overlay {
+            display: flex;
+        }
 
-    #webview-container { flex: 1; position: relative; overflow: hidden; }
+        #resize-msg {
+            background: rgba(230,126,0,0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            pointer-events: none;
+        }
 
-    webview { width: 100%; height: 100%; display: flex; border: none; }
 
-    #empty-state {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 12px; color: var(--fg); opacity: 0.5; pointer-events: none;
-    }
-    #empty-state .icon { font-size: 48px; }
-    #empty-state .text { font-size: 15px; font-weight: 500; }
-    #empty-state .sub  { font-size: 12px; text-align: center; padding: 0 20px; }
-  </style>
+        #webview-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        webview {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            border: none;
+        }
+
+        #empty-state {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--fg);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+            #empty-state .icon {
+                font-size: 48px;
+            }
+
+            #empty-state .text {
+                font-size: 15px;
+                font-weight: 500;
+            }
+
+            #empty-state .sub {
+                font-size: 12px;
+                text-align: center;
+                padding: 0 20px;
+            }
+    </style>
 </head>
 <body>
 
-  <div id="obs-label">PORTRAIT 9:16</div>
-
-  <div id="resize-overlay">
-    <div id="resize-msg">
-      Redimensionnez cette fenetre<br>
-      <span style="font-weight:400;font-size:11px;">Cliquez Valider dans le controle pour reprendre</span>
+    <div id="resize-overlay">
+        <div id="resize-msg">
+            Redimensionnez cette fenetre<br>
+            <span style="font-weight:400;font-size:11px;">Cliquez Valider dans le controle pour reprendre</span>
+        </div>
     </div>
-  </div>
 
-  <div id="webview-container">
-    <div id="empty-state">
-      <div class="icon">&#128241;</div>
-      <div class="text">Vue Portrait (Mobile)</div>
-      <div class="sub">Entrez une URL dans la fenetre de controle</div>
+    <div id="webview-container">
+        <div id="empty-state">
+            <div class="icon">&#128241;</div>
+            <div class="text">Vue Portrait (Mobile)</div>
+            <div class="sub">Entrez une URL dans la fenetre de controle</div>
+        </div>
+        <webview id="webview"
+                 src="about:blank"
+                 useragent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+                 allowpopups
+                 style="display:none;"></webview>
     </div>
-    <webview
-      id="webview"
-      src="about:blank"
-      useragent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-      allowpopups
-      style="display:none;"
-    ></webview>
-  </div>
 
-  <script>
-    const webview    = document.getElementById('webview');
-    const emptyState = document.getElementById('empty-state');
+    <script>
+        const webview = document.getElementById('webview');
+        const emptyState = document.getElementById('empty-state');
 
-    // ── Theme ─────────────────────────────────────────────
-    window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
-    window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
+        // ── Theme ─────────────────────────────────────────────
+        window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
+        window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
 
-    // ── Nav back/forward ───────────────────────────────────
-    window.dualview.on('webview-go-back', () => {
-      if (webview.canGoBack && webview.canGoBack()) webview.goBack();
-    });
-    window.dualview.on('webview-go-forward', () => {
-      if (webview.canGoForward && webview.canGoForward()) webview.goForward();
-    });
-
-    // ── Mode redimensionnement ────────────────────────────
-    window.dualview.on('resize-mode', active => {
-      document.body.classList.toggle('resize-mode', active);
-    });
-
-    // ── Script executeur video injecte dans la webview portrait ──
-    // Compatible YouTube, TikTok, Instagram, generique
-    const VIDEO_EXECUTOR_SCRIPT = `
-(function() {
-  if (window.__dualviewExecutorReady) return;
-  window.__dualviewExecutorReady = true;
-  window.__dualviewPendingCmd = null;
-
-  function detectPlatform() {
-    const host = location.hostname;
-    if (host.includes('youtube.com'))   return 'youtube';
-    if (host.includes('tiktok.com'))    return 'tiktok';
-    if (host.includes('instagram.com')) return 'instagram';
-    return 'generic';
-  }
-
-  function getVideoSelectors(platform) {
-    switch (platform) {
-      case 'youtube':
-        return ['video.html5-main-video', '#movie_player video', 'ytd-player video', 'video'];
-      case 'tiktok':
-        return ['video[class*="video"]', '.video-player video', '[class*="player"] video', 'video'];
-      case 'instagram':
-        return ['video[playsinline]', 'article video', '[role="presentation"] video', 'video'];
-      default:
-        return ['video'];
-    }
-  }
-
-  function findBestVideo(selectors) {
-    for (const sel of selectors) {
-      const videos = Array.from(document.querySelectorAll(sel));
-      const visible = videos.filter(v => {
-        const r = v.getBoundingClientRect();
-        return r.width > 100 && r.height > 100;
-      });
-      if (visible.length > 0) {
-        visible.sort((a, b) => {
-          const ra = a.getBoundingClientRect();
-          const rb = b.getBoundingClientRect();
-          return (rb.width * rb.height) - (ra.width * ra.height);
+        // ── Nav back/forward ───────────────────────────────────
+        window.dualview.on('webview-go-back', () => {
+            if (webview.canGoBack && webview.canGoBack()) webview.goBack();
         });
-        return visible[0];
-      }
-    }
-    return null;
-  }
+        window.dualview.on('webview-go-forward', () => {
+            if (webview.canGoForward && webview.canGoForward()) webview.goForward();
+        });
 
-  const platform  = detectPlatform();
-  const selectors = getVideoSelectors(platform);
+        // ── Mode redimensionnement ────────────────────────────
+        window.dualview.on('resize-mode', active => {
+            document.body.classList.toggle('resize-mode', active);
+        });
 
-  window.__dualviewApplyCmd = function(cmd) {
-    const video = findBestVideo(selectors);
-    if (!video) {
-      window.__dualviewPendingCmd = cmd;
-      return false;
-    }
+        // ── Script executeur video injecte dans la webview portrait ──
+        // Compatible YouTube, TikTok, Instagram, generique
+        const VIDEO_EXECUTOR_SCRIPT = `
+(function() {
+      if (window.__dualviewExecutorReady) return;
+      window.__dualviewExecutorReady = true;
+      window.__dualviewPendingCmd = null;
 
-    if (cmd.action === 'pause') {
-      video.pause();
-      // Sync le currentTime si l'ecart est > 3s
-      if (Math.abs(video.currentTime - cmd.currentTime) > 3) {
-        video.currentTime = cmd.currentTime;
+      function detectPlatform() {
+        const host = location.hostname;
+        if (host.includes('youtube.com'))   return 'youtube';
+        if (host.includes('tiktok.com'))    return 'tiktok';
+        if (host.includes('instagram.com')) return 'instagram';
+        return 'generic';
       }
-    } else if (cmd.action === 'play') {
-      // Sync le currentTime si l'ecart est > 3s
-      if (Math.abs(video.currentTime - cmd.currentTime) > 3) {
-        video.currentTime = cmd.currentTime;
-      }
-      const p = video.play();
-      if (p && p.catch) p.catch(() => {});
-    } else if (cmd.action === 'seek') {
-      // Sync periodique: corriger seulement si derive > 5s
-      if (Math.abs(video.currentTime - cmd.currentTime) > 5) {
-        video.currentTime = cmd.currentTime;
-        if (!video.paused) {
-          const p = video.play();
-          if (p && p.catch) p.catch(() => {});
+
+      function getVideoSelectors(platform) {
+        switch (platform) {
+          case 'youtube':
+            return ['video.html5-main-video', '#movie_player video', 'ytd-player video', 'video'];
+          case 'tiktok':
+            return ['video[class*="video"]', '.video-player video', '[class*="player"] video', 'video'];
+          case 'instagram':
+            return ['video[playsinline]', 'article video', '[role="presentation"] video', 'video'];
+          default:
+            return ['video'];
         }
       }
-    }
-    return true;
-  };
 
-  // Appliquer les commandes en attente si la video se charge
-  const observer = new MutationObserver(function() {
-    if (window.__dualviewPendingCmd) {
-      const ok = window.__dualviewApplyCmd(window.__dualviewPendingCmd);
-      if (ok) window.__dualviewPendingCmd = null;
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
+      function findBestVideo(selectors) {
+        for (const sel of selectors) {
+          const videos = Array.from(document.querySelectorAll(sel));
+          const visible = videos.filter(v => {
+            const r = v.getBoundingClientRect();
+            return r.width > 100 && r.height > 100;
+          });
+          if (visible.length > 0) {
+            visible.sort((a, b) => {
+              const ra = a.getBoundingClientRect();
+              const rb = b.getBoundingClientRect();
+              return (rb.width * rb.height) - (ra.width * ra.height);
+            });
+            return visible[0];
+          }
+        }
+        return null;
+      }
 
-  true;
+      const platform  = detectPlatform();
+      const selectors = getVideoSelectors(platform);
+
+      window.__dualviewApplyCmd = function(cmd) {
+        const video = findBestVideo(selectors);
+        if (!video) {
+          window.__dualviewPendingCmd = cmd;
+          return false;
+        }
+
+        if (cmd.action === 'pause') {
+          video.pause();
+          // Sync le currentTime si l'ecart est > 3s
+          if (Math.abs(video.currentTime - cmd.currentTime) > 3) {
+            video.currentTime = cmd.currentTime;
+          }
+        } else if (cmd.action === 'play') {
+          // Sync le currentTime si l'ecart est > 3s
+          if (Math.abs(video.currentTime - cmd.currentTime) > 3) {
+            video.currentTime = cmd.currentTime;
+          }
+          const p = video.play();
+          if (p && p.catch) p.catch(() => {});
+        } else if (cmd.action === 'seek') {
+          // Sync periodique: corriger seulement si derive > 5s
+          if (Math.abs(video.currentTime - cmd.currentTime) > 5) {
+            video.currentTime = cmd.currentTime;
+            if (!video.paused) {
+              const p = video.play();
+              if (p && p.catch) p.catch(() => {});
+            }
+          }
+        }
+        return true;
+      };
+
+      // Appliquer les commandes en attente si la video se charge
+      const observer = new MutationObserver(function() {
+        if (window.__dualviewPendingCmd) {
+          const ok = window.__dualviewApplyCmd(window.__dualviewPendingCmd);
+          if (ok) window.__dualviewPendingCmd = null;
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      true;
 })();
 `;
 
-    // ── Reception des commandes video depuis le main ───────
-    window.dualview.on('video-cmd', (cmd) => {
-      if (!webview.getURL || webview.getURL() === 'about:blank') return;
+        // ── Reception des commandes video depuis le main ───────
+        window.dualview.on('video-cmd', (cmd) => {
+            if (!webview.getURL || webview.getURL() === 'about:blank') return;
 
-      // S'assurer que le script executeur est injecte
-      webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
-        .then(() => {
-          // Appliquer la commande
-          const cmdStr = JSON.stringify(cmd);
-          return webview.executeJavaScript(
-            'window.__dualviewApplyCmd(' + cmdStr + '); true;'
-          );
-        })
-        .catch(() => {});
-    });
+            // S'assurer que le script executeur est injecte
+            webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
+                .then(() => {
+                    // Appliquer la commande
+                    const cmdStr = JSON.stringify(cmd);
+                    return webview.executeJavaScript(
+                        'window.__dualviewApplyCmd(' + cmdStr + '); true;'
+                    );
+                })
+                .catch(() => { });
+        });
 
-    // ── Scroll ────────────────────────────────────────────
-    window.dualview.on('apply-scroll', (scrollPct) => {
-      if (!webview.getURL || webview.getURL() === 'about:blank') return;
-      webview.executeJavaScript(`
-        (function() {
-          const el = document.documentElement;
-          const max = el.scrollHeight - el.clientHeight;
-          if (max > 0) window.scrollTo({ top: ${scrollPct} * max, behavior: 'smooth' });
-        })(); true;
-      `).catch(() => {});
-    });
+        // ── Scroll ────────────────────────────────────────────
+        window.dualview.on('apply-scroll', (scrollPct) => {
+            if (!webview.getURL || webview.getURL() === 'about:blank') return;
+            webview.executeJavaScript(`
+            (function() {
+              const el = document.documentElement;
+              const max = el.scrollHeight - el.clientHeight;
+              if (max > 0) window.scrollTo({ top: ${scrollPct} * max, behavior: 'smooth' });
+            })(); true;
+          `).catch(() => { });
+        });
 
-    // ── Chargement d'URL ──────────────────────────────────
-    function loadUrl(url) {
-      if (!url || url === 'about:blank') {
-        webview.style.display = 'none';
-        emptyState.style.display = 'flex';
-        return;
-      }
-      emptyState.style.display = 'none';
-      webview.style.display = 'flex';
-      webview.src = url;
-    }
+        // ── Chargement d'URL ──────────────────────────────────
+        function loadUrl(url) {
+            if (!url || url === 'about:blank') {
+                webview.style.display = 'none';
+                emptyState.style.display = 'flex';
+                return;
+            }
+            emptyState.style.display = 'none';
+            webview.style.display = 'flex';
+            webview.src = url;
+        }
 
-    window.dualview.on('load-url', loadUrl);
+        window.dualview.on('load-url', loadUrl);
 
-    // Re-injecter le script executeur apres chaque navigation
-    webview.addEventListener('dom-ready', () => {
-      webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT).catch(() => {});
-      setTimeout(() => {
-        webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT).catch(() => {});
-      }, 2000);
-    });
+        // Re-injecter le script executeur apres chaque navigation
+        // FIX v0.2.3 : reset __dualviewExecutorReady avant chaque injection
+        // pour eviter que le guard "if already ready return" bloque la
+        // re-initialisation sur la 2eme video (freeze portrait).
+        function injectExecutor() {
+            webview.executeJavaScript('window.__dualviewExecutorReady = false; true;')
+                .then(() => webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT))
+                .catch(() => { });
+        }
 
-    window.dualview.getCurrentUrl().then(url => { if (url) loadUrl(url); });
-  </script>
+        webview.addEventListener('did-navigate', () => {
+            // Reset anticipatif des flags avant le dom-ready suivant
+            webview.executeJavaScript('window.__dualviewExecutorReady = false; window.__dualviewPendingCmd = null; true;').catch(() => { });
+        });
+
+        webview.addEventListener('did-navigate-in-page', () => {
+            webview.executeJavaScript('window.__dualviewExecutorReady = false; window.__dualviewPendingCmd = null; true;').catch(() => { });
+        });
+
+        webview.addEventListener('dom-ready', () => {
+            injectExecutor();
+            setTimeout(injectExecutor, 2000);
+        });
+
+        window.dualview.getCurrentUrl().then(url => { if (url) loadUrl(url); });
+    </script>
 </body>
 </html>

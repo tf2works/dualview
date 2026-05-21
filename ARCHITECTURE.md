@@ -1,4 +1,4 @@
-# DualView - Architecture v0.2.2
+# DualView - Architecture v0.2.4
 
 ## Vue d'ensemble
 
@@ -9,14 +9,15 @@ main.js
   |-- session.fromPartition('persist:dualview')
   |     webRequest.onBeforeRequest -> bloque AD_BLOCK_PATTERNS
   |
-  |-- BrowserWindow: controlWin  (control.html)
   |-- BrowserWindow: landscapeWin (landscape.html)
+  |     Barre de controle integree + webview paysage
+  |
   |-- BrowserWindow: portraitWin  (portrait.html)
+  |     resizable=false
   |
   |-- Store: dualview-config.json (%AppData%/DualView/)
   |     landscapeWindow {width,height,x,y}
-  |     portraitWindow  {width,height,x,y}
-  |     controlWindow   {width,height,x,y}
+  |     portraitWindow  {x,y}  (taille fixe, non sauvegardee)
   |     tabs[]          {id,title,url}
   |     activeTabId
 ```
@@ -26,40 +27,29 @@ main.js
 ## Flux IPC complet
 
 ```
-controlWin (control.html)
-  preload-control.js
+landscapeWin (landscape.html)
+  preload-landscape.js
     |
     | navigate(url)          --> main: 'navigate'
     | navBack()              --> main: 'nav-back'
     | navForward()           --> main: 'nav-forward'
-    | pauseSync()            --> main: 'sync-pause'
-    | resumeSync()           --> main: 'sync-resume'
     | saveTabs(data)         --> main: 'save-tabs'
-    |
-    | <-- 'update-addressbar'   (depuis sync-navigate)
-    | <-- 'nav-state-changed'   (depuis notify-nav-state)
-    | <-- 'theme-changed'       (depuis nativeTheme)
-
-landscapeWin (landscape.html)
-  preload-view.js
-    |
     | sendNavigate(url)      --> main: 'sync-navigate'
     |                            --> portraitWin: 'load-url'
-    |                            --> controlWin:  'update-addressbar'
-    |
+    |                            --> landscapeWin: 'update-addressbar'
     | notifyNavState(state)  --> main: 'notify-nav-state'
-    |                            --> controlWin: 'nav-state-changed'
-    |
+    |                            --> landscapeWin: 'nav-state-changed'
     | sendScroll(pct)        --> main: 'sync-scroll'
     |                            --> portraitWin: 'apply-scroll'
-    |
     | sendVideoPlay(t)       --> main: 'video-play'
-    | sendVideoPause(t)      --> main: 'video-pause'      --> portraitWin: 'video-cmd'
+    | sendVideoPause(t)      --> main: 'video-pause'   --> portraitWin: 'video-cmd'
     | sendVideoTimeUpdate(t) --> main: 'video-timeupdate'
     |
-    | <-- 'load-url'            (depuis navigate / sync-resume)
-    | <-- 'webview-go-back'     (depuis nav-back)
-    | <-- 'webview-go-forward'  (depuis nav-forward)
+    | <-- 'load-url'
+    | <-- 'update-addressbar'
+    | <-- 'nav-state-changed'
+    | <-- 'webview-go-back'
+    | <-- 'webview-go-forward'
     | <-- 'theme-changed'
 
 portraitWin (portrait.html)
@@ -67,8 +57,7 @@ portraitWin (portrait.html)
     |
     | <-- 'load-url'
     | <-- 'apply-scroll'
-    | <-- 'video-cmd'           {action:'play'|'pause'|'seek', currentTime}
-    | <-- 'resize-mode'         (true|false)
+    | <-- 'video-cmd'    {action:'play'|'pause'|'seek', currentTime}
     | <-- 'webview-go-back'
     | <-- 'webview-go-forward'
     | <-- 'theme-changed'
@@ -82,61 +71,76 @@ portraitWin (portrait.html)
 dualview/
 |
 |-- package.json              Version, dependances, config electron-builder
-|-- install.bat               Lanceur Windows (appelle install.ps1)
-|-- install.ps1               Build script : verifie Node, npm install, electron-builder
-|-- HOW_TO_INSTALL.md         Instructions utilisateur
+|-- HOW_TO_INSTALL.md         Instructions utilisateur et contributeurs
 |-- ARCHITECTURE.md           Ce fichier
 |
 |-- src/
 |   |-- main.js               Processus principal Electron
-|   |                         - Cree les 3 BrowserWindows
+|   |                         - Cree landscapeWin et portraitWin (controlWin supprime)
 |   |                         - Configure session + bloqueur pub
 |   |                         - Tous les handlers IPC
 |   |                         - Persistance config (fs + JSON)
 |   |
-|   |-- preload-control.js    Bridge securise pour controlWin
-|   |                         - contextBridge vers control.html
-|   |                         - Expose : navigate, navBack/Forward,
-|   |                           pauseSync, resumeSync, saveTabs, getStore
+|   |-- preload-landscape.js  Bridge securise pour landscapeWin (v0.2.4)
+|   |                         - Fusion de l'ex preload-control.js et preload-view.js
+|   |                         - Expose : navigate, navBack/Forward, saveTabs, getStore
+|   |                           sendScroll, sendNavigate, sendVideoPlay/Pause/TimeUpdate
+|   |                           notifyNavState, getVersion
 |   |
-|   |-- preload-view.js       Bridge securise pour landscapeWin et portraitWin
-|   |                         - contextBridge vers landscape/portrait.html
+|   |-- preload-view.js       Bridge securise pour portraitWin (inchange)
 |   |                         - Expose : sendScroll, sendNavigate,
 |   |                           sendVideoPlay/Pause/TimeUpdate, notifyNavState
 |   |
-|   |-- control.html          UI fenetre de controle
-|   |                         - Barre d'onglets (ajout, fermeture, switch)
-|   |                         - Boutons nav < >
-|   |                         - Barre d'adresse + bouton Charger
-|   |                         - Bouton redimensionnement (double-fleche)
-|   |                         - Barre de statut (sync, version, adblock)
-|   |
-|   |-- landscape.html        Fenetre paysage (Desktop 16:9)
+|   |-- landscape.html        Fenetre paysage (Desktop 16:9) - v0.2.4
+|   |                         - Barre de controle integree en haut :
+|   |                           Onglets, boutons nav < >, barre d'adresse,
+|   |                           bouton ▶, barre de statut
 |   |                         - <webview partition="persist:dualview"
 |   |                             useragent=Desktop Chrome>
 |   |                         - VIDEO_WATCHER_SCRIPT (injecte dans webview)
-|   |                           Detecte play/pause/seeked sur <video>
-|   |                           Compatible YouTube/TikTok/Instagram/generique
+|   |                         - FIX v0.2.3 : reset flags watcher sur navigation
 |   |                         - Polling scroll (100ms) -> sendScroll
 |   |                         - Polling video state (150ms) -> sendVideoPlay/Pause
-|   |                         - sendNavState() apres chaque navigation
 |   |
-|   |-- portrait.html         Fenetre portrait (Mobile 9:16)
+|   |-- portrait.html         Fenetre portrait (Mobile 9:16) - v0.2.4
 |   |                         - <webview partition="persist:dualview"
 |   |                             useragent=Mobile Chrome Pixel7>
+|   |                         - resizable=false (bloque dans main.js)
 |   |                         - VIDEO_EXECUTOR_SCRIPT (injecte dans webview)
-|   |                           Applique les commandes play/pause/seek
-|   |                           Correction drift si ecart > 3s (play/pause)
-|   |                           Correction drift si ecart > 5s (seek periodique)
-|   |                         - Overlay visuel mode redimensionnement
+|   |                         - FIX v0.2.3 : reset flags executor sur navigation
 |   |
-|   |-- (futur) preload-landscape.js  Si besoin de preload specifique paysage
-|   |-- (futur) preload-portrait.js   Si besoin de preload specifique portrait
+|   |-- (supprime) control.html       Fusionne dans landscape.html
+|   |-- (supprime) preload-control.js Fusionne dans preload-landscape.js
 |
 |-- assets/
-    |-- icon.ico              Icone application (a fournir par l'utilisateur)
-    |-- README.txt            Instructions icone
+|   |-- icon.ico              Icone application
+|   |-- README.txt            Instructions icone
+|
+|-- installer/                Systeme d'installation MSI (WiX Toolset v4)
+    |-- build-installer.bat   Lanceur contributeurs
+    |-- build-installer.ps1   Script build MSI complet
+    |-- product.wxs            Package MSI (WiX v4)
+    |-- bundle.wxs             Burn Bootstrapper
+    |-- custom-actions.wxs     CustomActions desinstallation
+    |-- npm-build.ps1          Script build npm embarque
+    |-- uninstall-userdata.ps1 Dialog suppression donnees
+    |-- bundle-fr.wxl          Localisation francaise
+    |-- bundle-en.wxl          Localisation anglaise
 ```
+
+---
+
+## Changements v0.2.4
+
+- `controlWin` supprime. La barre de controle (onglets, adresse, statut)
+  est desormais integree directement dans `landscape.html`.
+- `preload-landscape.js` remplace et fusionne `preload-control.js`
+  et l'ex `preload-view.js` pour landscapeWin.
+- `portraitWin` : `resizable: false`. La fenetre portrait ne peut plus
+  etre redimensionnee. Le bouton ↔ et la logique sync-pause/resume
+  sont supprimes.
+- Bouton "Charger" remplace par "▶" dans la barre d'adresse.
+- Labels "PAYSAGE 16:9" et "PORTRAIT 9:16" retires des fenetres.
 
 ---
 
@@ -144,7 +148,7 @@ dualview/
 
 ```
 defaultSession
-  -> BrowserWindows (control, landscape, portrait)
+  -> BrowserWindows (landscape, portrait)
   -> NON utilisee pour les webviews
 
 session.fromPartition('persist:dualview')
@@ -160,14 +164,9 @@ session.fromPartition('persist:dualview')
 
 ```
 Patterns interceptes (session persist:dualview) :
-  *.doubleclick.net
-  googleads.g.doubleclick.net
-  pubads.g.doubleclick.net
-  securepubads.g.doubleclick.net
-  pagead2.googlesyndication.com
-  ads.youtube.com
-  *.googlesyndication.com
-  *.adservice.google.com / .google.fr
+  *.doubleclick.net / googleads / pubads / securepubads
+  pagead2.googlesyndication.com / ads.youtube.com
+  *.googlesyndication.com / *.adservice.google.com / .google.fr
   analytics.google.com/analytics/collect
   www.google-analytics.com/collect
   stats.g.doubleclick.net
@@ -183,32 +182,23 @@ Patterns interceptes (session persist:dualview) :
 ```
 landscapeWin <webview>
   VIDEO_WATCHER_SCRIPT injecte au dom-ready
-    |
-    | MutationObserver + polling 500ms
-    | -> trouve <video> (selecteur selon plateforme)
-    | -> attache listeners play/pause/seeked
-    |
-    | window.__dualviewVideoEvent = {type, time, platform}
-    |
-  Polling 150ms (landscape.html)
-    -> lit __dualviewVideoEvent
-    -> sendVideoPlay(t) / sendVideoPause(t) / sendVideoTimeUpdate(t)
-    |
-  Polling 5000ms (sync periodique)
-    -> lit __dualviewVideoState.currentTime
-    -> sendVideoTimeUpdate si playing
+    FIX v0.2.3 : resetWatcherFlags() sur did-navigate
+    MutationObserver + polling 500ms -> attache listeners play/pause/seeked
+    window.__dualviewVideoEvent = {type, time, platform}
+
+  Polling 150ms -> sendVideoPlay/Pause/TimeUpdate
+  Polling 5000ms -> sendVideoTimeUpdate si playing
 
 main.js
-  video-play   -> portraitWin: video-cmd {action:'play',  currentTime}
-  video-pause  -> portraitWin: video-cmd {action:'pause', currentTime}
-  video-timeupdate -> portraitWin: video-cmd {action:'seek', currentTime}
+  video-play       -> portraitWin: video-cmd {action:'play',  currentTime}
+  video-pause      -> portraitWin: video-cmd {action:'pause', currentTime}
+  video-timeupdate -> portraitWin: video-cmd {action:'seek',  currentTime}
 
 portraitWin <webview>
-  VIDEO_EXECUTOR_SCRIPT injecte au dom-ready et a reception video-cmd
-    -> findBestVideo(selecteurs plateforme)
-    -> play/pause: sync currentTime si ecart > 3s
-    -> seek: sync currentTime si ecart > 5s
-    -> MutationObserver pour commandes en attente (video pas encore chargee)
+  VIDEO_EXECUTOR_SCRIPT injecte au dom-ready
+    FIX v0.2.3 : reset __dualviewExecutorReady sur navigation
+    play/pause: sync si ecart > 3s
+    seek: sync si ecart > 5s
 ```
 
 ---
@@ -219,18 +209,14 @@ portraitWin <webview>
 Fichier : %AppData%\DualView\dualview-config.json
 
 {
-  "landscapeWindow": { "width": 1280, "height": 720, "x": 20,  "y": 200 },
-  "portraitWindow":  { "width": 390,  "height": 844, "x": 1500,"y": 100 },
-  "controlWindow":   { "width": 960,  "height": 160, "x": 400, "y": 20  },
+  "landscapeWindow": { "width": 1280, "height": 720, "x": 20, "y": 200 },
+  "portraitWindow":  { "x": 1500, "y": 100 },
   "tabs": [
     { "id": "tab-1", "title": "youtube.com", "url": "https://youtube.com" }
   ],
   "activeTabId": "tab-1",
-  "appVersion": "0.2.2"
+  "appVersion": "0.2.4"
 }
-
-Sauvegarde : a chaque move/resize de fenetre, a chaque navigation,
-             a chaque modification d'onglets.
 ```
 
 ---
@@ -239,7 +225,9 @@ Sauvegarde : a chaque move/resize de fenetre, a chaque navigation,
 
 | Version | Changements |
 |---------|-------------|
-| 0.1.0   | Version initiale. Navigation, onglets, scroll sync, themes, persistance. |
-| 0.2.0   | Sync video play/pause/currentTime. Detecteur YouTube/TikTok/Instagram. |
-| 0.2.1   | Bloqueur pub (session.defaultSession - bug: ne couvrait pas les webviews). Nav back/forward (bug: lisait BrowserWindow parent). |
-| 0.2.2   | Fix bloqueur pub via persist:dualview partition. Fix nav via webview.canGoBack() dans renderer. Bouton resize renomme en double-fleche. |
+| 0.1.0 | Version initiale. Navigation, onglets, scroll sync, themes, persistance. |
+| 0.2.0 | Sync video play/pause/currentTime. Detecteur YouTube/TikTok/Instagram. |
+| 0.2.1 | Bloqueur pub. Nav back/forward. |
+| 0.2.2 | Fix bloqueur pub (persist:dualview). Fix nav (webview.canGoBack dans renderer). |
+| 0.2.3 | Fix sync video (reset flags sur navigation). Installeur WiX MSI. |
+| 0.2.4 | Barre de controle integree dans paysage. Portrait non redimensionnable. Bouton ▶. Labels OBS retires. |

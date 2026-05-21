@@ -1,226 +1,783 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>DualView - Paysage</title>
-  <style>
-    :root { --bg:#f8f8f8; --fg:#1a1a1a; --label-bg:rgba(0,0,0,0.55); --ind-bg:rgba(0,0,0,0.6); }
-    [data-theme="dark"] { --bg:#1a1a1a; --fg:#e8e8e8; }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:var(--bg); color:var(--fg); display:flex; flex-direction:column; height:100vh; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
-    #obs-label { position:fixed; top:6px; right:8px; background:var(--label-bg); color:white; font-size:10px; font-weight:600; padding:2px 7px; border-radius:4px; z-index:9999; pointer-events:none; opacity:0.7; }
-    #video-indicator { position:fixed; bottom:8px; right:8px; background:var(--ind-bg); color:white; font-size:10px; font-weight:500; padding:3px 8px; border-radius:4px; z-index:9999; pointer-events:none; opacity:0; transition:opacity 0.3s; display:flex; align-items:center; gap:5px; }
-    #video-indicator.visible { opacity:0.85; }
-    #video-indicator .dot { width:6px; height:6px; border-radius:50%; background:#4caf50; }
-    #video-indicator.paused .dot { background:#ff9800; }
-    #webview-container { flex:1; position:relative; overflow:hidden; }
-    webview { width:100%; height:100%; display:flex; border:none; }
-    #empty-state { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; color:var(--fg); opacity:0.5; pointer-events:none; }
-    #empty-state .icon { font-size:48px; }
-    #empty-state .text { font-size:16px; font-weight:500; }
-    #empty-state .sub  { font-size:13px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>DualView - Paysage</title>
+    <style>
+        :root {
+            --bg: #f0f0f0;
+            --bg-alt: #e0e0e0;
+            --bg-tab: #d8d8d8;
+            --bg-tab-act: #ffffff;
+            --fg: #1a1a1a;
+            --fg-muted: #666666;
+            --accent: #0066cc;
+            --accent-h: #0055aa;
+            --border: #c0c0c0;
+            --input-bg: #ffffff;
+            --danger: #dc3545;
+            --tab-close: #888888;
+            --nav-btn: #f5f5f5;
+            --nav-btn-h: #e0e0e0;
+            --nav-dis: #cccccc;
+            --ind-bg: rgba(0,0,0,0.6);
+        }
+
+        [data-theme="dark"] {
+            --bg: #1e1e1e;
+            --bg-alt: #2a2a2a;
+            --bg-tab: #2e2e2e;
+            --bg-tab-act: #3c3c3c;
+            --fg: #e8e8e8;
+            --fg-muted: #999999;
+            --accent: #4da6ff;
+            --accent-h: #66b3ff;
+            --border: #444444;
+            --input-bg: #333333;
+            --nav-btn: #2e2e2e;
+            --nav-btn-h: #444444;
+            --nav-dis: #444444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* ── Barre d'onglets ───────────────────────────────────────── */
+        #tab-bar {
+            display: flex;
+            align-items: center;
+            background: var(--bg-alt);
+            border-bottom: 1px solid var(--border);
+            padding: 4px 6px 0;
+            gap: 3px;
+            min-height: 34px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            flex-shrink: 0;
+        }
+
+            #tab-bar::-webkit-scrollbar {
+                height: 3px;
+            }
+
+            #tab-bar::-webkit-scrollbar-thumb {
+                background: var(--border);
+                border-radius: 2px;
+            }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--bg-tab);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            padding: 4px 10px 4px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            max-width: 160px;
+            transition: background 0.15s;
+            flex-shrink: 0;
+        }
+
+            .tab:hover {
+                background: var(--bg-tab-act);
+            }
+
+            .tab.active {
+                background: var(--bg-tab-act);
+                border-bottom: 1px solid var(--bg-tab-act);
+                margin-bottom: -1px;
+                font-weight: 500;
+            }
+
+        .tab-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--fg);
+            pointer-events: none;
+        }
+
+        .tab-close {
+            background: none;
+            border: none;
+            color: var(--tab-close);
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            padding: 0 1px;
+            border-radius: 3px;
+            pointer-events: all;
+            transition: color 0.15s, background 0.15s;
+        }
+
+            .tab-close:hover {
+                color: var(--danger);
+                background: rgba(220,53,69,0.12);
+            }
+
+        #add-tab-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 16px;
+            color: var(--fg-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s, color 0.15s;
+            margin-left: 2px;
+        }
+
+            #add-tab-btn:hover {
+                background: var(--accent);
+                color: white;
+                border-color: var(--accent);
+            }
+
+        /* ── Barre d'adresse ───────────────────────────────────────── */
+        #toolbar {
+            display: flex;
+            align-items: center;
+            padding: 5px 8px;
+            gap: 6px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .nav-arrow {
+            width: 28px;
+            height: 28px;
+            background: var(--nav-btn);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--fg);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s, opacity 0.15s;
+        }
+
+            .nav-arrow:hover:not(:disabled) {
+                background: var(--nav-btn-h);
+            }
+
+            .nav-arrow:disabled {
+                color: var(--nav-dis);
+                border-color: var(--nav-dis);
+                cursor: default;
+                opacity: 0.5;
+            }
+
+        #url-input {
+            flex: 1;
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--input-bg);
+            color: var(--fg);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            min-width: 0;
+        }
+
+            #url-input:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 2px rgba(0,102,204,0.2);
+            }
+
+        [data-theme="dark"] #url-input:focus {
+            box-shadow: 0 0 0 2px rgba(77,166,255,0.2);
+        }
+
+        /* v0.2.4 : bouton ▶ (ex "Charger") */
+        #go-btn {
+            width: 32px;
+            height: 28px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s;
+        }
+
+            #go-btn:hover {
+                background: var(--accent-h);
+            }
+
+        /* Boutons redimensionnement portrait */
+        #resize-btn {
+            padding: 0 8px;
+            height: 28px;
+            background: #e67e00;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            transition: opacity 0.15s;
+        }
+
+            #resize-btn:hover {
+                opacity: 0.85;
+            }
+
+        #resume-btn {
+            padding: 0 8px;
+            height: 28px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            flex-shrink: 0;
+            transition: opacity 0.15s;
+        }
+
+            #resume-btn:hover {
+                opacity: 0.85;
+            }
+
+        /* ── Barre de statut ───────────────────────────────────────── */
+        #status-bar {
+            display: flex;
+            align-items: center;
+            padding: 2px 10px;
+            gap: 10px;
+            background: var(--bg-alt);
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--fg-muted);
+            flex-shrink: 0;
+        }
+
+        #sync-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        #sync-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #28a745;
+            transition: background 0.3s;
+        }
+
+            #sync-dot.paused {
+                background: #e67e00;
+            }
+
+        #adblock-label {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        #version-label {
+            margin-left: auto;
+        }
+
+        /* ── Zone webview ──────────────────────────────────────────── */
+        #webview-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        webview {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            border: none;
+        }
+
+        #empty-state {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--fg);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+            #empty-state .icon {
+                font-size: 48px;
+            }
+
+            #empty-state .text {
+                font-size: 16px;
+                font-weight: 500;
+            }
+
+            #empty-state .sub {
+                font-size: 13px;
+            }
+
+        /* ── Indicateur video ──────────────────────────────────────── */
+        #video-indicator {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: var(--ind-bg);
+            color: white;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 4px;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+            #video-indicator.visible {
+                opacity: 0.85;
+            }
+
+            #video-indicator .dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #4caf50;
+            }
+
+            #video-indicator.paused .dot {
+                background: #ff9800;
+            }
+    </style>
 </head>
 <body>
-  <div id="obs-label">PAYSAGE 16:9</div>
-  <div id="video-indicator" class="paused">
-    <span class="dot"></span>
-    <span id="video-indicator-text">Video detectee</span>
-  </div>
-  <div id="webview-container">
-    <div id="empty-state">
-      <div class="icon">&#128421;</div>
-      <div class="text">Vue Paysage (Desktop)</div>
-      <div class="sub">Entrez une URL dans la fenetre de controle</div>
+
+    <!-- ── Barre de controle integree ──────────────────────────── -->
+    <div id="tab-bar">
+        <button id="add-tab-btn" title="Nouvel onglet">+</button>
     </div>
-    <webview
-      id="webview"
-      src="about:blank"
-      useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-      allowpopups
-      style="display:none;"
-    ></webview>
-  </div>
 
-  <script>
-    const webview      = document.getElementById('webview');
-    const emptyState   = document.getElementById('empty-state');
-    const indicator    = document.getElementById('video-indicator');
-    const indicatorTxt = document.getElementById('video-indicator-text');
+    <div id="toolbar">
+        <button id="back-btn" class="nav-arrow" title="Page precedente" disabled>&#8592;</button>
+        <button id="forward-btn" class="nav-arrow" title="Page suivante" disabled>&#8594;</button>
+        <input type="text" id="url-input" placeholder="https://exemple.com" autocomplete="off" spellcheck="false" />
+        <!-- v0.2.4 : ▶ remplace "Charger" -->
+        <button id="go-btn" title="Charger">&#9654;</button>
+        <!-- Option C : ↔ active resizable, ✅ le desactive -->
+        <button id="resize-btn" title="Redimensionner Portrait">&#8596;</button>
+        <button id="resume-btn" title="Valider et verrouiller">&#9989;</button>
+    </div>
 
-    // ── Theme ──────────────────────────────────────────────
-    window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
-    window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
+    <div id="status-bar">
+        <div id="sync-indicator">
+            <span id="sync-dot"></span>
+            <span id="sync-label">Synchronisation active</span>
+        </div>
+        <span id="adblock-label">Bloqueur pub actif</span>
+        <span id="version-label">v0.2.4</span>
+    </div>
 
-    // ── Indicateur video ───────────────────────────────────
-    function showIndicator(text, paused) {
-      indicatorTxt.textContent = text;
-      indicator.classList.toggle('paused', paused);
-      indicator.classList.add('visible');
-    }
-    function hideIndicator() { indicator.classList.remove('visible'); }
+    <!-- ── Zone paysage ────────────────────────────────────────── -->
+    <div id="webview-container">
+        <div id="video-indicator" class="paused">
+            <span class="dot"></span>
+            <span id="video-indicator-text">Video detectee</span>
+        </div>
+        <div id="empty-state">
+            <div class="icon">&#128421;</div>
+            <div class="text">Vue Paysage (Desktop)</div>
+            <div class="sub">Entrez une URL dans la barre d'adresse</div>
+        </div>
+        <webview id="webview"
+                 src="about:blank"
+                 partition="persist:dualview"
+                 useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                 allowpopups
+                 style="display:none;"></webview>
+    </div>
 
-    // ── Nav back/forward ───────────────────────────────────
-    // FIX v0.2.2 : webview.canGoBack() est appele ici dans le renderer,
-    // pas dans main.js (qui ne peut lire que le BrowserWindow parent).
-    function sendNavState() {
-      const state = {
-        canGoBack:    webview.canGoBack    ? webview.canGoBack()    : false,
-        canGoForward: webview.canGoForward ? webview.canGoForward() : false
-      };
-      window.dualview.notifyNavState(state);
-    }
+    <script>
+        const webview = document.getElementById('webview');
+        const emptyState = document.getElementById('empty-state');
+        const indicator = document.getElementById('video-indicator');
+        const indicatorTxt = document.getElementById('video-indicator-text');
 
-    // Recevoir les commandes back/forward du main et les appliquer a la webview
-    window.dualview.on('webview-go-back', () => {
-      if (webview.canGoBack && webview.canGoBack()) webview.goBack();
-    });
-    window.dualview.on('webview-go-forward', () => {
-      if (webview.canGoForward && webview.canGoForward()) webview.goForward();
-    });
+        // ── Theme ──────────────────────────────────────────────────
+        window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
+        window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
 
-    // ── Script detecteur video (injecte dans la webview) ──
-    const VIDEO_WATCHER_SCRIPT = `
+        // ── Version ────────────────────────────────────────────────
+        window.dualview.getVersion().then(v => {
+            document.getElementById('version-label').textContent = 'v' + v;
+        });
+
+        // ── Indicateur video ───────────────────────────────────────
+        function showIndicator(text, paused) {
+            indicatorTxt.textContent = text;
+            indicator.classList.toggle('paused', paused);
+            indicator.classList.add('visible');
+        }
+        function hideIndicator() { indicator.classList.remove('visible'); }
+
+        // ── Boutons navigation back/forward ────────────────────────
+        const backBtn = document.getElementById('back-btn');
+        const forwardBtn = document.getElementById('forward-btn');
+
+        function updateNavButtons(state) {
+            backBtn.disabled = !state.canGoBack;
+            forwardBtn.disabled = !state.canGoForward;
+        }
+        window.dualview.on('nav-state-changed', updateNavButtons);
+
+        backBtn.addEventListener('click', () => {
+            if (!backBtn.disabled) window.dualview.navBack();
+        });
+        forwardBtn.addEventListener('click', () => {
+            if (!forwardBtn.disabled) window.dualview.navForward();
+        });
+
+        window.dualview.on('webview-go-back', () => {
+            if (webview.canGoBack && webview.canGoBack()) webview.goBack();
+        });
+        window.dualview.on('webview-go-forward', () => {
+            if (webview.canGoForward && webview.canGoForward()) webview.goForward();
+        });
+
+        function sendNavState() {
+            const state = {
+                canGoBack: webview.canGoBack ? webview.canGoBack() : false,
+                canGoForward: webview.canGoForward ? webview.canGoForward() : false
+            };
+            window.dualview.notifyNavState(state);
+        }
+
+        // ── Onglets ────────────────────────────────────────────────
+        let tabs = [];
+        let activeTabId = null;
+
+        function renderTabs() {
+            const bar = document.getElementById('tab-bar');
+            const addBtn = document.getElementById('add-tab-btn');
+            bar.querySelectorAll('.tab').forEach(el => el.remove());
+            tabs.forEach(tab => {
+                const el = document.createElement('div');
+                el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+                el.dataset.id = tab.id;
+                const title = document.createElement('span');
+                title.className = 'tab-title';
+                title.textContent = tab.title || 'Nouvel onglet';
+                el.appendChild(title);
+                if (tabs.length > 1) {
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'tab-close';
+                    closeBtn.innerHTML = '&times;';
+                    closeBtn.title = 'Fermer';
+                    closeBtn.addEventListener('click', e => { e.stopPropagation(); closeTab(tab.id); });
+                    el.appendChild(closeBtn);
+                }
+                el.addEventListener('click', () => switchTab(tab.id));
+                bar.insertBefore(el, addBtn);
+            });
+        }
+
+        function switchTab(id) {
+            activeTabId = id;
+            const tab = tabs.find(t => t.id === id);
+            if (tab) {
+                document.getElementById('url-input').value = tab.url || '';
+                if (tab.url) window.dualview.navigate(tab.url);
+            }
+            updateNavButtons({ canGoBack: false, canGoForward: false });
+            renderTabs();
+            saveTabs();
+        }
+
+        function addTab() {
+            const id = 'tab-' + Date.now();
+            tabs.push({ id, title: 'Nouvel onglet', url: '' });
+            switchTab(id);
+        }
+
+        function closeTab(id) {
+            if (tabs.length <= 1) return;
+            const idx = tabs.findIndex(t => t.id === id);
+            tabs = tabs.filter(t => t.id !== id);
+            if (activeTabId === id) {
+                switchTab(tabs[Math.max(0, idx - 1)].id);
+            } else {
+                renderTabs(); saveTabs();
+            }
+        }
+
+        function saveTabs() {
+            window.dualview.saveTabs({ tabs, activeTabId });
+        }
+
+        window.dualview.getStore().then(({ tabs: st, activeTabId: sa }) => {
+            tabs = (st && st.length > 0) ? st : [{ id: 'tab-1', title: 'Onglet 1', url: '' }];
+            activeTabId = sa || tabs[0].id;
+            const active = tabs.find(t => t.id === activeTabId);
+            if (active) {
+                document.getElementById('url-input').value = active.url || '';
+                if (active.url) window.dualview.navigate(active.url);
+            }
+            renderTabs();
+        });
+
+        document.getElementById('add-tab-btn').addEventListener('click', addTab);
+
+        // ── Navigation URL ─────────────────────────────────────────
+        function navigate() {
+            let url = document.getElementById('url-input').value.trim();
+            if (!url) return;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
+            document.getElementById('url-input').value = url;
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (tab) {
+                tab.url = url;
+                try {
+                    const host = new URL(url).hostname.replace('www.', '');
+                    tab.title = host.length > 16 ? host.slice(0, 16) + '...' : host;
+                } catch { tab.title = url.slice(0, 20); }
+                renderTabs(); saveTabs();
+            }
+            updateNavButtons({ canGoBack: false, canGoForward: false });
+            window.dualview.navigate(url);
+        }
+
+        document.getElementById('go-btn').addEventListener('click', navigate);
+        document.getElementById('url-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') navigate();
+        });
+
+        // ── Redimensionnement portrait (Option C) ──────────────────
+        // ↔ : active resizable sur portraitWin (via main)
+        // ✅ : desactive resizable sur portraitWin (via main)
+        document.getElementById('resize-btn').addEventListener('click', () => {
+            document.getElementById('resize-btn').style.display = 'none';
+            document.getElementById('resume-btn').style.display = 'flex';
+            document.getElementById('sync-dot').classList.add('paused');
+            document.getElementById('sync-label').textContent = 'Redimensionnez Portrait';
+            window.dualview.pauseSync();
+        });
+        document.getElementById('resume-btn').addEventListener('click', () => {
+            document.getElementById('resume-btn').style.display = 'none';
+            document.getElementById('resize-btn').style.display = 'flex';
+            document.getElementById('sync-dot').classList.remove('paused');
+            document.getElementById('sync-label').textContent = 'Synchronisation active';
+            window.dualview.resumeSync();
+        });
+
+        // Mise a jour barre d'adresse depuis navigation in-page
+        window.dualview.on('update-addressbar', url => {
+            document.getElementById('url-input').value = url;
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (tab) {
+                tab.url = url;
+                try {
+                    const host = new URL(url).hostname.replace('www.', '');
+                    tab.title = host.length > 16 ? host.slice(0, 16) + '...' : host;
+                } catch { tab.title = url.slice(0, 20); }
+                renderTabs(); saveTabs();
+            }
+        });
+
+        // ── Script detecteur video ─────────────────────────────────
+        const VIDEO_WATCHER_SCRIPT = `
 (function() {
-  if (window.__dualviewVideoWatcher) return;
-  window.__dualviewVideoWatcher = true;
-  window.__dualviewVideoState = { playing:false, currentTime:0, platform:'generic', hasVideo:false };
+      if (window.__dualviewVideoWatcher) return;
+      window.__dualviewVideoWatcher = true;
+      window.__dualviewVideoState = { playing:false, currentTime:0, platform:'generic', hasVideo:false };
 
-  function detectPlatform() {
-    const h = location.hostname;
-    if (h.includes('youtube.com'))   return 'youtube';
-    if (h.includes('tiktok.com'))    return 'tiktok';
-    if (h.includes('instagram.com')) return 'instagram';
-    return 'generic';
-  }
-
-  function getSelectors(p) {
-    if (p==='youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
-    if (p==='tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
-    if (p==='instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
-    return ['video'];
-  }
-
-  function findBestVideo(sels) {
-    for (const s of sels) {
-      const list = Array.from(document.querySelectorAll(s)).filter(v=>{
-        const r=v.getBoundingClientRect(); return r.width>100&&r.height>100;
-      });
-      if (list.length>0) {
-        list.sort((a,b)=>{const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();return(rb.width*rb.height)-(ra.width*ra.height);});
-        return list[0];
+      function detectPlatform() {
+        const h = location.hostname;
+        if (h.includes('youtube.com'))   return 'youtube';
+        if (h.includes('tiktok.com'))    return 'tiktok';
+        if (h.includes('instagram.com')) return 'instagram';
+        return 'generic';
       }
-    }
-    return null;
-  }
-
-  const platform=detectPlatform(), sels=getSelectors(platform);
-  let videoEl=null, attempts=0;
-
-  function attach(video) {
-    if (video.__dualviewAttached) return;
-    video.__dualviewAttached=true; videoEl=video;
-    window.__dualviewVideoState={hasVideo:true,platform,playing:!video.paused,currentTime:video.currentTime};
-    video.addEventListener('play',  ()=>{ window.__dualviewVideoState.playing=true;  window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'play', time:video.currentTime,platform}; });
-    video.addEventListener('pause', ()=>{ window.__dualviewVideoState.playing=false; window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'pause',time:video.currentTime,platform}; });
-    video.addEventListener('seeked',()=>{ window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'seek',time:video.currentTime,platform}; });
-  }
-
-  const findInt=setInterval(()=>{
-    attempts++;
-    const v=findBestVideo(sels);
-    if (v) { attach(v); clearInterval(findInt); }
-    else if (attempts>=60) clearInterval(findInt);
-    if (videoEl&&!document.contains(videoEl)) { const nv=findBestVideo(sels); if(nv){videoEl.__dualviewAttached=false;attach(nv);} }
-  },500);
-
-  new MutationObserver(()=>{ if(!videoEl||!document.contains(videoEl)){const v=findBestVideo(sels);if(v)attach(v);} })
-    .observe(document.body,{childList:true,subtree:true});
-  true;
+      function getSelectors(p) {
+        if (p==='youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+        if (p==='tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
+        if (p==='instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
+        return ['video'];
+      }
+      function findBestVideo(sels) {
+        for (const s of sels) {
+          const list = Array.from(document.querySelectorAll(s)).filter(v=>{
+            const r=v.getBoundingClientRect(); return r.width>100&&r.height>100;
+          });
+          if (list.length>0) {
+            list.sort((a,b)=>{const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();return(rb.width*rb.height)-(ra.width*ra.height);});
+            return list[0];
+          }
+        }
+        return null;
+      }
+      const platform=detectPlatform(), sels=getSelectors(platform);
+      let videoEl=null, attempts=0;
+      function attach(video) {
+        if (video.__dualviewAttached) return;
+        video.__dualviewAttached=true; videoEl=video;
+        window.__dualviewVideoState={hasVideo:true,platform,playing:!video.paused,currentTime:video.currentTime};
+        video.addEventListener('play',  ()=>{ window.__dualviewVideoState.playing=true;  window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'play', time:video.currentTime,platform}; });
+        video.addEventListener('pause', ()=>{ window.__dualviewVideoState.playing=false; window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'pause',time:video.currentTime,platform}; });
+        video.addEventListener('seeked',()=>{ window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'seek',time:video.currentTime,platform}; });
+      }
+      const findInt=setInterval(()=>{
+        attempts++;
+        const v=findBestVideo(sels);
+        if (v) { attach(v); clearInterval(findInt); }
+        else if (attempts>=60) clearInterval(findInt);
+        if (videoEl&&!document.contains(videoEl)) { const nv=findBestVideo(sels); if(nv){videoEl.__dualviewAttached=false;attach(nv);} }
+      },500);
+      new MutationObserver(()=>{ if(!videoEl||!document.contains(videoEl)){const v=findBestVideo(sels);if(v)attach(v);} })
+        .observe(document.body,{childList:true,subtree:true});
+      true;
 })();`;
 
-    // ── Polling etat video ─────────────────────────────────
-    let lastVideoEvent=null, lastTimeSyncAt=0;
-    const TIME_SYNC_MS=5000;
+        // ── Polling etat video ─────────────────────────────────────
+        let lastVideoEvent = null, lastTimeSyncAt = 0;
+        const TIME_SYNC_MS = 5000;
 
-    function pollVideoState() {
-      if (!webview.getURL||webview.getURL()==='about:blank') return;
-      webview.executeJavaScript('window.__dualviewVideoEvent||null')
-        .then(evt=>{
-          if (!evt) return;
-          const key=evt.type+'_'+Math.round(evt.time*10);
-          if (key===lastVideoEvent) return;
-          lastVideoEvent=key;
-          webview.executeJavaScript('window.__dualviewVideoEvent=null;true;').catch(()=>{});
-          if (evt.type==='play')  { showIndicator('Lecture ('+evt.platform+')',false); window.dualview.sendVideoPlay(evt.time); }
-          if (evt.type==='pause') { showIndicator('Pause ('+evt.platform+')',true);   window.dualview.sendVideoPause(evt.time); }
-          if (evt.type==='seek')  { window.dualview.sendVideoPlay(evt.time); }
-        }).catch(()=>{});
+        function pollVideoState() {
+            if (!webview.getURL || webview.getURL() === 'about:blank') return;
+            webview.executeJavaScript('window.__dualviewVideoEvent||null')
+                .then(evt => {
+                    if (!evt) return;
+                    const key = evt.type + '_' + Math.round(evt.time * 10);
+                    if (key === lastVideoEvent) return;
+                    lastVideoEvent = key;
+                    webview.executeJavaScript('window.__dualviewVideoEvent=null;true;').catch(() => { });
+                    if (evt.type === 'play') { showIndicator('Lecture (' + evt.platform + ')', false); window.dualview.sendVideoPlay(evt.time); }
+                    if (evt.type === 'pause') { showIndicator('Pause (' + evt.platform + ')', true); window.dualview.sendVideoPause(evt.time); }
+                    if (evt.type === 'seek') { window.dualview.sendVideoPlay(evt.time); }
+                }).catch(() => { });
+            const now = Date.now();
+            if (now - lastTimeSyncAt >= TIME_SYNC_MS) {
+                lastTimeSyncAt = now;
+                webview.executeJavaScript('window.__dualviewVideoState||null')
+                    .then(s => {
+                        if (s && s.hasVideo && s.playing) showIndicator('Lecture (' + s.platform + ')', false);
+                        else if (s && s.hasVideo) showIndicator('Pause (' + s.platform + ')', true);
+                        else hideIndicator();
+                        if (s && s.hasVideo && s.playing) window.dualview.sendVideoTimeUpdate(s.currentTime);
+                    }).catch(() => { });
+            }
+        }
+        setInterval(pollVideoState, 150);
 
-      const now=Date.now();
-      if (now-lastTimeSyncAt>=TIME_SYNC_MS) {
-        lastTimeSyncAt=now;
-        webview.executeJavaScript('window.__dualviewVideoState||null')
-          .then(s=>{
-            if (s&&s.hasVideo&&s.playing)  showIndicator('Lecture ('+s.platform+')',false);
-            else if (s&&s.hasVideo)        showIndicator('Pause ('+s.platform+')',true);
-            else                           hideIndicator();
-            if (s&&s.hasVideo&&s.playing)  window.dualview.sendVideoTimeUpdate(s.currentTime);
-          }).catch(()=>{});
-      }
-    }
-    setInterval(pollVideoState,150);
-
-    // ── Scroll ─────────────────────────────────────────────
-    const SCROLL_INJECT=`
+        // ── Scroll ─────────────────────────────────────────────────
+        const SCROLL_INJECT = `
 (function(){
-  if(window.__dualviewScrollWatcher)return;
-  window.__dualviewScrollWatcher=true;
-  let last=-1;
-  window.addEventListener('scroll',()=>{
-    const el=document.documentElement,top=el.scrollTop||document.body.scrollTop,max=el.scrollHeight-el.clientHeight;
-    if(max<=0)return;
-    const pct=top/max;
-    if(Math.abs(pct-last)>0.001){last=pct;window.__dualviewScrollPct=pct;}
-  },{passive:true});
+      if(window.__dualviewScrollWatcher)return;
+      window.__dualviewScrollWatcher=true;
+      let last=-1;
+      window.addEventListener('scroll',()=>{
+        const el=document.documentElement,top=el.scrollTop||document.body.scrollTop,max=el.scrollHeight-el.clientHeight;
+        if(max<=0)return;
+        const pct=top/max;
+        if(Math.abs(pct-last)>0.001){last=pct;window.__dualviewScrollPct=pct;}
+      },{passive:true});
 })();true;`;
 
-    let lastScrollPct=-1;
-    setInterval(()=>{
-      if(!webview.getURL||webview.getURL()==='about:blank') return;
-      webview.executeJavaScript('window.__dualviewScrollPct||0')
-        .then(pct=>{ if(typeof pct==='number'&&Math.abs(pct-lastScrollPct)>0.001){lastScrollPct=pct;window.dualview.sendScroll(pct);} })
-        .catch(()=>{});
-    },100);
+        let lastScrollPct = -1;
+        setInterval(() => {
+            if (!webview.getURL || webview.getURL() === 'about:blank') return;
+            webview.executeJavaScript('window.__dualviewScrollPct||0')
+                .then(pct => { if (typeof pct === 'number' && Math.abs(pct - lastScrollPct) > 0.001) { lastScrollPct = pct; window.dualview.sendScroll(pct); } })
+                .catch(() => { });
+        }, 100);
 
-    // ── Chargement URL ─────────────────────────────────────
-    function loadUrl(url) {
-      if (!url||url==='about:blank') { webview.style.display='none'; emptyState.style.display='flex'; hideIndicator(); return; }
-      emptyState.style.display='none'; webview.style.display='flex';
-      webview.src=url;
-    }
-    window.dualview.on('load-url', loadUrl);
+        // ── Chargement URL ─────────────────────────────────────────
+        function loadUrl(url) {
+            if (!url || url === 'about:blank') {
+                webview.style.display = 'none'; emptyState.style.display = 'flex'; hideIndicator(); return;
+            }
+            emptyState.style.display = 'none'; webview.style.display = 'flex';
+            webview.src = url;
+        }
+        window.dualview.on('load-url', loadUrl);
 
-    webview.addEventListener('dom-ready', () => {
-      lastVideoEvent=null; lastTimeSyncAt=0; hideIndicator();
-      webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(()=>{});
-      webview.executeJavaScript(SCROLL_INJECT).catch(()=>{});
-      setTimeout(()=>webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(()=>{}),2000);
-      setTimeout(()=>webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(()=>{}),5000);
-      // Envoyer l'etat nav apres chargement
-      sendNavState();
-    });
+        // FIX v0.2.3 : reset flags watcher sur navigation
+        function resetWatcherFlags() {
+            webview.executeJavaScript(
+                'window.__dualviewVideoWatcher=false;' +
+                'window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};' +
+                'window.__dualviewVideoEvent=null;true;'
+            ).catch(() => { });
+        }
+        function injectWatcher() { webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(() => { }); }
 
-    webview.addEventListener('did-navigate', (e) => {
-      if (e.url&&e.url!=='about:blank') window.dualview.sendNavigate(e.url);
-      sendNavState();
-    });
-    webview.addEventListener('did-navigate-in-page', (e) => {
-      if (e.url&&e.url!=='about:blank') window.dualview.sendNavigate(e.url);
-      sendNavState();
-    });
+        webview.addEventListener('dom-ready', () => {
+            lastVideoEvent = null; lastTimeSyncAt = 0; hideIndicator();
+            resetWatcherFlags();
+            injectWatcher();
+            webview.executeJavaScript(SCROLL_INJECT).catch(() => { });
+            setTimeout(injectWatcher, 2000);
+            setTimeout(injectWatcher, 5000);
+            sendNavState();
+        });
 
-    window.dualview.getCurrentUrl().then(url=>{ if(url) loadUrl(url); });
-  </script>
+        webview.addEventListener('did-navigate', (e) => {
+            lastVideoEvent = null; lastTimeSyncAt = 0; hideIndicator();
+            resetWatcherFlags();
+            if (e.url && e.url !== 'about:blank') window.dualview.sendNavigate(e.url);
+            sendNavState();
+        });
+        webview.addEventListener('did-navigate-in-page', (e) => {
+            lastVideoEvent = null; lastTimeSyncAt = 0;
+            resetWatcherFlags();
+            if (e.url && e.url !== 'about:blank') window.dualview.sendNavigate(e.url);
+            sendNavState();
+        });
+
+        window.dualview.getCurrentUrl().then(url => { if (url) loadUrl(url); });
+    </script>
 </body>
 </html>

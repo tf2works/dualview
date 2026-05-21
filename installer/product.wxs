@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  DualView v0.2.3 - Package MSI principal (WiX Toolset v4)
+
+  Les fichiers de l'application (dist\win-unpacked\) sont entierement
+  geres par le groupe ElectronFiles, genere par build-installer.ps1
+  via Invoke-HarvestDirectory.
+
+  Ce fichier gere uniquement :
+  - Le raccourci Menu Demarrer
+  - L'entree de desinstallation Windows
+  - L'upgrade automatique
+  - L'UI d'installation
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package
+    Name="DualView"
+    Version="0.2.3"
+    Manufacturer="DualView"
+    UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+    Scope="perMachine"
+    Compressed="yes"
+    InstallerVersion="500"
+    Language="1033"
+    Codepage="1252"
+    ProductCode="*">
+
+    <!-- ── Proprietes ─────────────────────────────────────────── -->
+    <Property Id="ARPPRODUCTICON"    Value="DualViewIcon" />
+    <Property Id="ARPURLINFOABOUT"   Value="https://github.com/dualview/dualview" />
+    <Property Id="ARPNOREPAIR"       Value="1" />
+    <Property Id="WIXUI_INSTALLDIR"  Value="INSTALLFOLDER" />
+
+    <!-- Upgrade automatique des versions anterieures -->
+    <Upgrade Id="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+      <UpgradeVersion
+        Minimum="0.0.0"
+        Maximum="0.2.3"
+        IncludeMinimum="yes"
+        IncludeMaximum="no"
+        Property="PREVIOUSVERSIONSINSTALLED" />
+    </Upgrade>
+    <InstallExecuteSequence>
+      <RemoveExistingProducts After="InstallInitialize" />
+    </InstallExecuteSequence>
+
+    <!-- ── Icone ──────────────────────────────────────────────── -->
+    <Icon Id="DualViewIcon" SourceFile="..\assets\icon.ico" />
+
+    <!-- ── Media ──────────────────────────────────────────────── -->
+    <Media Id="1" Cabinet="DualView.cab" EmbedCab="yes" />
+
+    <!-- ── Arborescence d'installation ───────────────────────── -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="DualView" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDualView" Name="DualView" />
+    </StandardDirectory>
+
+    <!-- ── Composant : raccourci Menu Demarrer ────────────────── -->
+    <!--
+      Les fichiers de l'application (DualView.exe, DLLs, etc.)
+      sont dans le groupe ElectronFiles (genere par harvesting).
+      Ce composant ne gere que le raccourci.
+    -->
+    <ComponentGroup Id="AppShortcuts" Directory="ProgramMenuDualView">
+
+      <Component Id="StartMenuShortcut" Guid="C2D3E4F5-A6B7-8901-CDEF-123456789012">
+        <Shortcut Id="StartMenuShortcutDualView"
+                  Name="DualView"
+                  Description="Affichage dual paysage/portrait synchronise pour OBS"
+                  Target="[INSTALLFOLDER]DualView.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="DualViewIcon"
+                  IconIndex="0" />
+        <RemoveFolder Id="RemoveProgramMenuDualView"
+                      Directory="ProgramMenuDualView"
+                      On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\DualView"
+                       Name="StartMenuInstalled"
+                       Type="integer" Value="1"
+                       KeyPath="yes" />
+      </Component>
+
+    </ComponentGroup>
+
+    <!-- ── Feature principale ─────────────────────────────────── -->
+    <Feature Id="MainFeature"
+             Title="DualView"
+             Description="Application DualView complete"
+             Level="1"
+             ConfigurableDirectory="INSTALLFOLDER"
+             AllowAbsent="no">
+      <ComponentGroupRef Id="AppShortcuts" />
+      <ComponentGroupRef Id="ElectronFiles" />
+    </Feature>
+
+    <!-- ── UI WiX Standard ────────────────────────────────────── -->
+    <ui:WixUI Id="WixUI_InstallDir" />
+
+  </Package>
+
+</Wix>

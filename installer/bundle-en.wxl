@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  DualView v0.2.3 - English localization for Burn bootstrapper
+-->
+<WixLocalization
+  xmlns="http://wixtoolset.org/schemas/v4/wxl"
+  Culture="en-US"
+  Language="1033"
+  Codepage="1252">
+
+  <String Id="Caption"                    Value="DualView Setup" />
+  <String Id="Title"                      Value="DualView v0.2.3" />
+  <String Id="ConfirmCancelMessage"       Value="Are you sure you want to cancel DualView installation?" />
+  <String Id="ExecuteUpgradeRelatedBundleMessage" Value="A previous version of DualView was detected and will be updated." />
+
+  <String Id="InstallHeader"              Value="Install DualView" />
+  <String Id="InstallMessage"             Value="Click Install to begin installing DualView v0.2.3." />
+  <String Id="InstallVersion"             Value="Version [WixBundleVersion]" />
+  <String Id="InstallLaunch"              Value="Launch DualView" />
+  <String Id="InstallAcceptCheckbox"      Value="I accept the terms of use" />
+
+  <String Id="OptionsHeader"             Value="Installation Options" />
+  <String Id="OptionsLocationLabel"      Value="Install to:" />
+  <String Id="OptionsBrowseButton"       Value="Browse..." />
+
+  <String Id="ProgressHeader"            Value="Installing" />
+  <String Id="ProgressLabel"             Value="Please wait..." />
+  <String Id="OverallProgressPackageText" Value="Processing [WixBundleCurrentPackageId]..." />
+
+  <String Id="SuccessHeader"             Value="Installation Complete" />
+  <String Id="SuccessMessage"            Value="DualView v[WixBundleVersion] was successfully installed." />
+  <String Id="SuccessRestartText"        Value="A restart is required to complete installation." />
+  <String Id="SuccessRestartButton"      Value="Restart" />
+
+  <String Id="FailureHeader"             Value="Installation Failed" />
+  <String Id="FailureMessage"            Value="An error occurred while installing DualView." />
+  <String Id="FailureHyperlinkLogText"   Value="View installation log" />
+  <String Id="FailureRestartText"        Value="A restart may be required before retrying installation." />
+  <String Id="FailureRestartButton"      Value="Restart" />
+
+  <String Id="UserDataDialogTitle"       Value="Uninstall - User Data" />
+  <String Id="UserDataDialogMessage"     Value="Would you like to remove your DualView configuration data?&#10;(saved tabs, window positions)&#10;&#10;Path: %APPDATA%\DualView\" />
+  <String Id="UserDataDialogYes"         Value="Remove my data" />
+  <String Id="UserDataDialogNo"          Value="Keep my data" />
+
+  <String Id="NodeJs_Name"              Value="Node.js v22 LTS" />
+  <String Id="BuildDualView_Name"       Value="Building DualView" />
+  <String Id="DualViewMsi_Name"         Value="DualView" />
+
+</WixLocalization>
