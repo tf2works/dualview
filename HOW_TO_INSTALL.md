@@ -1,115 +1,148 @@
-# DualView v0.2.3 - Instructions d'installation
+# DualView v0.2.5 - Instructions d'installation
 
-## Nouveautes v0.2.3
+## Nouveautés v0.2.5
 
-- Fix synchronisation video : la 2eme video ne freeze plus dans la fenetre Portrait
-  (reinitialisation des detecteurs video a chaque navigation)
-- Nouvel installeur MSI (remplace install.bat / install.ps1)
-  Un seul fichier DualView-Setup-0.2.3.exe gere tout :
-  telechargement de Node.js si absent, build, installation, desinstallation.
+- Paramètres intégrés (onglet ⚙️) : page d'accueil, restauration onglets,
+  apparence, langue (FR/EN)
+- Boutons ⟳ (recharger) et 🏠 (accueil) dans la barre de navigation
+- Menu ⚙️ : Redimensionner | Paramètres
+- Sécurité renforcée : blocage téléchargements, permissions, schémas non-http
+- Installeur simplifié : un seul script, pas de dépendance WiX
+- Page d'accueil par défaut : Knack3 Marketplace
 
-## Nouveautes v0.2.2
+## Nouveautés v0.2.4
 
-- Fix bloqueur pub : couvre correctement les webviews (session persist:dualview)
-- Fix boutons nav : etat back/forward lu depuis la webview, pas le BrowserWindow
-- Bouton redimensionnement renomme en icone double-fleche
+- Barre de contrôle intégrée dans la fenêtre paysage (3 fenêtres → 2)
+- Fenêtre portrait non redimensionnable par défaut
+- Bouton ▶ remplace "Charger"
+- Labels PAYSAGE/PORTRAIT retirés
 
-## Nouveautes v0.2.1
+## Nouveautés v0.2.3
 
-- Bloqueur de publicites integre (YouTube, Google Ads, trackers)
-- Boutons navigation Precedent / Suivant dans la barre de controle
+- Fix synchronisation vidéo : 2ème vidéo ne freeze plus dans Portrait
 
 ---
 
 ## Installation (utilisateurs)
 
-### Ce dont vous avez besoin
+### Prérequis
 
 - Windows 11 (Build 22000+)
-- Connexion internet (pour telecharger Node.js si absent, ~30 Mo)
+- Connexion internet pour télécharger Node.js si absent (~30 Mo)
 
-### Etape 1 - Lancer l'installation
+### Procédure
 
-Double-cliquez sur **DualView-Setup-0.2.3.exe**
-
-Si Windows affiche "Editeur inconnu" -> cliquez **Plus d'informations** puis **Executer quand meme**.
-Si Windows demande une elevation -> cliquez **Oui**.
+1. Double-cliquez sur **DualView-Setup-0.2.5.exe**
+2. Si Windows affiche "Éditeur inconnu" → cliquez **Plus d'informations**
+   puis **Exécuter quand même**
+3. Si Windows demande une élévation → cliquez **Oui**
 
 L'installeur effectue automatiquement :
-  1. Detection de Node.js ; telechargement et installation si absent
-  2. Compilation de DualView (npm install + electron-builder)
-  3. Installation des fichiers dans Program Files\DualView\
-  4. Creation d'un raccourci dans le Menu Demarrer
+- Détection de Node.js ; téléchargement et installation si absent
+- Compilation de DualView (npm install + electron-builder)
+- Installation dans Program Files\DualView\
+- Création d'un raccourci dans le Menu Démarrer
 
-Duree estimee : 5 a 15 minutes selon la connexion.
+Durée estimée : 5 à 15 minutes selon la connexion.
 
-### Etape 2 - Lancer DualView
+### Lancer DualView
 
-Cherchez **DualView** dans le Menu Demarrer.
-
----
-
-## Desinstallation
-
-**Parametres Windows -> Applications -> DualView -> Desinstaller**
-
-L'installeur propose de supprimer ou conserver vos donnees :
-- Onglets sauvegardes
-- Positions des fenetres
-- Preferences
-
-Repond OUI pour tout supprimer, NON pour conserver.
+Cherchez **DualView** dans le Menu Démarrer.
 
 ---
 
-## Fenetres
+## Désinstallation
 
-| Fenetre            | Description                              |
-|--------------------|------------------------------------------|
-| DualView - Controle | Barre d'adresse, onglets, navigation    |
-| DualView - Paysage  | Vue Desktop 16:9                         |
-| DualView - Portrait | Vue Mobile 9:16                          |
+**Paramètres Windows → Applications → DualView → Désinstaller**
+
+Les données de configuration (`%APPDATA%\DualView\`) sont conservées
+par défaut. Supprimez ce dossier manuellement si vous souhaitez
+tout effacer.
 
 ---
 
-## Bloqueur de publicites
+## Fenêtres
 
-Actif par defaut, sans configuration.
+| Fenêtre             | Description                                      |
+|---------------------|--------------------------------------------------|
+| DualView - Paysage  | Barre de contrôle + vue Desktop 16:9             |
+| DualView - Portrait | Vue Mobile 9:16 (taille fixe par défaut)         |
+
+---
+
+## Barre de navigation (fenêtre Paysage)
+
+`← → ⟳ 🏠 [url] ▶ [✅] ⚙️`
+
+| Bouton | Fonction |
+|--------|----------|
+| ←  | Page précédente (les deux fenêtres) |
+| →  | Page suivante (les deux fenêtres) |
+| ⟳  | Recharger (les deux fenêtres) |
+| 🏠 | Page d'accueil |
+| ▶  | Charger l'URL saisie |
+| ✅ | Valider le redimensionnement Portrait |
+| ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Paramètres
+
+Cliquez sur **⚙️ → Paramètres** pour ouvrir l'onglet dédié.
+
+### Général
+- **Ouvrir les fenêtres et onglets précédents** : restaure la session
+  précédente au démarrage
+- **Page d'accueil** : Knack3 (défaut), URL personnalisée, ou page vide
+- **Nouveaux onglets** : page d'accueil sélectionnée ou page vide
+
+### Apparence
+- Automatique (suit Windows), Clair, Sombre
+- Un redémarrage est proposé pour appliquer le changement
+
+### Langue
+- Français (défaut), English
+- Un redémarrage est proposé pour appliquer le changement
+
+### Confidentialité (informatif)
+- Téléchargements bloqués
+- Permissions (caméra, micro, géoloc, notifs) bloquées
+- Seuls http://, https:// et file:// autorisés
+
+---
+
+## Redimensionnement de la fenêtre Portrait
+
+1. Cliquez **⚙️ → Redimensionner** : la fenêtre Portrait devient
+   redimensionnable (contour orange)
+2. Redimensionnez la fenêtre Portrait à votre convenance
+3. Cliquez **✅** pour verrouiller et reprendre la synchronisation
+
+---
+
+## Bloqueur de publicités
+
+Actif par défaut, sans configuration.
 Bloque : Google Ads, DoubleClick, imasdk (YouTube pre-roll),
-         Google Analytics, pagead, pubads, securepubads.
-
-Les fenetres Paysage et Portrait beneficient toutes deux du blocage.
+Google Analytics, pagead, pubads, securepubads.
 
 ---
 
-## Boutons de navigation
+## Synchronisation vidéo
 
-Fleche gauche (Precedent) et fleche droite (Suivant) dans la barre.
-Desactives automatiquement si aucune page precedente/suivante.
-La navigation s'applique simultanement aux deux fenetres.
+DualView détecte les événements play/pause/seek dans Paysage
+et les applique à Portrait avec correction de position (±3s).
+Correction anti-dérive toutes les 5 secondes (tolérance ±5s).
 
----
-
-## Synchronisation video
-
-Les deux fenetres chargent la page independamment.
-DualView detecte les evenements play/pause/seek dans Paysage
-et les applique a Portrait avec correction de position (+-3s).
-Correction anti-derive toutes les 5 secondes (tolerance +-5s).
-
-Fix v0.2.3 : la detection video est reinitialisee a chaque navigation,
-ce qui resout le freeze de la fenetre Portrait lors du passage
-d'une video a une autre.
-
-Plateformes : YouTube, TikTok, Instagram, generique.
+Plateformes : YouTube, TikTok, Instagram, générique.
 
 ---
 
 ## Configuration OBS
 
-Deux sources "Capture de fenetre" :
-- "DualView - Paysage" : vue Desktop
-- "DualView - Portrait" : vue Mobile
+Deux sources "Capture de fenêtre" :
+- `DualView - Paysage` : vue Desktop (inclut la barre de contrôle)
+- `DualView - Portrait` : vue Mobile
 
 Les titres sont stables entre les changements d'onglets.
 
@@ -117,12 +150,10 @@ Les titres sont stables entre les changements d'onglets.
 
 ## Pour les contributeurs : builder l'installeur
 
-Pour compiler et distribuer DualView, vous avez besoin de :
-- Node.js >= 22 (https://nodejs.org)
-- .NET SDK 6+ (https://dot.net/download)
-- WiX Toolset v4 (installe automatiquement par le script)
+**Prérequis** : Node.js >= 22 (https://nodejs.org)
 
-Lancez **installer\build-installer.bat** depuis le dossier racine du projet.
-Le script produit **dist\DualView-Setup-0.2.3.exe**.
+Lancez **installer/build-installer.bat** depuis le dossier racine.
+Le script produit **dist/DualView-Setup-0.2.5.exe** (~150 Mo).
 
-Pour plus de details, voir ARCHITECTURE.md.
+Le fichier Setup inclut un désinstallateur natif Windows enregistré
+dans Paramètres > Applications.

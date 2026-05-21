@@ -1,29 +1,41 @@
 /**
  * DualView - Main Process
- * Version: 0.2.4
+ * Version: 0.2.5
  *
- * Changements v0.2.4 :
- * - Barre de controle integree dans landscapeWin (controlWin supprime)
- * - landscapeWin utilise preload-landscape.js (fusion preload-control + preload-view)
- * - portraitWin : resizable=false (redimensionnement bloque)
- * - Option C : bouton ↔ active setResizable(true), ✅ le desactive
- * - Labels OBS retires des fenetres paysage et portrait
- * - Bouton Charger remplace par ▶
+ * Changements v0.2.5 :
+ * - Sécurité : blocage schémas non-http/https/file, permissions, téléchargements
+ * - Validation des URLs et données IPC entrantes
+ * - Settings : stockage config + handlers IPC
+ * - Reload : bouton recharge les deux webviews
+ * - Page d'accueil configurable
+ * - i18n : langue stockée dans config
  */
 
 const { app, BrowserWindow, ipcMain, nativeTheme, screen, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// ── Store JSON natif ─────────────────────────────────────────────────────────
+// ── Config JSON ──────────────────────────────────────────────────────────────
 const CONFIG_PATH = path.join(app.getPath('userData'), 'dualview-config.json');
+
+const SETTINGS_DEFAULTS = {
+    restoreTabs: true,
+    homepageMode: 'knack3',   // 'knack3' | 'custom' | 'empty'
+    customHomepageUrl: '',
+    newTabMode: 'homepage', // 'homepage' | 'empty'
+    appearance: 'auto',     // 'auto' | 'light' | 'dark'
+    language: 'fr'        // 'fr' | 'en'
+};
+
+const KNACK3_URL = 'https://marketplace.atlassian.com/vendors/920480808/';
 
 const DEFAULTS = {
     landscapeWindow: { width: 1280, height: 720, x: null, y: null },
     portraitWindow: { width: 390, height: 844, x: null, y: null },
     tabs: [{ id: 'tab-1', title: 'Onglet 1', url: '' }],
     activeTabId: 'tab-1',
-    appVersion: '0.2.4'
+    settings: Object.assign({}, SETTINGS_DEFAULTS),
+    appVersion: '0.2.5'
 };
 
 function loadConfig() {
@@ -34,10 +46,11 @@ function loadConfig() {
             return Object.assign({}, DEFAULTS, data, {
                 landscapeWindow: Object.assign({}, DEFAULTS.landscapeWindow, data.landscapeWindow),
                 portraitWindow: Object.assign({}, DEFAULTS.portraitWindow, data.portraitWindow),
+                settings: Object.assign({}, SETTINGS_DEFAULTS, data.settings),
             });
         }
     } catch (e) { console.warn('Config load error:', e.message); }
-    return Object.assign({}, DEFAULTS);
+    return Object.assign({}, DEFAULTS, { settings: Object.assign({}, SETTINGS_DEFAULTS) });
 }
 
 function saveConfig(data) {
@@ -70,39 +83,94 @@ function configGet(keyPath) {
     return obj;
 }
 
-// ── Bloqueur de publicites ────────────────────────────────────────────────────
-const AD_BLOCK_PATTERNS = [
-    '*://*.doubleclick.net/*',
-    '*://googleads.g.doubleclick.net/*',
-    '*://pubads.g.doubleclick.net/*',
-    '*://securepubads.g.doubleclick.net/*',
-    '*://pagead2.googlesyndication.com/*',
-    '*://ads.youtube.com/*',
-    '*://*.googlesyndication.com/*',
-    '*://*.adservice.google.com/*',
-    '*://*.adservice.google.fr/*',
-    '*://analytics.google.com/analytics/collect*',
-    '*://www.google-analytics.com/collect*',
-    '*://stats.g.doubleclick.net/*',
-    '*://imasdk.googleapis.com/js/sdkloader/*',
-    '*://imasdk.googleapis.com/admob/*',
-    '*://imasdk.googleapis.com/pal/*',
-];
-
-function setupAdBlocker() {
-    session.fromPartition('persist:dualview').webRequest.onBeforeRequest(
-        { urls: AD_BLOCK_PATTERNS },
-        (details, callback) => { callback({ cancel: true }); }
-    );
+// ── Validation sécurité ───────────────────────────────────────────────────────
+// Valide et nettoie une URL entrante via IPC
+function sanitizeUrl(url) {
+    if (typeof url !== 'string') return null;
+    url = url.trim();
+    if (!url) return null;
+    try {
+        const parsed = new URL(url);
+        if (!['http:', 'https:', 'file:'].includes(parsed.protocol)) return null;
+        return url;
+    } catch { return null; }
 }
 
-// ── Variables globales ───────────────────────────────────────────────────────
+// Liste de domaines/patterns publicitaires bloqués
+const AD_BLOCK_DOMAINS = [
+    'doubleclick.net', 'googlesyndication.com',
+    'adservice.google.com', 'adservice.google.fr',
+    'google-analytics.com', 'ads.youtube.com',
+    'pagead2.googlesyndication.com', 'stats.g.doubleclick.net',
+];
+const AD_BLOCK_PATHS = [
+    { host: 'analytics.google.com', path: '/analytics/collect' },
+    { host: 'www.google-analytics.com', path: '/collect' },
+    { host: 'imasdk.googleapis.com', path: '/js/sdkloader/' },
+    { host: 'imasdk.googleapis.com', path: '/admob/' },
+    { host: 'imasdk.googleapis.com', path: '/pal/' },
+];
+
+function isBlockedUrl(urlStr) {
+    try {
+        const u = new URL(urlStr);
+        const h = u.hostname.toLowerCase();
+
+        // Bloquer les schémas non autorisés (sauf Electron internals)
+        const ALLOWED_SCHEMES = ['http:', 'https:', 'file:', 'devtools:', 'chrome-extension:'];
+        if (!ALLOWED_SCHEMES.includes(u.protocol)) return true;
+
+        // Patterns publicitaires par domaine
+        for (const domain of AD_BLOCK_DOMAINS) {
+            if (h === domain || h.endsWith('.' + domain)) return true;
+        }
+        // Patterns publicitaires par chemin
+        for (const rule of AD_BLOCK_PATHS) {
+            if (h === rule.host && u.pathname.startsWith(rule.path)) return true;
+        }
+    } catch { return false; }
+    return false;
+}
+
+// ── Session : sécurité globale ────────────────────────────────────────────────
+function setupSessionSecurity() {
+    const ses = session.fromPartition('persist:dualview');
+
+    // Bloquer ads + schémas non autorisés
+    ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+        callback({ cancel: isBlockedUrl(details.url) });
+    });
+
+    // Bloquer toutes les permissions (caméra, micro, géoloc, notifs, etc.)
+    ses.setPermissionRequestHandler((webContents, permission, callback) => {
+        callback(false);
+    });
+
+    // Bloquer les téléchargements + afficher toast dans landscapeWin
+    ses.on('will-download', (event, item) => {
+        item.cancel();
+        const filename = item.getFilename() || '';
+        if (landscapeWin && !landscapeWin.isDestroyed()) {
+            landscapeWin.webContents.send('download-blocked', filename);
+        }
+    });
+}
+
+// ── Variables globales ────────────────────────────────────────────────────────
 let landscapeWin = null;
 let portraitWin = null;
 let currentUrl = '';
 
 function getTheme() {
+    const appearance = configGet('settings.appearance') || 'auto';
+    if (appearance === 'light') return 'light';
+    if (appearance === 'dark') return 'dark';
     return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+}
+
+function applyAppearance() {
+    const appearance = configGet('settings.appearance') || 'auto';
+    nativeTheme.themeSource = appearance === 'auto' ? 'system' : appearance;
 }
 
 function broadcastTheme() {
@@ -112,7 +180,14 @@ function broadcastTheme() {
     });
 }
 
-// ── Fenetres ─────────────────────────────────────────────────────────────────
+function getHomepageUrl() {
+    const mode = configGet('settings.homepageMode') || 'knack3';
+    if (mode === 'knack3') return KNACK3_URL;
+    if (mode === 'custom') return configGet('settings.customHomepageUrl') || KNACK3_URL;
+    return ''; // empty
+}
+
+// ── Fenetres ──────────────────────────────────────────────────────────────────
 function createLandscapeWindow() {
     const saved = configGet('landscapeWindow');
     const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
@@ -155,7 +230,6 @@ function createPortraitWindow() {
     portraitWin = new BrowserWindow({
         width: w, height: h, x, y,
         title: 'DualView - Portrait',
-        // v0.2.4 : redimensionnement bloque
         resizable: false,
         webPreferences: {
             nodeIntegration: false,
@@ -170,33 +244,36 @@ function createPortraitWindow() {
 
     portraitWin.loadFile(path.join(__dirname, 'portrait.html'));
     portraitWin.once('ready-to-show', () => portraitWin.show());
-    // Position sauvegardee (la taille est fixe)
     portraitWin.on('moved', () => { const [x, y] = portraitWin.getPosition(); configSet('portraitWindow.x', x); configSet('portraitWindow.y', y); });
     portraitWin.on('closed', () => { portraitWin = null; });
 }
 
-// ── IPC : Navigation URL ──────────────────────────────────────────────────────
+// ── IPC : Navigation ──────────────────────────────────────────────────────────
 ipcMain.on('navigate', (event, url) => {
-    currentUrl = url;
-    if (landscapeWin && !landscapeWin.isDestroyed()) landscapeWin.webContents.send('load-url', url);
-    if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('load-url', url);
+    const safe = sanitizeUrl(url);
+    if (!safe) return;
+    currentUrl = safe;
+    if (landscapeWin && !landscapeWin.isDestroyed()) landscapeWin.webContents.send('load-url', safe);
+    if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('load-url', safe);
 });
 
 ipcMain.on('sync-scroll', (event, pct) => {
+    if (typeof pct !== 'number') return;
     if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('apply-scroll', pct);
 });
 
 ipcMain.on('sync-navigate', (event, url) => {
-    currentUrl = url;
-    if (landscapeWin && !landscapeWin.isDestroyed()) landscapeWin.webContents.send('update-addressbar', url);
-    if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('load-url', url);
+    const safe = sanitizeUrl(url);
+    if (!safe) return;
+    currentUrl = safe;
+    if (landscapeWin && !landscapeWin.isDestroyed()) landscapeWin.webContents.send('update-addressbar', safe);
+    if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('load-url', safe);
 });
 
-// ── IPC : Navigation back/forward ─────────────────────────────────────────────
+// ── IPC : Navigation back/forward ────────────────────────────────────────────
 ipcMain.on('notify-nav-state', (event, state) => {
-    if (landscapeWin && !landscapeWin.isDestroyed()) {
-        landscapeWin.webContents.send('nav-state-changed', state);
-    }
+    if (!state || typeof state !== 'object') return;
+    if (landscapeWin && !landscapeWin.isDestroyed()) landscapeWin.webContents.send('nav-state-changed', state);
 });
 
 ipcMain.on('nav-back', () => {
@@ -209,30 +286,24 @@ ipcMain.on('nav-forward', () => {
     if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('webview-go-forward');
 });
 
-// ── IPC : Video sync ──────────────────────────────────────────────────────────
+// ── IPC : Reload ──────────────────────────────────────────────────────────────
+ipcMain.on('reload-views', () => {
+    // landscapeWin se recharge directement via webview.reload() dans le renderer
+    if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('reload-webview');
+});
+
+// Redémarrage de l'application (utilisé après changement apparence/langue)
+ipcMain.on('relaunch-app', () => {
+    app.relaunch();
+    app.exit(0);
+});
+
+// ── IPC : Vidéo sync ──────────────────────────────────────────────────────────
 ipcMain.on('video-play', (e, t) => { if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('video-cmd', { action: 'play', currentTime: t }); });
 ipcMain.on('video-pause', (e, t) => { if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('video-cmd', { action: 'pause', currentTime: t }); });
 ipcMain.on('video-timeupdate', (e, t) => { if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('video-cmd', { action: 'seek', currentTime: t }); });
-ipcMain.on('video-state', (e, s) => { if (landscapeWin && !landscapeWin.isDestroyed()) landscapeWin.webContents.send('video-state', s); });
 
-// ── IPC : Divers ──────────────────────────────────────────────────────────────
-ipcMain.handle('get-current-url', () => currentUrl);
-ipcMain.handle('get-theme', () => getTheme());
-ipcMain.handle('get-version', () => app.getVersion());
-
-ipcMain.handle('get-store', () => ({
-    tabs: configGet('tabs') || DEFAULTS.tabs,
-    activeTabId: configGet('activeTabId') || DEFAULTS.activeTabId,
-}));
-
-ipcMain.on('save-tabs', (event, { tabs, activeTabId }) => {
-    configSet('tabs', tabs);
-    configSet('activeTabId', activeTabId);
-});
-
-// ── IPC : Redimensionnement portrait ──────────────────────────────────────────
-// Option C v0.2.4 : portrait demarre non-redimensionnable.
-// Le bouton ↔ active le redimensionnement, ✅ le desactive.
+// ── IPC : Redimensionnement portrait ─────────────────────────────────────────
 ipcMain.on('sync-pause', () => {
     if (portraitWin && !portraitWin.isDestroyed()) {
         portraitWin.setResizable(true);
@@ -244,18 +315,58 @@ ipcMain.on('sync-resume', () => {
     if (portraitWin && !portraitWin.isDestroyed()) {
         portraitWin.setResizable(false);
         portraitWin.webContents.send('resize-mode', false);
-        // Sauvegarder la nouvelle position apres redimensionnement
         const [w, h] = portraitWin.getSize();
         configSet('portraitWindow.width', w);
         configSet('portraitWindow.height', h);
-        // Recharger l'URL pour que la webview portrait s'adapte a la nouvelle taille
         if (currentUrl) portraitWin.webContents.send('load-url', currentUrl);
     }
 });
 
-// ── App lifecycle ─────────────────────────────────────────────────────────────
+// ── IPC : Divers ──────────────────────────────────────────────────────────────
+ipcMain.handle('get-current-url', () => currentUrl);
+ipcMain.handle('get-theme', () => getTheme());
+ipcMain.handle('get-version', () => app.getVersion());
+ipcMain.handle('get-homepage-url', () => getHomepageUrl());
+
+ipcMain.handle('get-store', () => ({
+    tabs: configGet('tabs') || DEFAULTS.tabs,
+    activeTabId: configGet('activeTabId') || DEFAULTS.activeTabId,
+    settings: configGet('settings') || Object.assign({}, SETTINGS_DEFAULTS),
+}));
+
+ipcMain.on('save-tabs', (event, data) => {
+    if (!data || !Array.isArray(data.tabs)) return;
+    configSet('tabs', data.tabs);
+    configSet('activeTabId', data.activeTabId || data.tabs[0].id);
+});
+
+ipcMain.on('save-settings', (event, settings) => {
+    if (!settings || typeof settings !== 'object') return;
+    // Valider les valeurs autorisées
+    const allowed = {
+        restoreTabs: v => typeof v === 'boolean',
+        homepageMode: v => ['knack3', 'custom', 'empty'].includes(v),
+        customHomepageUrl: v => typeof v === 'string' && (v === '' || sanitizeUrl(v) !== null),
+        newTabMode: v => ['homepage', 'empty'].includes(v),
+        appearance: v => ['auto', 'light', 'dark'].includes(v),
+        language: v => ['fr', 'en'].includes(v),
+    };
+    const current = configGet('settings') || Object.assign({}, SETTINGS_DEFAULTS);
+    for (const key of Object.keys(allowed)) {
+        if (settings[key] !== undefined && allowed[key](settings[key])) {
+            current[key] = settings[key];
+        }
+    }
+    configSet('settings', current);
+    // Appliquer l'apparence immédiatement
+    applyAppearance();
+    broadcastTheme();
+});
+
+// ── App lifecycle ──────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
-    setupAdBlocker();
+    applyAppearance();
+    setupSessionSecurity();
     createLandscapeWindow();
     createPortraitWindow();
     nativeTheme.on('updated', broadcastTheme);
