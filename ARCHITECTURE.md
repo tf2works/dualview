@@ -1,4 +1,4 @@
-# DualView - Architecture v0.2.5
+# DualView - Architecture v0.3.0
 
 ## Vue d'ensemble
 
@@ -6,13 +6,26 @@
 PROCESSUS PRINCIPAL (Node.js / Electron Main)
 main.js
   |
+  |-- @ghostery/adblocker-electron  (NEW v0.3.0)
+  |     ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, { cache })
+  |       -> charge EasyList + uBlock Origin (réseau ou cache local)
+  |       -> upgradeSessionBlocker() : remplace le handler onBeforeRequest
+  |          + active filtrage cosmétique (CSS injection) + CNAME uncloaking
+  |
   |-- session.fromPartition('persist:dualview')
-  |     webRequest.onBeforeRequest -> bloque ads + schémas non autorisés
+  |     webRequest.onBeforeRequest -> sécurité schémas + bloqueur Ghostery
+  |       Phase 1 (démarrage) : liste statique seule
+  |       Phase 2 (async, ~0-2 s) : bloqueur avancé + liste statique
+  |     onHeadersReceived         -> CNAME uncloaking (Ghostery)
+  |     app.on('web-contents-created') -> injection CSS cosmétique (Ghostery)
   |     setPermissionRequestHandler -> bloque toutes les permissions
   |     will-download -> bloque les téléchargements (toast dans landscapeWin)
   |
   |-- BrowserWindow: landscapeWin (landscape.html)
   |     Barre de controle integree + webview paysage + panneau paramètres
+  |     YOUTUBE_AD_SKIP_SCRIPT injecté (NEW v0.3.0)
+  |       -> skipAd() : auto-click bouton skip + fast-forward unskippable
+  |       -> hideDisplayAds() : masquage CSS overlays/bandeaux pub
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     resizable=false (setResizable(true/false) via bouton ↔/✅)
@@ -24,6 +37,10 @@ main.js
   |     activeTabId
   |     settings        {restoreTabs, homepageMode, customHomepageUrl,
   |                      newTabMode, appearance, language}
+  |
+  |-- Cache: adblocker-engine.bin (%AppData%/DualView/)  (NEW v0.3.0)
+        Listes compilées EasyList + uBlock Origin
+        Évite le re-téléchargement aux démarrages suivants
 ```
 
 ---
@@ -83,6 +100,7 @@ portraitWin (portrait.html)
 dualview/
 |
 |-- package.json              Version, dependances, config electron-builder
+|                             dependencies: @ghostery/adblocker-electron  (NEW)
 |-- HOW_TO_INSTALL.md         Instructions utilisateur et contributeurs
 |-- ARCHITECTURE.md           Ce fichier
 |
@@ -91,52 +109,28 @@ dualview/
 |   |                         - Cree landscapeWin et portraitWin
 |   |                         - Sécurité : blocage schémas, permissions,
 |   |                           téléchargements, validation IPC
-|   |                         - Bloqueur publicités (persist:dualview)
+|   |                         - Bloqueur pub phase 1 : liste statique (immédiat)
+|   |                         - Bloqueur pub phase 2 : @ghostery/adblocker-electron
+|   |                           (async, cache local adblocker-engine.bin)  (NEW)
+|   |                         - upgradeSessionBlocker() : CNAME + cosmétique (NEW)
 |   |                         - Handlers IPC (navigation, vidéo, settings)
 |   |                         - Persistance config (fs + JSON)
 |   |
-|   |-- preload-landscape.js  Bridge sécurisé pour landscapeWin
-|   |                         - Fusion ex preload-control.js + preload-view.js
-|   |                         - Expose : navigate, navBack/Forward, reloadViews,
-|   |                           saveTabs, saveSettings, getHomepageUrl,
-|   |                           getStore, getVersion, pauseSync, resumeSync,
-|   |                           relaunchApp, sendScroll, sendNavigate,
-|   |                           sendVideoPlay/Pause/TimeUpdate, notifyNavState
+|   |-- preload-landscape.js  Bridge sécurisé pour landscapeWin (inchangé)
 |   |
-|   |-- preload-view.js       Bridge sécurisé pour portraitWin
-|   |                         - Écoute : load-url, apply-scroll, video-cmd,
-|   |                           resize-mode, webview-go-back/forward,
-|   |                           reload-webview, theme-changed
+|   |-- preload-view.js       Bridge sécurisé pour portraitWin (inchangé)
 |   |
 |   |-- landscape.html        Fenêtre paysage (Desktop 16:9)
-|   |                         BARRE DE CONTRÔLE INTÉGRÉE :
-|   |                           - Onglets (ajout, fermeture, switch)
-|   |                           - Toolbar : ← → ⟳ 🏠 [url] ▶ [✅] ⚙️
-|   |                           - Menu ⚙️ : Redimensionner | Paramètres
-|   |                           - Barre de statut (sync, adblock, version)
-|   |                         PANNEAU PARAMÈTRES (onglet dédié) :
-|   |                           - Général : restauration onglets, page d'accueil,
-|   |                             nouveaux onglets
-|   |                           - Apparence : auto/clair/sombre (redémarrage)
-|   |                           - Langue : fr/en (redémarrage)
-|   |                           - Confidentialité : info blocages actifs
-|   |                         WEBVIEW :
-|   |                           - partition="persist:dualview"
-|   |                           - useragent Desktop Chrome
-|   |                           - VIDEO_WATCHER_SCRIPT injecté
-|   |                           - Reset flags sur navigation (fix v0.2.3)
-|   |                           - Polling scroll 100ms + vidéo 150ms
+|   |                         YOUTUBE_AD_SKIP_SCRIPT injecté (NEW) :
+|   |                           - trySkipAd() : auto-click skip / fast-forward
+|   |                           - hideDisplayAds() : masquage CSS display ads
+|   |                           - Reset flag __dualviewAdSkipper à chaque nav
+|   |                         (reste inchangé : onglets, toolbar, sync, settings)
 |   |
-|   |-- portrait.html         Fenêtre portrait (Mobile 9:16)
-|   |                         - partition="persist:dualview"
-|   |                         - useragent Mobile Chrome Pixel 7
-|   |                         - resizable=false (togglable via ↔/✅)
-|   |                         - VIDEO_EXECUTOR_SCRIPT injecté
-|   |                         - Overlay mode redimensionnement
-|   |                         - Handler reload-webview
+|   |-- portrait.html         Fenêtre portrait (Mobile 9:16, inchangée)
 |
 |-- assets/
-|   |-- icon.ico              Icône application (à fournir)
+|   |-- icon.ico              Icône application
 |   |-- README.txt            Instructions icône
 |
 |-- installer/
@@ -151,11 +145,26 @@ dualview/
 ```
 Session persist:dualview
   |
-  |-- webRequest.onBeforeRequest (toutes URLs)
-  |     isBlockedUrl() :
-  |       - Protocoles non autorisés (seuls http:, https:, file: permis)
-  |       - Domaines publicitaires (doubleclick, googlesyndication, etc.)
-  |       - Paths analytics/imasdk
+  |-- Phase 1 : démarrage immédiat (liste statique)
+  |     webRequest.onBeforeRequest (toutes URLs)
+  |       isBlockedUrl() :
+  |         - Protocoles non autorisés (seuls http:, https:, file: permis)
+  |         - Domaines publicitaires statiques (doubleclick, googlesyndication, etc.)
+  |         - Paths analytics/imasdk
+  |
+  |-- Phase 2 : après init async du bloqueur (0-2 s, ou < 100 ms si cache)
+  |     upgradeSessionBlocker()
+  |       onBeforeRequest : isBlockedUrl() + adBlocker.onBeforeRequest()
+  |         -> EasyList + uBlock Origin (réseau) : ~300 000 règles
+  |       onHeadersReceived : CNAME uncloaking
+  |         -> détecte les domaines trackers déguisés en sous-domaines first-party
+  |       app.on('web-contents-created') → dom-ready → insertCSS
+  |         -> filtrage cosmétique : masquage CSS des slots pub résiduels
+  |
+  |-- YOUTUBE_AD_SKIP_SCRIPT (injecté dans le webview Paysage)
+  |     trySkipAd() : détecte .ad-showing, clique .ytp-skip-ad-button,
+  |       ou fast-forward video.currentTime = video.duration
+  |     hideDisplayAds() : masque overlays, bandeaux, in-feed ads
   |
   |-- setPermissionRequestHandler
   |     -> callback(false) pour toute permission
@@ -272,3 +281,4 @@ Fichier : %AppData%\DualView\dualview-config.json
 | 0.2.3 | Fix sync vidéo (reset flags sur navigation). Installeur WiX MSI (retiré en 0.2.5). |
 | 0.2.4 | Barre de contrôle intégrée dans paysage. Portrait non redimensionnable. Bouton ▶. Labels OBS retirés. |
 | 0.2.5 | Sécurité (blocage schémas, permissions, téléchargements, validation IPC). Paramètres (apparence, langue, page d'accueil, restauration onglets). Menu ⚙️. Boutons ⟳ 🏠. i18n FR/EN. Installeur simplifié (electron-builder NSIS). |
+| 0.3.0 | Bloqueur pub avancé : @ghostery/adblocker-electron (EasyList + uBlock Origin, cache local, filtrage cosmétique, CNAME uncloaking). Script YouTube ad-skipper : skip automatique des pre-rolls vidéo et masquage display ads. |

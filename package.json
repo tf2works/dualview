@@ -1,6 +1,6 @@
 {
     "name": "dualview",
-    "version": "0.2.5",
+    "version": "0.3.0",
     "description": "Affichage dual paysage/portrait synchronise pour OBS",
     "main": "src/main.js",
     "author": "DualView",
@@ -8,6 +8,9 @@
     "scripts": {
         "start": "electron .",
         "build": "electron-builder --win --x64"
+    },
+    "dependencies": {
+        "@ghostery/adblocker-electron": "^2.0.0"
     },
     "devDependencies": {
         "electron": "^42.1.0",

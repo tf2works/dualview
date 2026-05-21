@@ -1,19 +1,21 @@
 /**
  * DualView - Main Process
- * Version: 0.2.5
+ * Version: 0.3.0
  *
- * Changements v0.2.5 :
- * - Sécurité : blocage schémas non-http/https/file, permissions, téléchargements
- * - Validation des URLs et données IPC entrantes
- * - Settings : stockage config + handlers IPC
- * - Reload : bouton recharge les deux webviews
- * - Page d'accueil configurable
- * - i18n : langue stockée dans config
+ * Changements v0.3.0 :
+ * - Bloqueur pub avancé : @ghostery/adblocker-electron (EasyList + uBlock Origin)
+ *   Filtrage réseau complet + filtrage cosmétique (masquage CSS) + CNAME uncloaking
+ *   Initialisation asynchrone en arrière-plan avec cache local
+ *   Fallback sur la liste statique si indisponible (mode offline)
+ * - Script YouTube ad-skipper : skip automatique des pre-rolls vidéo via
+ *   injection JS dans le webview (bouton skip + fast-forward unskippable)
+ *   Masquage des display ads, overlays et bandeaux sponsored
  */
 
 const { app, BrowserWindow, ipcMain, nativeTheme, screen, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { ElectronBlocker } = require('@ghostery/adblocker-electron');
 
 // ── Config JSON ──────────────────────────────────────────────────────────────
 const CONFIG_PATH = path.join(app.getPath('userData'), 'dualview-config.json');
@@ -35,7 +37,7 @@ const DEFAULTS = {
     tabs: [{ id: 'tab-1', title: 'Onglet 1', url: '' }],
     activeTabId: 'tab-1',
     settings: Object.assign({}, SETTINGS_DEFAULTS),
-    appVersion: '0.2.5'
+    appVersion: '0.3.0'
 };
 
 function loadConfig() {
@@ -156,7 +158,67 @@ function setupSessionSecurity() {
     });
 }
 
-// ── Variables globales ────────────────────────────────────────────────────────
+// ── Bloqueur pub avancé ───────────────────────────────────────────────────────
+// Instance du bloqueur Ghostery (EasyList + uBlock Origin)
+// null tant que non chargé — la liste statique prend le relais pendant ce temps
+let adBlocker = null;
+
+// Chemin du cache binaire des listes compilées (évite le re-téléchargement)
+const AD_BLOCKER_CACHE = path.join(app.getPath('userData'), 'adblocker-engine.bin');
+
+/**
+ * Initialise le bloqueur avancé de manière asynchrone et non bloquante.
+ * Utilise un cache local pour les démarrages suivants (< 50 ms au lieu de ~2 s).
+ * En cas d'échec (offline, erreur réseau), la liste statique reste active.
+ */
+async function initAdBlocker() {
+    try {
+        adBlocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
+            path: AD_BLOCKER_CACHE,
+            read: fs.promises.readFile,
+            write: fs.promises.writeFile,
+        });
+        console.log('[DualView] Bloqueur avancé chargé (EasyList + uBlock Origin)');
+        upgradeSessionBlocker();
+    } catch (err) {
+        console.warn('[DualView] Bloqueur avancé indisponible (mode dégradé — liste statique active) :', err.message);
+    }
+}
+
+/**
+ * Une fois le bloqueur chargé, met à niveau la session :
+ *  1. Active le filtrage cosmétique (injection CSS pour masquer les slots pub)
+ *     et le CNAME uncloaking via enableBlockingInSession().
+ *  2. Remplace le handler onBeforeRequest par une version combinée
+ *     qui intègre notre vérification de sécurité (schémas autorisés)
+ *     ET la logique réseau du bloqueur.
+ *
+ * Note : enableBlockingInSession() enregistre aussi app.on('web-contents-created')
+ * pour injecter les filtres CSS dans chaque webview — cela reste actif même
+ * après le remplacement de onBeforeRequest ci-dessous.
+ */
+function upgradeSessionBlocker() {
+    const ses = session.fromPartition('persist:dualview');
+
+    // Active filtrage cosmétique + CNAME uncloaking (onHeadersReceived + dom-ready hook)
+    adBlocker.enableBlockingInSession(ses);
+
+    // Remplace onBeforeRequest par notre handler combiné
+    // (le seul appel actif de onBeforeRequest pour cette session)
+    ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+        // Priorité 1 : sécurité — schémas non autorisés (garantit l'isolation)
+        if (isBlockedUrl(details.url)) {
+            callback({ cancel: true });
+            return;
+        }
+        // Priorité 2 : bloqueur pub avancé (réseau)
+        adBlocker.onBeforeRequest(details, callback);
+    });
+
+    console.log('[DualView] Session mise à niveau : filtrage cosmétique + CNAME uncloaking actifs');
+}
+
+
 let landscapeWin = null;
 let portraitWin = null;
 let currentUrl = '';
@@ -366,10 +428,15 @@ ipcMain.on('save-settings', (event, settings) => {
 // ── App lifecycle ──────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
     applyAppearance();
-    setupSessionSecurity();
+    setupSessionSecurity();     // Liste statique active immédiatement
     createLandscapeWindow();
     createPortraitWindow();
     nativeTheme.on('updated', broadcastTheme);
+
+    // Chargement du bloqueur avancé en arrière-plan — ne bloque pas le démarrage.
+    // Au 1er lancement : télécharge les listes (~1-2 s selon connexion).
+    // Démarrages suivants : charge depuis le cache local (< 100 ms).
+    initAdBlocker();
 });
 
 app.on('window-all-closed', () => app.quit());

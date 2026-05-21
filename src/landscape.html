@@ -796,7 +796,7 @@
         <span id="sync-dot"></span>
         <span id="sync-label" data-i18n="syncActive">Synchronisation active</span>
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
-        <span id="version-label">v0.2.5</span>
+        <span id="version-label">v0.3.0</span>
     </div>
 
     <div id="toast"></div>
@@ -1468,52 +1468,129 @@
         // ── Scripts vidéo ──────────────────────────────────────────────────────────
         const VIDEO_WATCHER_SCRIPT = `
 (function() {
-      if (window.__dualviewVideoWatcher) return;
-      window.__dualviewVideoWatcher = true;
-      window.__dualviewVideoState = { playing:false, currentTime:0, platform:'generic', hasVideo:false };
-      function detectPlatform() {
-        const h = location.hostname;
-        if (h.includes('youtube.com'))   return 'youtube';
-        if (h.includes('tiktok.com'))    return 'tiktok';
-        if (h.includes('instagram.com')) return 'instagram';
-        return 'generic';
-      }
-      function getSelectors(p) {
-        if (p==='youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
-        if (p==='tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
-        if (p==='instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
-        return ['video'];
-      }
-      function findBestVideo(sels) {
-        for (const s of sels) {
-          const list = Array.from(document.querySelectorAll(s)).filter(v=>{const r=v.getBoundingClientRect();return r.width>100&&r.height>100;});
-          if (list.length>0){list.sort((a,b)=>{const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();return(rb.width*rb.height)-(ra.width*ra.height);});return list[0];}
-        }
-        return null;
-      }
-      const platform=detectPlatform(), sels=getSelectors(platform);
-      let videoEl=null, attempts=0;
-      function attach(video) {
-        if (video.__dualviewAttached) return;
-        video.__dualviewAttached=true; videoEl=video;
-        window.__dualviewVideoState={hasVideo:true,platform,playing:!video.paused,currentTime:video.currentTime};
-        video.addEventListener('play',  ()=>{ window.__dualviewVideoState.playing=true;  window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'play', time:video.currentTime,platform}; });
-        video.addEventListener('pause', ()=>{ window.__dualviewVideoState.playing=false; window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'pause',time:video.currentTime,platform}; });
-        video.addEventListener('seeked',()=>{ window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'seek',time:video.currentTime,platform}; });
-      }
-      const findInt=setInterval(()=>{
-        attempts++;
-        const v=findBestVideo(sels);
-        if (v){attach(v);clearInterval(findInt);}
-        else if(attempts>=60)clearInterval(findInt);
-        if(videoEl&&!document.contains(videoEl)){const nv=findBestVideo(sels);if(nv){videoEl.__dualviewAttached=false;attach(nv);}}
-      },500);
-      new MutationObserver(()=>{if(!videoEl||!document.contains(videoEl)){const v=findBestVideo(sels);if(v)attach(v);}})
-        .observe(document.body,{childList:true,subtree:true});
-      true;
+          if (window.__dualviewVideoWatcher) return;
+          window.__dualviewVideoWatcher = true;
+          window.__dualviewVideoState = { playing:false, currentTime:0, platform:'generic', hasVideo:false };
+          function detectPlatform() {
+            const h = location.hostname;
+            if (h.includes('youtube.com'))   return 'youtube';
+            if (h.includes('tiktok.com'))    return 'tiktok';
+            if (h.includes('instagram.com')) return 'instagram';
+            return 'generic';
+          }
+          function getSelectors(p) {
+            if (p==='youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+            if (p==='tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
+            if (p==='instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
+            return ['video'];
+          }
+          function findBestVideo(sels) {
+            for (const s of sels) {
+              const list = Array.from(document.querySelectorAll(s)).filter(v=>{const r=v.getBoundingClientRect();return r.width>100&&r.height>100;});
+              if (list.length>0){list.sort((a,b)=>{const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();return(rb.width*rb.height)-(ra.width*ra.height);});return list[0];}
+            }
+            return null;
+          }
+          const platform=detectPlatform(), sels=getSelectors(platform);
+          let videoEl=null, attempts=0;
+          function attach(video) {
+            if (video.__dualviewAttached) return;
+            video.__dualviewAttached=true; videoEl=video;
+            window.__dualviewVideoState={hasVideo:true,platform,playing:!video.paused,currentTime:video.currentTime};
+            video.addEventListener('play',  ()=>{ window.__dualviewVideoState.playing=true;  window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'play', time:video.currentTime,platform}; });
+            video.addEventListener('pause', ()=>{ window.__dualviewVideoState.playing=false; window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'pause',time:video.currentTime,platform}; });
+            video.addEventListener('seeked',()=>{ window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'seek',time:video.currentTime,platform}; });
+          }
+          const findInt=setInterval(()=>{
+            attempts++;
+            const v=findBestVideo(sels);
+            if (v){attach(v);clearInterval(findInt);}
+            else if(attempts>=60)clearInterval(findInt);
+            if(videoEl&&!document.contains(videoEl)){const nv=findBestVideo(sels);if(nv){videoEl.__dualviewAttached=false;attach(nv);}}
+          },500);
+          new MutationObserver(()=>{if(!videoEl||!document.contains(videoEl)){const v=findBestVideo(sels);if(v)attach(v);}})
+            .observe(document.body,{childList:true,subtree:true});
+          true;
 })();`;
 
-        let lastVideoEvent = null, lastTimeSyncAt = 0;
+        // ── Script bloqueur YouTube pre-rolls (Option B) ───────────────────────────
+        // Injecté dans le webview Paysage à chaque page YouTube.
+        // Combine trois mécanismes :
+        //   1. Auto-click du bouton "Ignorer l'annonce" dès qu'il est disponible
+        //   2. Fast-forward forcé sur les pubs non skippables (video.currentTime = duration)
+        //   3. Masquage CSS des display ads, overlays et bandeaux sponsored
+        const YOUTUBE_AD_SKIP_SCRIPT = `
+(function() {
+        if (window.__dualviewAdSkipper) return;
+        window.__dualviewAdSkipper = true;
+
+        if (!location.hostname.includes('youtube.com')) return;
+
+        function trySkipAd() {
+            const player = document.querySelector('#movie_player');
+            if (!player || !player.classList.contains('ad-showing')) return;
+
+            // Cas 1 : bouton "Ignorer l'annonce" visible → cliquer
+            const skipBtn = document.querySelector(
+                '.ytp-skip-ad-button, .ytp-skip-ad-button__container, ' +
+                '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, ' +
+                '[class*="skip-ad"], [class*="skip-button"]'
+            );
+            if (skipBtn && skipBtn.offsetParent !== null) {
+                skipBtn.click();
+                return;
+            }
+
+            // Cas 2 : pub non skippable → avancer à la fin pour la forcer à se terminer
+            const video = player.querySelector('video');
+            if (video && isFinite(video.duration) && video.duration > 0) {
+                video.currentTime = video.duration;
+            }
+        }
+
+        function hideDisplayAds() {
+            const sel = [
+                '.ytp-ad-overlay-container',
+                '.ytp-ad-text-overlay',
+                '.ytp-ad-image-overlay',
+                '.ytp-suggested-action',
+                '#player-ads',
+                '#masthead-ad',
+                'ytd-action-companion-ad-renderer',
+                'ytd-display-ad-renderer',
+                'ytd-banner-promo-renderer',
+                'ytd-in-feed-ad-layout-renderer',
+                'ytd-promoted-sparkles-web-renderer',
+                'ytd-statement-banner-renderer',
+                'ytd-rich-item-renderer[data-is-ad-item]',
+            ].join(',');
+
+            document.querySelectorAll(sel).forEach(el => {
+                el.style.setProperty('display', 'none', 'important');
+            });
+        }
+
+        const intervalId = setInterval(() => {
+            trySkipAd();
+            hideDisplayAds();
+        }, 300);
+
+        // Nettoyage lors du déchargement de la page
+        window.addEventListener('beforeunload', () => clearInterval(intervalId), { once: true });
+
+        true;
+})();
+`;
+
+        function injectAdSkipper() {
+            if (!webview.getURL || !webview.getURL().includes('youtube.com')) return;
+            // Réinitialiser le flag avant injection pour garantir l'exécution
+            webview.executeJavaScript('window.__dualviewAdSkipper = false; true;')
+                .then(() => webview.executeJavaScript(YOUTUBE_AD_SKIP_SCRIPT))
+                .catch(() => { });
+        }
+
+
         function pollVideoState() {
             if (!webview.getURL || webview.getURL() === 'about:blank') return;
             webview.executeJavaScript('window.__dualviewVideoEvent||null').then(evt => {
@@ -1541,15 +1618,15 @@
 
         const SCROLL_INJECT = `
 (function(){
-      if(window.__dualviewScrollWatcher)return;
-      window.__dualviewScrollWatcher=true;
-      let last=-1;
-      window.addEventListener('scroll',()=>{
-        const el=document.documentElement,top=el.scrollTop||document.body.scrollTop,max=el.scrollHeight-el.clientHeight;
-        if(max<=0)return;
-        const pct=top/max;
-        if(Math.abs(pct-last)>0.001){last=pct;window.__dualviewScrollPct=pct;}
-      },{passive:true});
+          if(window.__dualviewScrollWatcher)return;
+          window.__dualviewScrollWatcher=true;
+          let last=-1;
+          window.addEventListener('scroll',()=>{
+            const el=document.documentElement,top=el.scrollTop||document.body.scrollTop,max=el.scrollHeight-el.clientHeight;
+            if(max<=0)return;
+            const pct=top/max;
+            if(Math.abs(pct-last)>0.001){last=pct;window.__dualviewScrollPct=pct;}
+          },{passive:true});
 })();true;`;
 
         let lastScrollPct = -1;
@@ -1563,7 +1640,11 @@
         // ── Événements webview ─────────────────────────────────────────────────────
         function resetWatcherFlags() {
             webview.executeJavaScript(
-                'window.__dualviewVideoWatcher=false;window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};window.__dualviewVideoEvent=null;true;'
+                'window.__dualviewVideoWatcher=false;' +
+                'window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};' +
+                'window.__dualviewVideoEvent=null;' +
+                'window.__dualviewAdSkipper=false;' +
+                'true;'
             ).catch(() => { });
         }
         function injectWatcher() { webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(() => { }); }
@@ -1572,8 +1653,10 @@
             lastVideoEvent = null; lastTimeSyncAt = 0; hideIndicator();
             resetWatcherFlags(); injectWatcher();
             webview.executeJavaScript(SCROLL_INJECT).catch(() => { });
+            injectAdSkipper();
             setTimeout(injectWatcher, 2000);
             setTimeout(injectWatcher, 5000);
+            setTimeout(injectAdSkipper, 2500);
             sendNavState();
             applyWebviewTheme();
         });
