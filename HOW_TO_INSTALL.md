@@ -1,4 +1,12 @@
-# DualView v0.2.5 - Instructions d'installation
+# DualView v0.2.6 - Instructions d'installation
+
+## Nouveautés v0.2.6
+
+- **Pool de webviews** : chaque onglet conserve son état indépendamment
+- Switch d'onglet instantané — aucun rechargement, aucune interruption de lecture
+- YouTube, TikTok, Instagram : la vidéo continue en arrière-plan lors d'un changement d'onglet
+- Fermeture d'onglet immédiate (comportement navigateur standard, sans dialog)
+- Les pollers scroll et vidéo ciblent exclusivement la webview de l'onglet actif
 
 ## Nouveautés v0.2.5
 
@@ -9,17 +17,6 @@
 - Sécurité renforcée : blocage téléchargements, permissions, schémas non-http
 - Installeur simplifié : un seul script, pas de dépendance WiX
 - Page d'accueil par défaut : Knack3 Marketplace
-
-## Nouveautés v0.2.4
-
-- Barre de contrôle intégrée dans la fenêtre paysage (3 fenêtres → 2)
-- Fenêtre portrait non redimensionnable par défaut
-- Bouton ▶ remplace "Charger"
-- Labels PAYSAGE/PORTRAIT retirés
-
-## Nouveautés v0.2.3
-
-- Fix synchronisation vidéo : 2ème vidéo ne freeze plus dans Portrait
 
 ---
 
@@ -32,7 +29,7 @@
 
 ### Procédure
 
-1. Double-cliquez sur **DualView-Setup-0.2.5.exe**
+1. Double-cliquez sur **DualView-Setup-0.2.6.exe**
 2. Si Windows affiche "Éditeur inconnu" → cliquez **Plus d'informations**
    puis **Exécuter quand même**
 3. Si Windows demande une élévation → cliquez **Oui**
@@ -83,6 +80,19 @@ tout effacer.
 | ▶  | Charger l'URL saisie |
 | ✅ | Valider le redimensionnement Portrait |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Onglets (comportement v0.2.6)
+
+- Chaque onglet est **indépendant** : son état (page, scroll, vidéo) est
+  conservé en mémoire tant qu'il est ouvert.
+- Cliquer sur un onglet déjà chargé **n'entraîne aucun rechargement**.
+- Une vidéo YouTube lancée dans un onglet continue à jouer en arrière-plan
+  si vous passez sur un autre onglet.
+- Fermer un onglet est immédiat, sans dialog de confirmation.
+- **Recommandation streaming OBS** : limiter à 5 onglets simultanés
+  (chaque onglet consomme ~80–150 Mo de RAM supplémentaire).
 
 ---
 
@@ -153,7 +163,7 @@ Les titres sont stables entre les changements d'onglets.
 **Prérequis** : Node.js >= 22 (https://nodejs.org)
 
 Lancez **installer/build-installer.bat** depuis le dossier racine.
-Le script produit **dist/DualView-Setup-0.2.5.exe** (~150 Mo).
+Le script produit **dist/DualView-Setup-0.2.6.exe** (~150 Mo).
 
 Le fichier Setup inclut un désinstallateur natif Windows enregistré
 dans Paramètres > Applications.

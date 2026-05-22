@@ -21,7 +21,6 @@
             --nav-btn-h: #e0e0e0;
             --nav-dis: #cccccc;
             --ind-bg: rgba(0,0,0,0.6);
-            --orange: #e67e00;
         }
 
         [data-theme="dark"] {
@@ -43,21 +42,21 @@
         * {
             box-sizing: border-box;
             margin: 0;
-            padding: 0
+            padding: 0;
         }
 
         body {
-            font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--bg);
             color: var(--fg);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            user-select: none
+            user-select: none;
         }
 
-        /* ── Onglets ── */
+        /* ── Barre d'onglets ───────────────────────────────────────── */
         #tab-bar {
             display: flex;
             align-items: center;
@@ -69,16 +68,16 @@
             overflow-x: auto;
             overflow-y: hidden;
             scrollbar-width: thin;
-            flex-shrink: 0
+            flex-shrink: 0;
         }
 
             #tab-bar::-webkit-scrollbar {
-                height: 3px
+                height: 3px;
             }
 
             #tab-bar::-webkit-scrollbar-thumb {
                 background: var(--border);
-                border-radius: 2px
+                border-radius: 2px;
             }
 
         .tab {
@@ -95,29 +94,25 @@
             white-space: nowrap;
             max-width: 160px;
             transition: background 0.15s;
-            flex-shrink: 0
+            flex-shrink: 0;
         }
 
             .tab:hover {
-                background: var(--bg-tab-act)
+                background: var(--bg-tab-act);
             }
 
             .tab.active {
                 background: var(--bg-tab-act);
                 border-bottom: 1px solid var(--bg-tab-act);
                 margin-bottom: -1px;
-                font-weight: 500
-            }
-
-            .tab.settings-tab {
-                font-style: italic
+                font-weight: 500;
             }
 
         .tab-title {
             overflow: hidden;
             text-overflow: ellipsis;
             color: var(--fg);
-            pointer-events: none
+            pointer-events: none;
         }
 
         .tab-close {
@@ -130,12 +125,12 @@
             padding: 0 1px;
             border-radius: 3px;
             pointer-events: all;
-            transition: color 0.15s,background 0.15s
+            transition: color 0.15s, background 0.15s;
         }
 
             .tab-close:hover {
                 color: var(--danger);
-                background: rgba(220,53,69,0.12)
+                background: rgba(220,53,69,0.12);
             }
 
         #add-tab-btn {
@@ -151,29 +146,28 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            transition: background 0.15s,color 0.15s;
-            margin-left: 2px
+            transition: background 0.15s, color 0.15s;
+            margin-left: 2px;
         }
 
             #add-tab-btn:hover {
                 background: var(--accent);
                 color: white;
-                border-color: var(--accent)
+                border-color: var(--accent);
             }
 
-        /* ── Toolbar ── */
+        /* ── Barre d'adresse ───────────────────────────────────────── */
         #toolbar {
             display: flex;
             align-items: center;
             padding: 5px 8px;
-            gap: 5px;
+            gap: 6px;
             background: var(--bg);
             border-bottom: 1px solid var(--border);
             flex-shrink: 0;
-            position: relative
         }
 
-        .nav-btn {
+        .nav-arrow {
             width: 28px;
             height: 28px;
             background: var(--nav-btn);
@@ -181,23 +175,24 @@
             border-radius: 6px;
             color: var(--fg);
             font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            transition: background 0.15s,opacity 0.15s
+            transition: background 0.15s, opacity 0.15s;
         }
 
-            .nav-btn:hover:not(:disabled) {
-                background: var(--nav-btn-h)
+            .nav-arrow:hover:not(:disabled) {
+                background: var(--nav-btn-h);
             }
 
-            .nav-btn:disabled {
+            .nav-arrow:disabled {
                 color: var(--nav-dis);
                 border-color: var(--nav-dis);
                 cursor: default;
-                opacity: 0.5
+                opacity: 0.5;
             }
 
         #url-input {
@@ -209,26 +204,22 @@
             color: var(--fg);
             font-size: 13px;
             outline: none;
-            transition: border-color 0.15s,box-shadow 0.15s;
-            min-width: 0
+            transition: border-color 0.15s, box-shadow 0.15s;
+            min-width: 0;
         }
 
             #url-input:focus {
                 border-color: var(--accent);
-                box-shadow: 0 0 0 2px rgba(0,102,204,0.2)
+                box-shadow: 0 0 0 2px rgba(0,102,204,0.2);
             }
 
         [data-theme="dark"] #url-input:focus {
-            box-shadow: 0 0 0 2px rgba(77,166,255,0.2)
+            box-shadow: 0 0 0 2px rgba(77,166,255,0.2);
         }
 
-        #url-input.settings-url {
-            color: var(--fg-muted);
-            font-style: italic
-        }
-
+        /* v0.2.4 : bouton ▶ (ex "Charger") */
         #go-btn {
-            width: 28px;
+            width: 32px;
             height: 28px;
             background: var(--accent);
             color: white;
@@ -240,94 +231,55 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            transition: background 0.15s
+            transition: background 0.15s;
         }
 
             #go-btn:hover {
-                background: var(--accent-h)
+                background: var(--accent-h);
+            }
+
+        /* Boutons redimensionnement portrait */
+        #resize-btn {
+            padding: 0 8px;
+            height: 28px;
+            background: #e67e00;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            transition: opacity 0.15s;
+        }
+
+            #resize-btn:hover {
+                opacity: 0.85;
             }
 
         #resume-btn {
-            width: 28px;
+            padding: 0 8px;
             height: 28px;
             background: #28a745;
             color: white;
             border: none;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
             display: none;
             align-items: center;
-            justify-content: center;
             flex-shrink: 0;
-            transition: opacity 0.15s
+            transition: opacity 0.15s;
         }
 
             #resume-btn:hover {
-                opacity: 0.85
+                opacity: 0.85;
             }
 
-        #gear-btn {
-            width: 28px;
-            height: 28px;
-            background: var(--nav-btn);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--fg);
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: background 0.15s
-        }
-
-            #gear-btn:hover {
-                background: var(--nav-btn-h)
-            }
-
-        /* ── Dropdown ⚙️ ── */
-        #gear-menu {
-            position: absolute;
-            top: 38px;
-            right: 8px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 4px 0;
-            min-width: 170px;
-            z-index: 1000;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-            display: none
-        }
-
-            #gear-menu.open {
-                display: block
-            }
-
-        .gear-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 7px 14px;
-            font-size: 13px;
-            color: var(--fg);
-            cursor: pointer;
-            transition: background 0.1s
-        }
-
-            .gear-item:hover {
-                background: var(--bg-alt)
-            }
-
-        .gear-separator {
-            height: 1px;
-            background: var(--border);
-            margin: 3px 0
-        }
-
-        /* ── Status bar ── */
+        /* ── Barre de statut ───────────────────────────────────────── */
         #status-bar {
             display: flex;
             align-items: center;
@@ -337,7 +289,13 @@
             border-bottom: 1px solid var(--border);
             font-size: 11px;
             color: var(--fg-muted);
-            flex-shrink: 0
+            flex-shrink: 0;
+        }
+
+        #sync-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         #sync-dot {
@@ -345,57 +303,34 @@
             height: 7px;
             border-radius: 50%;
             background: #28a745;
-            transition: background 0.3s
+            transition: background 0.3s;
         }
 
             #sync-dot.paused {
-                background: var(--orange)
+                background: #e67e00;
             }
 
         #adblock-label {
             color: #28a745;
-            font-weight: 500
+            font-weight: 500;
         }
 
         #version-label {
-            margin-left: auto
+            margin-left: auto;
         }
 
-        /* ── Toast ── */
-        #toast {
-            position: fixed;
-            bottom: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(220,53,69,0.92);
-            color: white;
-            font-size: 12px;
-            font-weight: 500;
-            padding: 7px 16px;
-            border-radius: 6px;
-            z-index: 9999;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.25s;
-            white-space: nowrap
-        }
-
-            #toast.show {
-                opacity: 1
-            }
-
-        /* ── Webview ── */
+        /* ── Zone webview ──────────────────────────────────────────── */
         #webview-container {
             flex: 1;
             position: relative;
-            overflow: hidden
+            overflow: hidden;
         }
 
         webview {
             width: 100%;
             height: 100%;
             display: flex;
-            border: none
+            border: none;
         }
 
         #empty-state {
@@ -408,22 +343,23 @@
             gap: 12px;
             color: var(--fg);
             opacity: 0.5;
-            pointer-events: none
+            pointer-events: none;
         }
 
             #empty-state .icon {
-                font-size: 48px
+                font-size: 48px;
             }
 
             #empty-state .text {
                 font-size: 16px;
-                font-weight: 500
+                font-weight: 500;
             }
 
             #empty-state .sub {
-                font-size: 13px
+                font-size: 13px;
             }
 
+        /* ── Indicateur video ──────────────────────────────────────── */
         #video-indicator {
             position: absolute;
             bottom: 8px;
@@ -440,635 +376,85 @@
             transition: opacity 0.3s;
             display: flex;
             align-items: center;
-            gap: 5px
+            gap: 5px;
         }
 
             #video-indicator.visible {
-                opacity: 0.85
+                opacity: 0.85;
             }
 
             #video-indicator .dot {
                 width: 6px;
                 height: 6px;
                 border-radius: 50%;
-                background: #4caf50
+                background: #4caf50;
             }
 
             #video-indicator.paused .dot {
-                background: #ff9800
-            }
-
-        /* ── Settings panel ── */
-        #settings-panel {
-            display: none;
-            flex: 1;
-            overflow: hidden;
-            background: var(--bg)
-        }
-
-            #settings-panel.show {
-                display: flex
-            }
-
-        .s-sidebar {
-            width: 160px;
-            border-right: 1px solid var(--border);
-            background: var(--bg-alt);
-            flex-shrink: 0;
-            padding: 8px 0
-        }
-
-        .s-nav {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            font-size: 13px;
-            color: var(--fg-muted);
-            cursor: pointer;
-            transition: background 0.1s
-        }
-
-            .s-nav:hover {
-                background: var(--bg)
-            }
-
-            .s-nav.active {
-                background: var(--bg);
-                color: var(--fg);
-                font-weight: 500;
-                border-right: 2px solid var(--accent)
-            }
-
-        .s-nav-icon {
-            font-size: 16px
-        }
-
-        .s-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px 24px
-        }
-
-        .s-section {
-            display: none
-        }
-
-            .s-section.active {
-                display: block
-            }
-
-        .s-heading {
-            font-size: 15px;
-            font-weight: 500;
-            color: var(--fg);
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border)
-        }
-
-        .s-row {
-            margin-bottom: 18px
-        }
-
-        .s-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--fg);
-            margin-bottom: 3px;
-            display: block
-        }
-
-        .s-desc {
-            font-size: 11px;
-            color: var(--fg-muted);
-            margin-bottom: 6px
-        }
-
-        .s-check-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px
-        }
-
-            .s-check-row input[type=checkbox] {
-                margin-top: 2px;
-                flex-shrink: 0;
-                cursor: pointer
-            }
-
-        .s-check-label {
-            font-size: 13px;
-            color: var(--fg);
-            cursor: pointer
-        }
-
-        .s-check-desc {
-            font-size: 11px;
-            color: var(--fg-muted);
-            margin-top: 2px
-        }
-
-        .s-select {
-            width: 100%;
-            padding: 6px 10px;
-            font-size: 13px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: var(--input-bg);
-            color: var(--fg);
-            outline: none
-        }
-
-            .s-select:focus {
-                border-color: var(--accent)
-            }
-
-        .s-divider {
-            height: 1px;
-            background: var(--border);
-            margin: 18px 0
-        }
-
-        .s-custom-url {
-            display: none;
-            margin-top: 8px;
-            gap: 6px;
-            align-items: flex-start;
-            flex-direction: column
-        }
-
-            .s-custom-url.show {
-                display: flex
-            }
-
-        .s-url-row {
-            display: flex;
-            gap: 6px;
-            width: 100%
-        }
-
-        .s-url-input {
-            flex: 1;
-            padding: 6px 10px;
-            font-size: 13px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: var(--input-bg);
-            color: var(--fg);
-            outline: none
-        }
-
-            .s-url-input:focus {
-                border-color: var(--accent)
-            }
-
-        .s-validate-btn {
-            padding: 6px 12px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.15s
-        }
-
-            .s-validate-btn:hover {
-                background: var(--accent-h)
-            }
-
-        .s-msg {
-            font-size: 11px;
-            margin-top: 4px;
-            display: none
-        }
-
-            .s-msg.show {
-                display: block
-            }
-
-            .s-msg.ok {
-                color: #28a745
-            }
-
-            .s-msg.err {
-                color: var(--danger)
-            }
-
-        .s-info-block {
-            background: var(--bg-alt);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px 14px;
-            margin-bottom: 10px
-        }
-
-        .s-info-title {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--fg);
-            margin-bottom: 3px
-        }
-
-        .s-info-desc {
-            font-size: 11px;
-            color: var(--fg-muted)
-        }
-
-        .s-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 10px;
-            font-weight: 600;
-            background: rgba(40,167,69,0.15);
-            color: #28a745;
-            margin-top: 4px
-        }
-
-        /* ── Dialog redémarrage ── */
-        #restart-dialog {
-            display: none;
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.35);
-            z-index: 500;
-            align-items: center;
-            justify-content: center
-        }
-
-            #restart-dialog.show {
-                display: flex
-            }
-
-        .restart-box {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px 24px;
-            max-width: 360px;
-            width: 90%
-        }
-
-        .restart-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--fg);
-            margin-bottom: 8px
-        }
-
-        .restart-desc {
-            font-size: 12px;
-            color: var(--fg-muted);
-            margin-bottom: 16px;
-            line-height: 1.5
-        }
-
-        .restart-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end
-        }
-
-        .restart-cancel {
-            padding: 6px 14px;
-            background: none;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 12px;
-            color: var(--fg);
-            cursor: pointer;
-            transition: background 0.15s
-        }
-
-            .restart-cancel:hover {
-                background: var(--bg-alt)
-            }
-
-        .restart-confirm {
-            padding: 6px 14px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: background 0.15s
-        }
-
-            .restart-confirm:hover {
-                background: var(--accent-h)
+                background: #ff9800;
             }
     </style>
 </head>
 <body>
 
+    <!-- ── Barre de controle integree ──────────────────────────── -->
     <div id="tab-bar">
-        <button id="add-tab-btn" title="+">+</button>
+        <button id="add-tab-btn" title="Nouvel onglet">+</button>
     </div>
 
     <div id="toolbar">
-        <button id="back-btn" class="nav-btn" title="←" disabled>&#8592;</button>
-        <button id="forward-btn" class="nav-btn" title="→" disabled>&#8594;</button>
-        <button id="reload-btn" class="nav-btn" title="⟳">&#8635;</button>
-        <button id="home-btn" class="nav-btn" title="🏠">&#8962;</button>
-        <input type="text" id="url-input" autocomplete="off" spellcheck="false" />
-        <button id="go-btn" title="▶">&#9654;</button>
-        <button id="resume-btn" title="✅">&#9989;</button>
-        <button id="gear-btn" title="⚙️">&#9881;&#65039;</button>
-
-        <div id="gear-menu">
-            <div class="gear-item" id="menu-resize">
-                <span>&#8596;</span>
-                <span data-i18n="resize">Redimensionner</span>
-            </div>
-            <div class="gear-separator"></div>
-            <div class="gear-item" id="menu-settings">
-                <span>&#9881;</span>
-                <span data-i18n="settings">Paramètres</span>
-            </div>
-        </div>
+        <button id="back-btn" class="nav-arrow" title="Page precedente" disabled>&#8592;</button>
+        <button id="forward-btn" class="nav-arrow" title="Page suivante" disabled>&#8594;</button>
+        <input type="text" id="url-input" placeholder="https://exemple.com" autocomplete="off" spellcheck="false" />
+        <!-- v0.2.4 : ▶ remplace "Charger" -->
+        <button id="go-btn" title="Charger">&#9654;</button>
+        <!-- Option C : ↔ active resizable, ✅ le desactive -->
+        <button id="resize-btn" title="Redimensionner Portrait">&#8596;</button>
+        <button id="resume-btn" title="Valider et verrouiller">&#9989;</button>
     </div>
 
     <div id="status-bar">
         <span id="sync-dot"></span>
         <span id="sync-label" data-i18n="syncActive">Synchronisation active</span>
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
-        <span id="version-label">v0.3.0</span>
+        <span id="version-label">v0.2.6</span>
     </div>
 
-    <div id="toast"></div>
-
-    <!-- Zone webview (vue paysage) -->
-    <div id="webview-container" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+    <!-- ── Zone paysage ────────────────────────────────────────── -->
+    <div id="webview-container">
         <div id="video-indicator" class="paused">
             <span class="dot"></span>
-            <span id="video-indicator-text">Vidéo détectée</span>
+            <span id="video-indicator-text">Video detectee</span>
         </div>
         <div id="empty-state">
             <div class="icon">&#128421;</div>
-            <div class="text" data-i18n="landscapeView">Vue Paysage (Desktop)</div>
-            <div class="sub" data-i18n="enterUrl">Entrez une URL dans la barre d'adresse</div>
+            <div class="text">Vue Paysage (Desktop)</div>
+            <div class="sub">Entrez une URL dans la barre d'adresse</div>
         </div>
         <webview id="webview"
                  src="about:blank"
                  partition="persist:dualview"
                  useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
                  allowpopups
-                 style="display:none;flex:1"></webview>
-    </div>
-
-    <!-- Panneau Paramètres (remplace la zone webview quand onglet settings actif) -->
-    <div id="settings-panel" style="position:relative">
-        <!-- Dialog redémarrage -->
-        <div id="restart-dialog">
-            <div class="restart-box">
-                <div class="restart-title" id="restart-title">Redémarrage requis</div>
-                <div class="restart-desc" id="restart-desc">Ce paramètre prendra effet au prochain démarrage. Redémarrer maintenant ?</div>
-                <div class="restart-actions">
-                    <button class="restart-cancel" id="restart-cancel">Annuler</button>
-                    <button class="restart-confirm" id="restart-confirm">Redémarrer</button>
-                </div>
-            </div>
-        </div>
-        <div class="s-sidebar">
-            <div class="s-nav active" data-section="general">
-                <span class="s-nav-icon">&#9783;</span>
-                <span data-i18n="settingsGeneral">Général</span>
-            </div>
-            <div class="s-nav" data-section="appearance">
-                <span class="s-nav-icon">&#9680;</span>
-                <span data-i18n="settingsAppearance">Apparence</span>
-            </div>
-            <div class="s-nav" data-section="language">
-                <span class="s-nav-icon">&#127760;</span>
-                <span data-i18n="settingsLanguage">Langue</span>
-            </div>
-            <div class="s-nav" data-section="privacy">
-                <span class="s-nav-icon">&#128274;</span>
-                <span data-i18n="settingsPrivacy">Confidentialité</span>
-            </div>
-        </div>
-        <div class="s-content">
-
-            <!-- Général -->
-            <div id="section-general" class="s-section active">
-                <div class="s-heading" data-i18n="settingsGeneral">Général</div>
-
-                <div class="s-row">
-                    <div class="s-check-row">
-                        <input type="checkbox" id="s-restore" checked>
-                        <div>
-                            <label for="s-restore" class="s-check-label" data-i18n="restoreTabs">Ouvrir les fenêtres et onglets précédents</label>
-                            <div class="s-check-desc" data-i18n="restoreTabsDesc">Au démarrage, restaure les onglets et URL de la session précédente.</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="s-divider"></div>
-
-                <div class="s-row">
-                    <label class="s-label" data-i18n="homepageLabel">Page d'accueil et nouvelles fenêtres</label>
-                    <div class="s-desc" data-i18n="homepageDesc">Page affichée au démarrage et sur le bouton accueil.</div>
-                    <select class="s-select" id="s-homepage">
-                        <option value="knack3" data-i18n="homepageKnack3">Page d'accueil Knack3 (par défaut)</option>
-                        <option value="custom" data-i18n="homepageCustom">Adresse web personnalisée</option>
-                        <option value="empty" data-i18n="homepageEmpty">Page vide</option>
-                    </select>
-                    <div id="s-custom-url" class="s-custom-url">
-                        <div class="s-url-row">
-                            <input type="text" id="s-custom-url-input" class="s-url-input" placeholder="https://exemple.com" />
-                            <button id="s-validate-url" class="s-validate-btn" data-i18n="validateBtn">Valider</button>
-                        </div>
-                        <div id="s-url-msg" class="s-msg"></div>
-                    </div>
-                </div>
-
-                <div class="s-divider"></div>
-
-                <div class="s-row">
-                    <label class="s-label" data-i18n="newTabLabel">Nouveaux onglets</label>
-                    <select class="s-select" id="s-newtab">
-                        <option value="homepage" data-i18n="newTabHomepage">Page d'accueil sélectionnée</option>
-                        <option value="empty" data-i18n="newTabEmpty">Page vide</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Apparence -->
-            <div id="section-appearance" class="s-section">
-                <div class="s-heading" data-i18n="settingsAppearance">Apparence</div>
-                <div class="s-row">
-                    <label class="s-label" data-i18n="appearanceLabel">Apparence des sites web</label>
-                    <div class="s-desc" data-i18n="appearanceDesc">Applique le thème aux sites visités et à l'interface DualView.</div>
-                    <select class="s-select" id="s-appearance">
-                        <option value="auto" data-i18n="appearanceAuto">Automatique (suit le système)</option>
-                        <option value="light" data-i18n="appearanceLight">Clair</option>
-                        <option value="dark" data-i18n="appearanceDark">Sombre</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Langue -->
-            <div id="section-language" class="s-section">
-                <div class="s-heading" data-i18n="settingsLanguage">Langue</div>
-                <div class="s-row">
-                    <label class="s-label" data-i18n="languageLabel">Langue de l'interface</label>
-                    <div class="s-desc" data-i18n="languageDesc">Langue utilisée pour l'interface DualView.</div>
-                    <select class="s-select" id="s-language">
-                        <option value="fr" data-i18n="langFr">Français</option>
-                        <option value="en" data-i18n="langEn">English</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Confidentialité -->
-            <div id="section-privacy" class="s-section">
-                <div class="s-heading" data-i18n="settingsPrivacy">Confidentialité</div>
-                <div class="s-info-block">
-                    <div class="s-info-title" data-i18n="privacyDownloads">Téléchargements</div>
-                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. DualView est un outil de streaming.</div>
-                    <div class="s-badge">&#10003; Bloqué</div>
-                </div>
-                <div class="s-info-block">
-                    <div class="s-info-title" data-i18n="privacyPermissions">Permissions</div>
-                    <div class="s-info-desc" data-i18n="privacyPermissionsDesc">Caméra, microphone, géolocalisation et notifications sont bloqués.</div>
-                    <div class="s-badge">&#10003; Bloqué</div>
-                </div>
-                <div class="s-info-block">
-                    <div class="s-info-title" data-i18n="privacySchemes">Navigation sécurisée</div>
-                    <div class="s-info-desc" data-i18n="privacySchemesDesc">Seuls les protocoles http://, https:// et file:// sont autorisés.</div>
-                    <div class="s-badge">&#10003; Actif</div>
-                </div>
-            </div>
-
-        </div>
+                 style="display:none;"></webview>
     </div>
 
     <script>
-        // ── Traductions ────────────────────────────────────────────────────────────
-        const I18N = {
-            fr: {
-                syncActive: 'Synchronisation active', syncPaused: 'Redimensionnez Portrait',
-                adblockActive: 'Bloqueur pub actif', newTab: 'Nouvel onglet',
-                landscapeView: 'Vue Paysage (Desktop)', enterUrl: "Entrez une URL dans la barre d'adresse",
-                downloadBlocked: 'Téléchargement non autorisé', addressPlaceholder: 'https://exemple.com',
-                resize: 'Redimensionner', settings: 'Paramètres',
-                settingsGeneral: 'Général', settingsAppearance: 'Apparence',
-                settingsLanguage: 'Langue', settingsPrivacy: 'Confidentialité',
-                restoreTabs: 'Ouvrir les fenêtres et onglets précédents',
-                restoreTabsDesc: 'Au démarrage, restaure les onglets et URL de la session précédente.',
-                homepageLabel: "Page d'accueil et nouvelles fenêtres",
-                homepageDesc: "Page affichée au démarrage et sur le bouton accueil.",
-                homepageKnack3: "Page d'accueil Knack3 (par défaut)", homepageCustom: 'Adresse web personnalisée', homepageEmpty: 'Page vide',
-                newTabLabel: 'Nouveaux onglets', newTabHomepage: "Page d'accueil sélectionnée", newTabEmpty: 'Page vide',
-                customUrlPlaceholder: 'https://exemple.com', validateBtn: 'Valider',
-                urlValid: 'URL valide — page d\'accueil mise à jour.',
-                urlInvalid: 'Seules les URL sont autorisées (http:// ou https://).',
-                appearanceLabel: 'Apparence des sites web',
-                appearanceDesc: "Applique le thème aux sites visités et à l'interface DualView.",
-                appearanceAuto: 'Automatique (suit le système)', appearanceLight: 'Clair', appearanceDark: 'Sombre',
-                languageLabel: "Langue de l'interface", languageDesc: "Langue utilisée pour l'interface DualView.",
-                langFr: 'Français', langEn: 'English',
-                privacyDownloads: 'Téléchargements', privacyDownloadsDesc: "Les téléchargements sont désactivés. DualView est un outil de streaming.",
-                privacyPermissions: 'Permissions', privacyPermissionsDesc: 'Caméra, microphone, géolocalisation et notifications sont bloqués.',
-                privacySchemes: 'Navigation sécurisée', privacySchemesDesc: 'Seuls les protocoles http://, https:// et file:// sont autorisés.',
-                restartTitle: 'Redémarrage requis',
-                restartAppearanceDesc: "Le thème sera appliqué au prochain démarrage. Redémarrer maintenant ?",
-                restartLanguageDesc: "La langue sera appliquée au prochain démarrage. Redémarrer maintenant ?",
-            },
-            en: {
-                syncActive: 'Sync active', syncPaused: 'Resize Portrait window',
-                adblockActive: 'Ad blocker active', newTab: 'New tab',
-                landscapeView: 'Landscape view (Desktop)', enterUrl: 'Enter a URL in the address bar',
-                downloadBlocked: 'Download not allowed', addressPlaceholder: 'https://example.com',
-                resize: 'Resize', settings: 'Settings',
-                settingsGeneral: 'General', settingsAppearance: 'Appearance',
-                settingsLanguage: 'Language', settingsPrivacy: 'Privacy',
-                restoreTabs: 'Restore windows and tabs from previous session',
-                restoreTabsDesc: 'On startup, restores tabs and URLs from the previous session.',
-                homepageLabel: 'Homepage and new windows', homepageDesc: 'Page shown on startup and when clicking the home button.',
-                homepageKnack3: 'Knack3 homepage (default)', homepageCustom: 'Custom web address', homepageEmpty: 'Empty page',
-                newTabLabel: 'New tabs', newTabHomepage: 'Selected homepage', newTabEmpty: 'Empty page',
-                customUrlPlaceholder: 'https://example.com', validateBtn: 'Apply',
-                urlValid: 'Valid URL — homepage updated.', urlInvalid: 'Only URLs are allowed (http:// or https://).',
-                appearanceLabel: 'Website appearance', appearanceDesc: 'Applies theme to visited sites and DualView interface.',
-                appearanceAuto: 'Automatic (follows system)', appearanceLight: 'Light', appearanceDark: 'Dark',
-                languageLabel: 'Interface language', languageDesc: 'Language used for the DualView interface.',
-                langFr: 'Français', langEn: 'English',
-                privacyDownloads: 'Downloads', privacyDownloadsDesc: 'Downloads are disabled. DualView is a streaming tool.',
-                privacyPermissions: 'Permissions', privacyPermissionsDesc: 'Camera, microphone, geolocation and notifications are blocked.',
-                privacySchemes: 'Secure browsing', privacySchemesDesc: 'Only http://, https:// and file:// protocols are allowed.',
-                restartTitle: 'Restart required',
-                restartAppearanceDesc: 'The theme will be applied on next startup. Restart now?',
-                restartLanguageDesc: 'The language will be applied on next startup. Restart now?',
-            }
-        };
-
-        let currentLang = 'fr';
-        function t(key) { return (I18N[currentLang] || I18N.fr)[key] || key; }
-
-        function applyTranslations() {
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                const val = t(key);
-                if (el.tagName === 'OPTION') el.textContent = val;
-                else if (el.tagName === 'INPUT' && el.placeholder !== undefined) el.placeholder = val;
-                else el.textContent = val;
-            });
-            document.getElementById('url-input').placeholder = t('addressPlaceholder');
-            document.getElementById('s-custom-url-input').placeholder = t('customUrlPlaceholder');
-            document.documentElement.lang = currentLang;
-        }
-
-        // ── État global ────────────────────────────────────────────────────────────
         const webview = document.getElementById('webview');
         const emptyState = document.getElementById('empty-state');
         const indicator = document.getElementById('video-indicator');
         const indicatorTxt = document.getElementById('video-indicator-text');
-        const settingsPanel = document.getElementById('settings-panel');
-        const webviewCont = document.getElementById('webview-container');
-        let currentSettings = {};
-        const SETTINGS_TAB_ID = '__settings__';
 
-        // ── Thème ──────────────────────────────────────────────────────────────────
-        window.dualview.getTheme().then(th => document.documentElement.setAttribute('data-theme', th));
-        window.dualview.on('theme-changed', th => {
-            document.documentElement.setAttribute('data-theme', th);
-            applyWebviewTheme();
-        });
+        // ── Theme ──────────────────────────────────────────────────
+        window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
+        window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
 
-        function applyWebviewTheme() {
-            const appearance = currentSettings.appearance || 'auto';
-            if (appearance === 'auto' || !webview.getURL || webview.getURL() === 'about:blank') return;
-            const theme = document.documentElement.getAttribute('data-theme');
-            const css = theme === 'dark'
-                ? ':root{color-scheme:dark!important}'
-                : ':root{color-scheme:light!important}';
-            webview.insertCSS(css).catch(() => { });
-        }
-
-        // ── Version ────────────────────────────────────────────────────────────────
+        // ── Version ────────────────────────────────────────────────
         window.dualview.getVersion().then(v => {
             document.getElementById('version-label').textContent = 'v' + v;
         });
 
-        // ── Toast ──────────────────────────────────────────────────────────────────
-        let toastTimer = null;
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.classList.add('show');
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
-        }
-        window.dualview.on('download-blocked', (filename) => {
-            showToast(t('downloadBlocked') + (filename ? ' : ' + filename : ''));
-        });
-
-        // ── Indicateur vidéo ───────────────────────────────────────────────────────
+        // ── Indicateur video ───────────────────────────────────────
         function showIndicator(text, paused) {
             indicatorTxt.textContent = text;
             indicator.classList.toggle('paused', paused);
@@ -1076,7 +462,7 @@
         }
         function hideIndicator() { indicator.classList.remove('visible'); }
 
-        // ── Nav back/forward ───────────────────────────────────────────────────────
+        // ── Boutons navigation back/forward ────────────────────────
         const backBtn = document.getElementById('back-btn');
         const forwardBtn = document.getElementById('forward-btn');
 
@@ -1085,76 +471,32 @@
             forwardBtn.disabled = !state.canGoForward;
         }
         window.dualview.on('nav-state-changed', updateNavButtons);
-        backBtn.addEventListener('click', () => { if (!backBtn.disabled) window.dualview.navBack(); });
-        forwardBtn.addEventListener('click', () => { if (!forwardBtn.disabled) window.dualview.navForward(); });
-        window.dualview.on('webview-go-back', () => { if (webview.canGoBack && webview.canGoBack()) webview.goBack(); });
-        window.dualview.on('webview-go-forward', () => { if (webview.canGoForward && webview.canGoForward()) webview.goForward(); });
+
+        backBtn.addEventListener('click', () => {
+            if (!backBtn.disabled) window.dualview.navBack();
+        });
+        forwardBtn.addEventListener('click', () => {
+            if (!forwardBtn.disabled) window.dualview.navForward();
+        });
+
+        window.dualview.on('webview-go-back', () => {
+            if (webview.canGoBack && webview.canGoBack()) webview.goBack();
+        });
+        window.dualview.on('webview-go-forward', () => {
+            if (webview.canGoForward && webview.canGoForward()) webview.goForward();
+        });
 
         function sendNavState() {
-            window.dualview.notifyNavState({
+            const state = {
                 canGoBack: webview.canGoBack ? webview.canGoBack() : false,
                 canGoForward: webview.canGoForward ? webview.canGoForward() : false
-            });
+            };
+            window.dualview.notifyNavState(state);
         }
 
-        // ── Reload ─────────────────────────────────────────────────────────────────
-        document.getElementById('reload-btn').addEventListener('click', () => {
-            if (activeTabId === SETTINGS_TAB_ID) return;
-            if (webview.getURL && webview.getURL() !== 'about:blank') webview.reload();
-            window.dualview.reloadViews();
-        });
-
-        // ── Accueil ────────────────────────────────────────────────────────────────
-        document.getElementById('home-btn').addEventListener('click', async () => {
-            if (activeTabId === SETTINGS_TAB_ID) return;
-            const url = await window.dualview.getHomepageUrl();
-            if (url) {
-                document.getElementById('url-input').value = url;
-                navigate(url);
-            }
-        });
-
-        // ── Menu ⚙️ ────────────────────────────────────────────────────────────────
-        const gearBtn = document.getElementById('gear-btn');
-        const gearMenu = document.getElementById('gear-menu');
-
-        gearBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            gearMenu.classList.toggle('open');
-        });
-        document.addEventListener('click', () => gearMenu.classList.remove('open'));
-        gearMenu.addEventListener('click', e => e.stopPropagation());
-
-        document.getElementById('menu-resize').addEventListener('click', () => {
-            gearMenu.classList.remove('open');
-            startResizeMode();
-        });
-
-        document.getElementById('menu-settings').addEventListener('click', () => {
-            gearMenu.classList.remove('open');
-            openSettingsTab();
-        });
-
-        // ── Mode redimensionnement ─────────────────────────────────────────────────
-        const resumeBtn = document.getElementById('resume-btn');
-        function startResizeMode() {
-            resumeBtn.style.display = 'flex';
-            document.getElementById('sync-dot').classList.add('paused');
-            document.getElementById('sync-label').textContent = t('syncPaused');
-            window.dualview.pauseSync();
-        }
-        resumeBtn.addEventListener('click', () => {
-            resumeBtn.style.display = 'none';
-            document.getElementById('sync-dot').classList.remove('paused');
-            document.getElementById('sync-label').textContent = t('syncActive');
-            window.dualview.resumeSync();
-        });
-
-        // ── Onglets ────────────────────────────────────────────────────────────────
+        // ── Onglets ────────────────────────────────────────────────
         let tabs = [];
         let activeTabId = null;
-
-        function isSettingsTab(tab) { return tab && tab.id === SETTINGS_TAB_ID; }
 
         function renderTabs() {
             const bar = document.getElementById('tab-bar');
@@ -1162,17 +504,20 @@
             bar.querySelectorAll('.tab').forEach(el => el.remove());
             tabs.forEach(tab => {
                 const el = document.createElement('div');
-                el.className = 'tab' + (tab.id === activeTabId ? ' active' : '') + (isSettingsTab(tab) ? ' settings-tab' : '');
+                el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
                 el.dataset.id = tab.id;
                 const title = document.createElement('span');
                 title.className = 'tab-title';
-                title.textContent = isSettingsTab(tab) ? '⚙ ' + t('settings') : (tab.title || t('newTab'));
+                title.textContent = tab.title || 'Nouvel onglet';
                 el.appendChild(title);
-                const closeBtn = document.createElement('button');
-                closeBtn.className = 'tab-close';
-                closeBtn.innerHTML = '&times;';
-                closeBtn.addEventListener('click', e => { e.stopPropagation(); closeTab(tab.id); });
-                el.appendChild(closeBtn);
+                if (tabs.length > 1) {
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'tab-close';
+                    closeBtn.innerHTML = '&times;';
+                    closeBtn.title = 'Fermer';
+                    closeBtn.addEventListener('click', e => { e.stopPropagation(); closeTab(tab.id); });
+                    el.appendChild(closeBtn);
+                }
                 el.addEventListener('click', () => switchTab(tab.id));
                 bar.insertBefore(el, addBtn);
             });
@@ -1181,88 +526,61 @@
         function switchTab(id) {
             activeTabId = id;
             const tab = tabs.find(t => t.id === id);
-            if (!tab) return;
-
-            if (isSettingsTab(tab)) {
-                // Afficher le panneau settings, cacher le webview
-                webviewCont.style.display = 'none';
-                settingsPanel.classList.add('show');
-                document.getElementById('url-input').value = 'dualview://paramètres';
-                document.getElementById('url-input').classList.add('settings-url');
-                document.getElementById('go-btn').disabled = true;
-                updateNavButtons({ canGoBack: false, canGoForward: false });
-            } else {
-                webviewCont.style.display = 'flex';
-                settingsPanel.classList.remove('show');
-                document.getElementById('url-input').classList.remove('settings-url');
-                document.getElementById('go-btn').disabled = false;
+            if (tab) {
                 document.getElementById('url-input').value = tab.url || '';
-                if (tab.url) {
-                    loadUrl(tab.url);
-                    window.dualview.navigate(tab.url);
-                } else {
-                    webview.style.display = 'none';
-                    emptyState.style.display = 'flex';
-                }
-                updateNavButtons({ canGoBack: false, canGoForward: false });
+                if (tab.url) window.dualview.navigate(tab.url);
             }
+            updateNavButtons({ canGoBack: false, canGoForward: false });
             renderTabs();
             saveTabs();
         }
 
-        function openSettingsTab() {
-            const existing = tabs.find(t => t.id === SETTINGS_TAB_ID);
-            if (existing) { switchTab(SETTINGS_TAB_ID); return; }
-            tabs.push({ id: SETTINGS_TAB_ID, title: 'Paramètres', url: 'dualview://settings' });
-            switchTab(SETTINGS_TAB_ID);
-        }
-
         function addTab() {
             const id = 'tab-' + Date.now();
-            const url = getNewTabUrl();
-            tabs.push({ id, title: url ? '' : t('newTab'), url });
+            tabs.push({ id, title: 'Nouvel onglet', url: '' });
             switchTab(id);
-            if (url) navigate(url);
-        }
-
-        function getNewTabUrl() {
-            const mode = currentSettings.newTabMode || 'homepage';
-            if (mode === 'empty') return '';
-            const hp = currentSettings.homepageMode || 'knack3';
-            if (hp === 'empty') return '';
-            if (hp === 'custom') return currentSettings.customHomepageUrl || '';
-            return 'https://marketplace.atlassian.com/vendors/920480808/';
         }
 
         function closeTab(id) {
             if (tabs.length <= 1) return;
             const idx = tabs.findIndex(t => t.id === id);
             tabs = tabs.filter(t => t.id !== id);
-            if (activeTabId === id) switchTab(tabs[Math.max(0, idx - 1)].id);
-            else { renderTabs(); saveTabs(); }
+            if (activeTabId === id) {
+                switchTab(tabs[Math.max(0, idx - 1)].id);
+            } else {
+                renderTabs(); saveTabs();
+            }
         }
 
         function saveTabs() {
-            const persistTabs = tabs.filter(t => t.id !== SETTINGS_TAB_ID);
-            window.dualview.saveTabs({ tabs: persistTabs.length ? persistTabs : tabs, activeTabId });
+            window.dualview.saveTabs({ tabs, activeTabId });
         }
+
+        window.dualview.getStore().then(({ tabs: st, activeTabId: sa }) => {
+            tabs = (st && st.length > 0) ? st : [{ id: 'tab-1', title: 'Onglet 1', url: '' }];
+            activeTabId = sa || tabs[0].id;
+            const active = tabs.find(t => t.id === activeTabId);
+            if (active) {
+                document.getElementById('url-input').value = active.url || '';
+                if (active.url) window.dualview.navigate(active.url);
+            }
+            renderTabs();
+        });
 
         document.getElementById('add-tab-btn').addEventListener('click', addTab);
 
-        // ── Navigation URL ─────────────────────────────────────────────────────────
-        function navigate(rawUrl) {
-            if (!rawUrl) return;
-            let url = rawUrl.trim();
-            if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://')) {
-                url = 'https://' + url;
-            }
+        // ── Navigation URL ─────────────────────────────────────────
+        function navigate() {
+            let url = document.getElementById('url-input').value.trim();
+            if (!url) return;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
             document.getElementById('url-input').value = url;
             const tab = tabs.find(t => t.id === activeTabId);
-            if (tab && !isSettingsTab(tab)) {
+            if (tab) {
                 tab.url = url;
                 try {
                     const host = new URL(url).hostname.replace('www.', '');
-                    tab.title = host.length > 18 ? host.slice(0, 18) + '...' : host;
+                    tab.title = host.length > 16 ? host.slice(0, 16) + '...' : host;
                 } catch { tab.title = url.slice(0, 20); }
                 renderTabs(); saveTabs();
             }
@@ -1270,352 +588,122 @@
             window.dualview.navigate(url);
         }
 
-        document.getElementById('go-btn').addEventListener('click', () => {
-            if (activeTabId !== SETTINGS_TAB_ID) navigate(document.getElementById('url-input').value);
-        });
+        document.getElementById('go-btn').addEventListener('click', navigate);
         document.getElementById('url-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter' && activeTabId !== SETTINGS_TAB_ID) navigate(document.getElementById('url-input').value);
+            if (e.key === 'Enter') navigate();
         });
 
+        // ── Redimensionnement portrait (Option C) ──────────────────
+        // ↔ : active resizable sur portraitWin (via main)
+        // ✅ : desactive resizable sur portraitWin (via main)
+        document.getElementById('resize-btn').addEventListener('click', () => {
+            document.getElementById('resize-btn').style.display = 'none';
+            document.getElementById('resume-btn').style.display = 'flex';
+            document.getElementById('sync-dot').classList.add('paused');
+            document.getElementById('sync-label').textContent = 'Redimensionnez Portrait';
+            window.dualview.pauseSync();
+        });
+        document.getElementById('resume-btn').addEventListener('click', () => {
+            document.getElementById('resume-btn').style.display = 'none';
+            document.getElementById('resize-btn').style.display = 'flex';
+            document.getElementById('sync-dot').classList.remove('paused');
+            document.getElementById('sync-label').textContent = 'Synchronisation active';
+            window.dualview.resumeSync();
+        });
+
+        // Mise a jour barre d'adresse depuis navigation in-page
         window.dualview.on('update-addressbar', url => {
             document.getElementById('url-input').value = url;
             const tab = tabs.find(t => t.id === activeTabId);
-            if (tab && !isSettingsTab(tab)) {
+            if (tab) {
                 tab.url = url;
                 try {
                     const host = new URL(url).hostname.replace('www.', '');
-                    tab.title = host.length > 18 ? host.slice(0, 18) + '...' : host;
+                    tab.title = host.length > 16 ? host.slice(0, 16) + '...' : host;
                 } catch { tab.title = url.slice(0, 20); }
                 renderTabs(); saveTabs();
             }
         });
 
-        // ── Chargement URL dans le webview ─────────────────────────────────────────
-        function loadUrl(url) {
-            if (!url || url === 'about:blank') {
-                webview.style.display = 'none'; emptyState.style.display = 'flex'; hideIndicator(); return;
-            }
-            emptyState.style.display = 'none'; webview.style.display = 'flex';
-            webview.src = url;
-        }
-        window.dualview.on('load-url', loadUrl);
-
-        // ── Paramètres ─────────────────────────────────────────────────────────────
-        function loadSettingsUI(s) {
-            currentSettings = s;
-            currentLang = s.language || 'fr';
-            document.getElementById('s-restore').checked = s.restoreTabs !== false;
-            document.getElementById('s-homepage').value = s.homepageMode || 'knack3';
-            document.getElementById('s-newtab').value = s.newTabMode || 'homepage';
-            document.getElementById('s-appearance').value = s.appearance || 'auto';
-            document.getElementById('s-language').value = s.language || 'fr';
-            if (s.customHomepageUrl) document.getElementById('s-custom-url-input').value = s.customHomepageUrl;
-            toggleCustomUrl(s.homepageMode === 'custom');
-            applyTranslations();
-        }
-
-        function toggleCustomUrl(show) {
-            document.getElementById('s-custom-url').classList.toggle('show', show);
-        }
-
-        function saveCurrentSettings() {
-            window.dualview.saveSettings(currentSettings);
-        }
-
-        // Homepage selector
-        document.getElementById('s-homepage').addEventListener('change', e => {
-            currentSettings.homepageMode = e.target.value;
-            toggleCustomUrl(e.target.value === 'custom');
-            if (e.target.value !== 'custom') saveCurrentSettings();
-        });
-
-        // Custom URL validate
-        document.getElementById('s-validate-url').addEventListener('click', () => {
-            const raw = document.getElementById('s-custom-url-input').value.trim();
-            const msg = document.getElementById('s-url-msg');
-
-            // Ajouter https:// si aucun protocole
-            let url = raw;
-            if (url && !/^https?:\/\//i.test(url) && !/^file:\/\//i.test(url)) {
-                url = 'https://' + url;
-            }
-
-            // Valider séparément de l'affichage (évite que le catch intercepte des erreurs DOM)
-            let isValid = false;
-            try {
-                const parsed = new URL(url);
-                isValid = ['http:', 'https:'].includes(parsed.protocol);
-            } catch { isValid = false; }
-
-            if (isValid) {
-                currentSettings.customHomepageUrl = url;
-                document.getElementById('s-custom-url-input').value = url;
-                msg.textContent = t('urlValid');
-                msg.className = 's-msg show ok';
-                saveCurrentSettings();
-                setTimeout(() => msg.classList.remove('show'), 3000);
-            } else {
-                msg.textContent = t('urlInvalid');
-                msg.className = 's-msg show err';
-            }
-        });
-
-        document.getElementById('s-newtab').addEventListener('change', e => {
-            currentSettings.newTabMode = e.target.value; saveCurrentSettings();
-        });
-        document.getElementById('s-restore').addEventListener('change', e => {
-            currentSettings.restoreTabs = e.target.checked; saveCurrentSettings();
-        });
-
-        // Apparence et Langue : dialog redémarrage
-        let restartPendingSave = null; // fonction à appeler si l'utilisateur confirme
-        let restartRevertFn = null; // fonction à appeler si l'utilisateur annule
-
-        function showRestartDialog(titleKey, descKey, onConfirm, onCancel) {
-            document.getElementById('restart-title').textContent = t(titleKey);
-            document.getElementById('restart-desc').textContent = t(descKey);
-            restartPendingSave = onConfirm;
-            restartRevertFn = onCancel;
-            document.getElementById('restart-dialog').classList.add('show');
-        }
-
-        document.getElementById('restart-confirm').addEventListener('click', () => {
-            document.getElementById('restart-dialog').classList.remove('show');
-            if (restartPendingSave) restartPendingSave();
-            window.dualview.relaunchApp();
-        });
-        document.getElementById('restart-cancel').addEventListener('click', () => {
-            document.getElementById('restart-dialog').classList.remove('show');
-            if (restartRevertFn) restartRevertFn();
-            restartPendingSave = null;
-            restartRevertFn = null;
-        });
-
-        document.getElementById('s-appearance').addEventListener('change', e => {
-            const newVal = e.target.value;
-            const prevVal = currentSettings.appearance || 'auto';
-            currentSettings.appearance = newVal;
-            saveCurrentSettings();
-            showRestartDialog(
-                'restartTitle', 'restartAppearanceDesc',
-                () => { }, // relaunch est appelé par restart-confirm
-                () => {
-                    // Annuler : remettre l'ancienne valeur
-                    currentSettings.appearance = prevVal;
-                    document.getElementById('s-appearance').value = prevVal;
-                    saveCurrentSettings();
-                }
-            );
-        });
-
-        document.getElementById('s-language').addEventListener('change', e => {
-            const newVal = e.target.value;
-            const prevVal = currentSettings.language || 'fr';
-            currentSettings.language = newVal;
-            saveCurrentSettings();
-            showRestartDialog(
-                'restartTitle', 'restartLanguageDesc',
-                () => { },
-                () => {
-                    currentSettings.language = prevVal;
-                    document.getElementById('s-language').value = prevVal;
-                    saveCurrentSettings();
-                }
-            );
-        });
-
-        // Navigation sidebar paramètres
-        document.querySelectorAll('.s-nav').forEach(nav => {
-            nav.addEventListener('click', () => {
-                document.querySelectorAll('.s-nav').forEach(n => n.classList.remove('active'));
-                document.querySelectorAll('.s-section').forEach(s => s.classList.remove('active'));
-                nav.classList.add('active');
-                document.getElementById('section-' + nav.dataset.section).classList.add('active');
-            });
-        });
-
-        // ── Initialisation ─────────────────────────────────────────────────────────
-        window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings }) => {
-            loadSettingsUI(settings || {});
-
-            const restore = settings && settings.restoreTabs !== false;
-            let initTabs, initActiveId;
-
-            if (restore && st && st.length > 0) {
-                initTabs = st;
-                initActiveId = sa || st[0].id;
-            } else {
-                const homepageUrl = getNewTabUrl();
-                initTabs = [{ id: 'tab-1', title: homepageUrl ? '' : t('newTab'), url: homepageUrl }];
-                initActiveId = 'tab-1';
-            }
-
-            tabs = initTabs;
-            activeTabId = initActiveId;
-            const active = tabs.find(t => t.id === activeTabId);
-            if (active && active.url) {
-                document.getElementById('url-input').value = active.url;
-                window.dualview.navigate(active.url);
-            }
-            renderTabs();
-
-            // Si le dernier onglet actif était settings, ne pas le restaurer (settings n'est pas persisté)
-            if (activeTabId === SETTINGS_TAB_ID) {
-                switchTab(tabs.find(t => t.id !== SETTINGS_TAB_ID)?.id || tabs[0].id);
-            }
-        });
-
-        // ── Scripts vidéo ──────────────────────────────────────────────────────────
+        // ── Script detecteur video ─────────────────────────────────
         const VIDEO_WATCHER_SCRIPT = `
 (function() {
-          if (window.__dualviewVideoWatcher) return;
-          window.__dualviewVideoWatcher = true;
-          window.__dualviewVideoState = { playing:false, currentTime:0, platform:'generic', hasVideo:false };
-          function detectPlatform() {
-            const h = location.hostname;
-            if (h.includes('youtube.com'))   return 'youtube';
-            if (h.includes('tiktok.com'))    return 'tiktok';
-            if (h.includes('instagram.com')) return 'instagram';
-            return 'generic';
-          }
-          function getSelectors(p) {
-            if (p==='youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
-            if (p==='tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
-            if (p==='instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
-            return ['video'];
-          }
-          function findBestVideo(sels) {
-            for (const s of sels) {
-              const list = Array.from(document.querySelectorAll(s)).filter(v=>{const r=v.getBoundingClientRect();return r.width>100&&r.height>100;});
-              if (list.length>0){list.sort((a,b)=>{const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();return(rb.width*rb.height)-(ra.width*ra.height);});return list[0];}
-            }
-            return null;
-          }
-          const platform=detectPlatform(), sels=getSelectors(platform);
-          let videoEl=null, attempts=0;
-          function attach(video) {
-            if (video.__dualviewAttached) return;
-            video.__dualviewAttached=true; videoEl=video;
-            window.__dualviewVideoState={hasVideo:true,platform,playing:!video.paused,currentTime:video.currentTime};
-            video.addEventListener('play',  ()=>{ window.__dualviewVideoState.playing=true;  window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'play', time:video.currentTime,platform}; });
-            video.addEventListener('pause', ()=>{ window.__dualviewVideoState.playing=false; window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'pause',time:video.currentTime,platform}; });
-            video.addEventListener('seeked',()=>{ window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'seek',time:video.currentTime,platform}; });
-          }
-          const findInt=setInterval(()=>{
-            attempts++;
-            const v=findBestVideo(sels);
-            if (v){attach(v);clearInterval(findInt);}
-            else if(attempts>=60)clearInterval(findInt);
-            if(videoEl&&!document.contains(videoEl)){const nv=findBestVideo(sels);if(nv){videoEl.__dualviewAttached=false;attach(nv);}}
-          },500);
-          new MutationObserver(()=>{if(!videoEl||!document.contains(videoEl)){const v=findBestVideo(sels);if(v)attach(v);}})
-            .observe(document.body,{childList:true,subtree:true});
-          true;
+      if (window.__dualviewVideoWatcher) return;
+      window.__dualviewVideoWatcher = true;
+      window.__dualviewVideoState = { playing:false, currentTime:0, platform:'generic', hasVideo:false };
+      function detectPlatform() {
+        const h = location.hostname;
+        if (h.includes('youtube.com'))   return 'youtube';
+        if (h.includes('tiktok.com'))    return 'tiktok';
+        if (h.includes('instagram.com')) return 'instagram';
+        return 'generic';
+      }
+      function getSelectors(p) {
+        if (p==='youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+        if (p==='tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
+        if (p==='instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
+        return ['video'];
+      }
+      function findBestVideo(sels) {
+        for (const s of sels) {
+          const list = Array.from(document.querySelectorAll(s)).filter(v=>{const r=v.getBoundingClientRect();return r.width>100&&r.height>100;});
+          if (list.length>0){list.sort((a,b)=>{const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();return(rb.width*rb.height)-(ra.width*ra.height);});return list[0];}
+        }
+        return null;
+      }
+      const platform=detectPlatform(), sels=getSelectors(platform);
+      let videoEl=null, attempts=0;
+      function attach(video) {
+        if (video.__dualviewAttached) return;
+        video.__dualviewAttached=true; videoEl=video;
+        window.__dualviewVideoState={hasVideo:true,platform,playing:!video.paused,currentTime:video.currentTime};
+        video.addEventListener('play',  ()=>{ window.__dualviewVideoState.playing=true;  window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'play', time:video.currentTime,platform}; });
+        video.addEventListener('pause', ()=>{ window.__dualviewVideoState.playing=false; window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'pause',time:video.currentTime,platform}; });
+        video.addEventListener('seeked',()=>{ window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'seek',time:video.currentTime,platform}; });
+      }
+      const findInt=setInterval(()=>{
+        attempts++;
+        const v=findBestVideo(sels);
+        if (v){attach(v);clearInterval(findInt);}
+        else if(attempts>=60)clearInterval(findInt);
+        if(videoEl&&!document.contains(videoEl)){const nv=findBestVideo(sels);if(nv){videoEl.__dualviewAttached=false;attach(nv);}}
+      },500);
+      new MutationObserver(()=>{if(!videoEl||!document.contains(videoEl)){const v=findBestVideo(sels);if(v)attach(v);}})
+        .observe(document.body,{childList:true,subtree:true});
+      true;
 })();`;
 
-        // ── Script bloqueur YouTube pre-rolls (Option B) ───────────────────────────
-        // Injecté dans le webview Paysage à chaque page YouTube.
-        // Combine trois mécanismes :
-        //   1. Auto-click du bouton "Ignorer l'annonce" dès qu'il est disponible
-        //   2. Fast-forward forcé sur les pubs non skippables (video.currentTime = duration)
-        //   3. Masquage CSS des display ads, overlays et bandeaux sponsored
-        const YOUTUBE_AD_SKIP_SCRIPT = `
-(function() {
-        if (window.__dualviewAdSkipper) return;
-        window.__dualviewAdSkipper = true;
-
-        if (!location.hostname.includes('youtube.com')) return;
-
-        function trySkipAd() {
-            const player = document.querySelector('#movie_player');
-            if (!player || !player.classList.contains('ad-showing')) return;
-
-            // Cas 1 : bouton "Ignorer l'annonce" visible → cliquer
-            const skipBtn = document.querySelector(
-                '.ytp-skip-ad-button, .ytp-skip-ad-button__container, ' +
-                '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, ' +
-                '[class*="skip-ad"], [class*="skip-button"]'
-            );
-            if (skipBtn && skipBtn.offsetParent !== null) {
-                skipBtn.click();
-                return;
-            }
-
-            // Cas 2 : pub non skippable → avancer à la fin pour la forcer à se terminer
-            const video = player.querySelector('video');
-            if (video && isFinite(video.duration) && video.duration > 0) {
-                video.currentTime = video.duration;
-            }
-        }
-
-        function hideDisplayAds() {
-            const sel = [
-                '.ytp-ad-overlay-container',
-                '.ytp-ad-text-overlay',
-                '.ytp-ad-image-overlay',
-                '.ytp-suggested-action',
-                '#player-ads',
-                '#masthead-ad',
-                'ytd-action-companion-ad-renderer',
-                'ytd-display-ad-renderer',
-                'ytd-banner-promo-renderer',
-                'ytd-in-feed-ad-layout-renderer',
-                'ytd-promoted-sparkles-web-renderer',
-                'ytd-statement-banner-renderer',
-                'ytd-rich-item-renderer[data-is-ad-item]',
-            ].join(',');
-
-            document.querySelectorAll(sel).forEach(el => {
-                el.style.setProperty('display', 'none', 'important');
-            });
-        }
-
-        const intervalId = setInterval(() => {
-            trySkipAd();
-            hideDisplayAds();
-        }, 300);
-
-        // Nettoyage lors du déchargement de la page
-        window.addEventListener('beforeunload', () => clearInterval(intervalId), { once: true });
-
-        true;
-})();
-`;
-
-        function injectAdSkipper() {
-            if (!webview.getURL || !webview.getURL().includes('youtube.com')) return;
-            // Réinitialiser le flag avant injection pour garantir l'exécution
-            webview.executeJavaScript('window.__dualviewAdSkipper = false; true;')
-                .then(() => webview.executeJavaScript(YOUTUBE_AD_SKIP_SCRIPT))
-                .catch(() => { });
-        }
-
+        let lastVideoEvent = null, lastTimeSyncAt = 0;
+        const TIME_SYNC_MS = 5000;
 
         function pollVideoState() {
             if (!webview.getURL || webview.getURL() === 'about:blank') return;
-            webview.executeJavaScript('window.__dualviewVideoEvent||null').then(evt => {
-                if (!evt) return;
-                const key = evt.type + '_' + Math.round(evt.time * 10);
-                if (key === lastVideoEvent) return;
-                lastVideoEvent = key;
-                webview.executeJavaScript('window.__dualviewVideoEvent=null;true;').catch(() => { });
-                if (evt.type === 'play') { showIndicator('Lecture (' + evt.platform + ')', false); window.dualview.sendVideoPlay(evt.time); }
-                if (evt.type === 'pause') { showIndicator('Pause (' + evt.platform + ')', true); window.dualview.sendVideoPause(evt.time); }
-                if (evt.type === 'seek') { window.dualview.sendVideoPlay(evt.time); }
-            }).catch(() => { });
-            const now = Date.now();
-            if (now - lastTimeSyncAt >= 5000) {
-                lastTimeSyncAt = now;
-                webview.executeJavaScript('window.__dualviewVideoState||null').then(s => {
-                    if (s && s.hasVideo && s.playing) showIndicator('Lecture (' + s.platform + ')', false);
-                    else if (s && s.hasVideo) showIndicator('Pause (' + s.platform + ')', true);
-                    else hideIndicator();
-                    if (s && s.hasVideo && s.playing) window.dualview.sendVideoTimeUpdate(s.currentTime);
+            webview.executeJavaScript('window.__dualviewVideoEvent||null')
+                .then(evt => {
+                    if (!evt) return;
+                    const key = evt.type + '_' + Math.round(evt.time * 10);
+                    if (key === lastVideoEvent) return;
+                    lastVideoEvent = key;
+                    webview.executeJavaScript('window.__dualviewVideoEvent=null;true;').catch(() => { });
+                    if (evt.type === 'play') { showIndicator('Lecture (' + evt.platform + ')', false); window.dualview.sendVideoPlay(evt.time); }
+                    if (evt.type === 'pause') { showIndicator('Pause (' + evt.platform + ')', true); window.dualview.sendVideoPause(evt.time); }
+                    if (evt.type === 'seek') { window.dualview.sendVideoPlay(evt.time); }
                 }).catch(() => { });
+            const now = Date.now();
+            if (now - lastTimeSyncAt >= TIME_SYNC_MS) {
+                lastTimeSyncAt = now;
+                webview.executeJavaScript('window.__dualviewVideoState||null')
+                    .then(s => {
+                        if (s && s.hasVideo && s.playing) showIndicator('Lecture (' + s.platform + ')', false);
+                        else if (s && s.hasVideo) showIndicator('Pause (' + s.platform + ')', true);
+                        else hideIndicator();
+                        if (s && s.hasVideo && s.playing) window.dualview.sendVideoTimeUpdate(s.currentTime);
+                    }).catch(() => { });
             }
         }
         setInterval(pollVideoState, 150);
 
+        // ── Scroll ─────────────────────────────────────────────────
         const SCROLL_INJECT = `
 (function(){
           if(window.__dualviewScrollWatcher)return;
@@ -1637,29 +725,36 @@
                 .catch(() => { });
         }, 100);
 
-        // ── Événements webview ─────────────────────────────────────────────────────
+        // ── Chargement URL ─────────────────────────────────────────
+        function loadUrl(url) {
+            if (!url || url === 'about:blank') {
+                webview.style.display = 'none'; emptyState.style.display = 'flex'; hideIndicator(); return;
+            }
+            emptyState.style.display = 'none'; webview.style.display = 'flex';
+            webview.src = url;
+        }
+        window.dualview.on('load-url', loadUrl);
+
+        // FIX v0.2.3 : reset flags watcher sur navigation
         function resetWatcherFlags() {
             webview.executeJavaScript(
-                'window.__dualviewVideoWatcher=false;' +
-                'window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};' +
-                'window.__dualviewVideoEvent=null;' +
-                'window.__dualviewAdSkipper=false;' +
-                'true;'
+                'window.__dualviewVideoWatcher=false;window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};window.__dualviewVideoEvent=null;true;'
             ).catch(() => { });
         }
         function injectWatcher() { webview.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(() => { }); }
 
         webview.addEventListener('dom-ready', () => {
             lastVideoEvent = null; lastTimeSyncAt = 0; hideIndicator();
-            resetWatcherFlags(); injectWatcher();
+            resetWatcherFlags();
+            injectWatcher();
             webview.executeJavaScript(SCROLL_INJECT).catch(() => { });
             injectAdSkipper();
             setTimeout(injectWatcher, 2000);
             setTimeout(injectWatcher, 5000);
             setTimeout(injectAdSkipper, 2500);
             sendNavState();
-            applyWebviewTheme();
         });
+
         webview.addEventListener('did-navigate', (e) => {
             lastVideoEvent = null; lastTimeSyncAt = 0; hideIndicator();
             resetWatcherFlags();

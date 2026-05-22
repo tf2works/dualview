@@ -1,6 +1,6 @@
 {
     "name": "dualview",
-    "version": "0.3.0",
+    "version": "0.2.6",
     "description": "Affichage dual paysage/portrait synchronise pour OBS",
     "main": "src/main.js",
     "author": "DualView",

@@ -7,7 +7,6 @@
         :root {
             --bg: #f8f8f8;
             --fg: #1a1a1a;
-            --label-bg: rgba(0,0,0,0.55);
             --resize-overlay: rgba(230,126,0,0.12);
             --resize-border: #e67e00;
         }
@@ -20,7 +19,7 @@
         * {
             box-sizing: border-box;
             margin: 0;
-            padding: 0;
+            padding: 0
         }
 
         body {
@@ -64,19 +63,30 @@
             pointer-events: none;
         }
 
-
         #webview-container {
             flex: 1;
             position: relative;
             overflow: hidden;
         }
 
-        webview {
+        /*
+         * Pool de webviews portrait.
+         * Même logique que landscape :
+         *   display:none  → inactive (contenu vivant en mémoire)
+         *   display:flex  → active et visible
+         */
+        .wv-portrait {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
-            display: flex;
             border: none;
+            display: none;
         }
+
+            .wv-portrait.active {
+                display: flex;
+            }
 
         #empty-state {
             position: absolute;
@@ -120,200 +130,293 @@
         <div id="empty-state">
             <div class="icon">&#128241;</div>
             <div class="text">Vue Portrait (Mobile)</div>
-            <div class="sub">Entrez une URL dans la fenetre de controle</div>
+            <div class="sub">Entrez une URL dans la fenêtre de contrôle</div>
         </div>
-        <webview id="webview"
-                 src="about:blank"
-                 useragent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-                 allowpopups
-                 style="display:none;"></webview>
+        <!-- Les webviews sont créées dynamiquement par le JS (pool) -->
     </div>
 
     <script>
-        const webview = document.getElementById('webview');
+        // ── Constantes ─────────────────────────────────────────────────────────────────
+        const UA_MOBILE = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+
+        // ── Références DOM ─────────────────────────────────────────────────────────────
+        const webviewCont = document.getElementById('webview-container');
         const emptyState = document.getElementById('empty-state');
 
-        // ── Theme ─────────────────────────────────────────────
+        // ── État ───────────────────────────────────────────────────────────────────────
+        // Map<tabId, HTMLWebViewElement>
+        const webviewPool = new Map();
+        let activeTabId = null;
+
+        // ── Script exécuteur vidéo (injecté dans chaque webview portrait) ──────────────
+        const VIDEO_EXECUTOR_SCRIPT = `
+(function() {
+        if (window.__dualviewExecutorReady) return;
+        window.__dualviewExecutorReady = true;
+        window.__dualviewPendingCmd = null;
+
+        function detectPlatform() {
+            const host = location.hostname;
+            if (host.includes('youtube.com'))   return 'youtube';
+            if (host.includes('tiktok.com'))    return 'tiktok';
+            if (host.includes('instagram.com')) return 'instagram';
+            return 'generic';
+        }
+        function getVideoSelectors(platform) {
+            switch (platform) {
+                case 'youtube':   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+                case 'tiktok':    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
+                case 'instagram': return ['video[playsinline]','article video','[role="presentation"] video','video'];
+                default:          return ['video'];
+            }
+        }
+        function findBestVideo(selectors) {
+            for (const sel of selectors) {
+                const videos = Array.from(document.querySelectorAll(sel));
+                const visible = videos.filter(v => {
+                    const r = v.getBoundingClientRect();
+                    return r.width > 100 && r.height > 100;
+                });
+                if (visible.length > 0) {
+                    visible.sort((a,b) => {
+                        const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
+                        return (rb.width*rb.height)-(ra.width*ra.height);
+                    });
+                    return visible[0];
+                }
+            }
+            return null;
+        }
+
+        const platform  = detectPlatform();
+        const selectors = getVideoSelectors(platform);
+
+        window.__dualviewApplyCmd = function(cmd) {
+            const video = findBestVideo(selectors);
+            if (!video) { window.__dualviewPendingCmd = cmd; return false; }
+
+            if (cmd.action === 'pause') {
+                video.pause();
+                if (Math.abs(video.currentTime - cmd.currentTime) > 3) video.currentTime = cmd.currentTime;
+            } else if (cmd.action === 'play') {
+                if (Math.abs(video.currentTime - cmd.currentTime) > 3) video.currentTime = cmd.currentTime;
+                const p = video.play(); if (p && p.catch) p.catch(()=>{});
+            } else if (cmd.action === 'seek') {
+                if (Math.abs(video.currentTime - cmd.currentTime) > 5) {
+                    video.currentTime = cmd.currentTime;
+                    if (!video.paused) { const p = video.play(); if (p && p.catch) p.catch(()=>{}); }
+                }
+            }
+            return true;
+        };
+
+        const observer = new MutationObserver(function() {
+            if (window.__dualviewPendingCmd) {
+                const ok = window.__dualviewApplyCmd(window.__dualviewPendingCmd);
+                if (ok) window.__dualviewPendingCmd = null;
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        true;
+})();`;
+
+        // ── Pool de webviews ───────────────────────────────────────────────────────────
+
+        /**
+         * Crée une webview portrait pour un onglet donné.
+         * Cachée par défaut, activée seulement lors du switch.
+         */
+        function createWebview(tabId, url) {
+            if (webviewPool.has(tabId)) return webviewPool.get(tabId);
+
+            const wv = document.createElement('webview');
+            wv.setAttribute('useragent', UA_MOBILE);
+            wv.setAttribute('allowpopups', '');
+            wv.className = 'wv-portrait';
+            wv.dataset.tabId = tabId;
+            wv.src = url || 'about:blank';
+
+            attachWebviewListeners(wv, tabId);
+
+            webviewCont.appendChild(wv);
+            webviewPool.set(tabId, wv);
+            return wv;
+        }
+
+        /**
+         * Détruit la webview d'un onglet fermé.
+         * Aucune confirmation — comportement navigateur standard.
+         */
+        function destroyWebview(tabId) {
+            const wv = webviewPool.get(tabId);
+            if (!wv) return;
+            try { wv.stop(); } catch (_) { }
+            wv.remove();
+            webviewPool.delete(tabId);
+        }
+
+        /**
+         * Active la webview de l'onglet cible, cache les autres.
+         */
+        function showWebview(tabId) {
+            webviewPool.forEach((wv, id) => {
+                wv.classList.toggle('active', id === tabId);
+            });
+            const wv = webviewPool.get(tabId);
+            const hasUrl = wv && wv.src && wv.src !== 'about:blank';
+            emptyState.style.display = hasUrl ? 'none' : 'flex';
+        }
+
+        function getActiveWebview() {
+            return webviewPool.get(activeTabId) || null;
+        }
+
+        // ── Injection du script exécuteur dans une webview ────────────────────────────
+        function injectExecutor(wv) {
+            wv.executeJavaScript('window.__dualviewExecutorReady = false; true;')
+                .then(() => wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT))
+                .catch(() => { });
+        }
+
+        function attachWebviewListeners(wv, tabId) {
+            wv.addEventListener('did-navigate', () => {
+                wv.executeJavaScript(
+                    'window.__dualviewExecutorReady = false; window.__dualviewPendingCmd = null; true;'
+                ).catch(() => { });
+            });
+
+            wv.addEventListener('did-navigate-in-page', () => {
+                wv.executeJavaScript(
+                    'window.__dualviewExecutorReady = false; window.__dualviewPendingCmd = null; true;'
+                ).catch(() => { });
+            });
+
+            wv.addEventListener('dom-ready', () => {
+                injectExecutor(wv);
+                setTimeout(() => injectExecutor(wv), 2000);
+            });
+        }
+
+        // ── Thème ──────────────────────────────────────────────────────────────────────
         window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
         window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
 
-        // ── Nav back/forward ───────────────────────────────────
-        window.dualview.on('webview-go-back', () => {
-            if (webview.canGoBack && webview.canGoBack()) webview.goBack();
-        });
-        window.dualview.on('webview-go-forward', () => {
-            if (webview.canGoForward && webview.canGoForward()) webview.goForward();
-        });
+        // ── Channels IPC : gestion du pool d'onglets ──────────────────────────────────
 
-        // ── Mode redimensionnement ────────────────────────────
-        window.dualview.on('resize-mode', active => {
-            document.body.classList.toggle('resize-mode', active);
-        });
-
-        // ── Script executeur video injecte dans la webview portrait ──
-        // Compatible YouTube, TikTok, Instagram, generique
-        const VIDEO_EXECUTOR_SCRIPT = `
-(function() {
-      if (window.__dualviewExecutorReady) return;
-      window.__dualviewExecutorReady = true;
-      window.__dualviewPendingCmd = null;
-
-      function detectPlatform() {
-        const host = location.hostname;
-        if (host.includes('youtube.com'))   return 'youtube';
-        if (host.includes('tiktok.com'))    return 'tiktok';
-        if (host.includes('instagram.com')) return 'instagram';
-        return 'generic';
-      }
-
-      function getVideoSelectors(platform) {
-        switch (platform) {
-          case 'youtube':
-            return ['video.html5-main-video', '#movie_player video', 'ytd-player video', 'video'];
-          case 'tiktok':
-            return ['video[class*="video"]', '.video-player video', '[class*="player"] video', 'video'];
-          case 'instagram':
-            return ['video[playsinline]', 'article video', '[role="presentation"] video', 'video'];
-          default:
-            return ['video'];
-        }
-      }
-
-      function findBestVideo(selectors) {
-        for (const sel of selectors) {
-          const videos = Array.from(document.querySelectorAll(sel));
-          const visible = videos.filter(v => {
-            const r = v.getBoundingClientRect();
-            return r.width > 100 && r.height > 100;
-          });
-          if (visible.length > 0) {
-            visible.sort((a, b) => {
-              const ra = a.getBoundingClientRect();
-              const rb = b.getBoundingClientRect();
-              return (rb.width * rb.height) - (ra.width * ra.height);
-            });
-            return visible[0];
-          }
-        }
-        return null;
-      }
-
-      const platform  = detectPlatform();
-      const selectors = getVideoSelectors(platform);
-
-      window.__dualviewApplyCmd = function(cmd) {
-        const video = findBestVideo(selectors);
-        if (!video) {
-          window.__dualviewPendingCmd = cmd;
-          return false;
-        }
-
-        if (cmd.action === 'pause') {
-          video.pause();
-          // Sync le currentTime si l'ecart est > 3s
-          if (Math.abs(video.currentTime - cmd.currentTime) > 3) {
-            video.currentTime = cmd.currentTime;
-          }
-        } else if (cmd.action === 'play') {
-          // Sync le currentTime si l'ecart est > 3s
-          if (Math.abs(video.currentTime - cmd.currentTime) > 3) {
-            video.currentTime = cmd.currentTime;
-          }
-          const p = video.play();
-          if (p && p.catch) p.catch(() => {});
-        } else if (cmd.action === 'seek') {
-          // Sync periodique: corriger seulement si derive > 5s
-          if (Math.abs(video.currentTime - cmd.currentTime) > 5) {
-            video.currentTime = cmd.currentTime;
-            if (!video.paused) {
-              const p = video.play();
-              if (p && p.catch) p.catch(() => {});
+        /**
+         * tab-created : landscape vient de créer un nouvel onglet.
+         * On crée la webview miroir portrait (cachée).
+         */
+        window.dualview.on('tab-created', ({ tabId, url }) => {
+            if (!webviewPool.has(tabId)) {
+                createWebview(tabId, url || '');
             }
-          }
-        }
-        return true;
-      };
+        });
 
-      // Appliquer les commandes en attente si la video se charge
-      const observer = new MutationObserver(function() {
-        if (window.__dualviewPendingCmd) {
-          const ok = window.__dualviewApplyCmd(window.__dualviewPendingCmd);
-          if (ok) window.__dualviewPendingCmd = null;
-        }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
+        /**
+         * tab-switched : l'utilisateur a cliqué sur un onglet dans landscape.
+         * On affiche la webview portrait correspondante sans recharger.
+         */
+        window.dualview.on('tab-switched', tabId => {
+            activeTabId = tabId;
+            if (!webviewPool.has(tabId)) {
+                // Cas de secours : la webview n'existe pas encore (ne devrait pas arriver)
+                createWebview(tabId, '');
+            }
+            showWebview(tabId);
+        });
 
-      true;
-})();
-`;
+        /**
+         * tab-closed : un onglet a été fermé dans landscape.
+         * On détruit la webview portrait immédiatement.
+         */
+        window.dualview.on('tab-closed', tabId => {
+            destroyWebview(tabId);
+        });
 
-        // ── Reception des commandes video depuis le main ───────
-        window.dualview.on('video-cmd', (cmd) => {
-            if (!webview.getURL || webview.getURL() === 'about:blank') return;
+        // ── Channels IPC : navigation et sync ────────────────────────────────────────
 
-            // S'assurer que le script executeur est injecte
-            webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
+        /**
+         * load-url : reçoit { tabId, url } pour charger une URL dans la webview
+         * de l'onglet spécifié (pas nécessairement l'onglet actif).
+         * Compatibilité ascendante : si on reçoit une chaîne (ancienne API), on
+         * cible l'onglet actif.
+         */
+        window.dualview.on('load-url', payload => {
+            let tabId, url;
+            if (typeof payload === 'string') {
+                // Compatibilité : ancienne API string
+                tabId = activeTabId;
+                url = payload;
+            } else {
+                tabId = payload.tabId;
+                url = payload.url;
+            }
+
+            if (!url || url === 'about:blank') return;
+
+            // Créer la webview si elle n'existe pas encore
+            if (!webviewPool.has(tabId)) {
+                createWebview(tabId, url);
+                if (tabId === activeTabId) showWebview(tabId);
+                return;
+            }
+
+            const wv = webviewPool.get(tabId);
+            wv.src = url;
+
+            // Mettre à jour empty-state si c'est l'onglet actif
+            if (tabId === activeTabId) {
+                emptyState.style.display = 'none';
+                wv.classList.add('active');
+            }
+        });
+
+        // ── Scroll ─────────────────────────────────────────────────────────────────────
+        window.dualview.on('apply-scroll', scrollPct => {
+            const wv = getActiveWebview();
+            if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+            wv.executeJavaScript(`
+            (function() {
+                const el  = document.documentElement;
+                const max = el.scrollHeight - el.clientHeight;
+                if (max > 0) window.scrollTo({ top: ${scrollPct} * max, behavior: 'smooth' });
+            })(); true;
+        `).catch(() => { });
+        });
+
+        // ── Vidéo sync ─────────────────────────────────────────────────────────────────
+        window.dualview.on('video-cmd', cmd => {
+            const wv = getActiveWebview();
+            if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+            wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
                 .then(() => {
-                    // Appliquer la commande
                     const cmdStr = JSON.stringify(cmd);
-                    return webview.executeJavaScript(
-                        'window.__dualviewApplyCmd(' + cmdStr + '); true;'
-                    );
+                    return wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + '); true;');
                 })
                 .catch(() => { });
         });
 
-        // ── Scroll ────────────────────────────────────────────
-        window.dualview.on('apply-scroll', (scrollPct) => {
-            if (!webview.getURL || webview.getURL() === 'about:blank') return;
-            webview.executeJavaScript(`
-            (function() {
-              const el = document.documentElement;
-              const max = el.scrollHeight - el.clientHeight;
-              if (max > 0) window.scrollTo({ top: ${scrollPct} * max, behavior: 'smooth' });
-            })(); true;
-          `).catch(() => { });
+        // ── Nav back / forward ─────────────────────────────────────────────────────────
+        window.dualview.on('webview-go-back', () => {
+            const wv = getActiveWebview();
+            if (wv && wv.canGoBack && wv.canGoBack()) wv.goBack();
+        });
+        window.dualview.on('webview-go-forward', () => {
+            const wv = getActiveWebview();
+            if (wv && wv.canGoForward && wv.canGoForward()) wv.goForward();
         });
 
-        // ── Chargement d'URL ──────────────────────────────────
-        function loadUrl(url) {
-            if (!url || url === 'about:blank') {
-                webview.style.display = 'none';
-                emptyState.style.display = 'flex';
-                return;
-            }
-            emptyState.style.display = 'none';
-            webview.style.display = 'flex';
-            webview.src = url;
-        }
-
-        window.dualview.on('load-url', loadUrl);
-
-        // Re-injecter le script executeur apres chaque navigation
-        // FIX v0.2.3 : reset __dualviewExecutorReady avant chaque injection
-        // pour eviter que le guard "if already ready return" bloque la
-        // re-initialisation sur la 2eme video (freeze portrait).
-        function injectExecutor() {
-            webview.executeJavaScript('window.__dualviewExecutorReady = false; true;')
-                .then(() => webview.executeJavaScript(VIDEO_EXECUTOR_SCRIPT))
-                .catch(() => { });
-        }
-
-        webview.addEventListener('did-navigate', () => {
-            // Reset anticipatif des flags avant le dom-ready suivant
-            webview.executeJavaScript('window.__dualviewExecutorReady = false; window.__dualviewPendingCmd = null; true;').catch(() => { });
+        // ── Reload ─────────────────────────────────────────────────────────────────────
+        window.dualview.on('reload-webview', () => {
+            const wv = getActiveWebview();
+            if (wv && wv.getURL && wv.getURL() !== 'about:blank') wv.reload();
         });
 
-        webview.addEventListener('did-navigate-in-page', () => {
-            webview.executeJavaScript('window.__dualviewExecutorReady = false; window.__dualviewPendingCmd = null; true;').catch(() => { });
+        // ── Mode redimensionnement ─────────────────────────────────────────────────────
+        window.dualview.on('resize-mode', active => {
+            document.body.classList.toggle('resize-mode', active);
         });
-
-        webview.addEventListener('dom-ready', () => {
-            injectExecutor();
-            setTimeout(injectExecutor, 2000);
-        });
-
-        window.dualview.getCurrentUrl().then(url => { if (url) loadUrl(url); });
     </script>
 </body>
 </html>
