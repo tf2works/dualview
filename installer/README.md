@@ -1,4 +1,4 @@
-# DualView v0.2.6
+# DualView v0.2.5
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS.
@@ -12,7 +12,7 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 - Connexion internet (pour télécharger Node.js si absent, ~30 Mo)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.2.6.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.2.5.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur si demandée
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -22,10 +22,10 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 
 ## Fenêtres
 
-| Fenêtre  | Titre OBS            | Description                          |
-|----------|----------------------|--------------------------------------|
-| Paysage  | `DualView - Paysage` | Barre de contrôle + vue Desktop 16:9 |
-| Portrait | `DualView - Portrait`| Vue Mobile 9:16 (taille fixe)        |
+| Fenêtre | Titre OBS | Description |
+|---------|-----------|-------------|
+| Paysage | `DualView - Paysage` | Barre de contrôle + vue Desktop 16:9 |
+| Portrait | `DualView - Portrait` | Vue Mobile 9:16 (taille fixe) |
 
 ---
 
@@ -37,11 +37,11 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 
 | Bouton | Fonction |
 |--------|----------|
-| ←  | Page précédente (les deux fenêtres) |
-| →  | Page suivante (les deux fenêtres) |
-| ⟳  | Recharger (les deux fenêtres) |
+| ← | Page précédente (les deux fenêtres) |
+| → | Page suivante (les deux fenêtres) |
+| ⟳ | Recharger (les deux fenêtres) |
 | 🏠 | Page d'accueil |
-| ▶  | Charger l'URL saisie |
+| ▶ | Charger l'URL saisie |
 | ✅ | Valider le redimensionnement Portrait (visible en mode resize) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
 
@@ -50,11 +50,9 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 ## Onglets
 
 - **+** pour ajouter un onglet
-- Cliquez sur un onglet pour le sélectionner — **aucun rechargement**, état conservé
-- **×** pour fermer un onglet (minimum 1 requis, fermeture immédiate sans confirmation)
-- Onglets, URLs et onglet actif sauvegardés automatiquement
-- Au redémarrage, DualView rouvre exactement **l'onglet qui était actif** à la fermeture
-- Recommandation streaming OBS : ≤ 5 onglets simultanés (~80–150 Mo RAM par onglet)
+- Cliquez sur un onglet pour le sélectionner
+- **×** pour fermer un onglet (minimum 1 requis)
+- Onglets et URLs sauvegardés automatiquement
 
 ---
 
@@ -67,9 +65,6 @@ Scrollez dans la fenêtre Paysage → Portrait suit en pourcentage.
 DualView détecte les événements play/pause/seek dans Paysage et les
 applique à Portrait avec correction de dérive (±3s / ±5s).
 Compatible YouTube, TikTok, Instagram, et tout site avec balise `<video>`.
-
-Une vidéo YouTube lancée dans un onglet **continue de jouer en arrière-plan**
-lors d'un changement d'onglet — elle n'est pas interrompue.
 
 ---
 
@@ -116,11 +111,11 @@ Pour Aitum VerticalCanvas, capturez `DualView - Portrait` dans une scène 9:16.
 
 ## Persistance des données
 
-| Donnée                          | Emplacement                                   |
-|---------------------------------|-----------------------------------------------|
-| Position / taille des fenêtres  | `%APPDATA%\DualView\dualview-config.json`     |
-| Onglets, URLs & onglet actif    | idem                                          |
-| Paramètres                      | idem                                          |
+| Donnée | Emplacement |
+|--------|-------------|
+| Position / taille des fenêtres | `%APPDATA%\DualView\dualview-config.json` |
+| Onglets & URLs | idem |
+| Paramètres | idem |
 
 ---
 
@@ -141,7 +136,7 @@ Supprimez ce dossier manuellement pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.2.6.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.2.5.exe` (~150 Mo).
 
 ---
 
@@ -165,4 +160,3 @@ Produit `dist/DualView-Setup-0.2.6.exe` (~150 Mo).
 | 0.2.3 | Fix sync vidéo (2ème vidéo). |
 | 0.2.4 | Contrôle intégré dans Paysage. Portrait taille fixe. Bouton ▶. |
 | 0.2.5 | Sécurité. Paramètres. Menu ⚙️. Boutons ⟳ 🏠. i18n FR/EN. |
-| 0.2.6 | Pool de webviews : switch d'onglet instantané sans rechargement. Vidéo non interrompue en arrière-plan. Restauration de l'onglet actif au redémarrage. |
