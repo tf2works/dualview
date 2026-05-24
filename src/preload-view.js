@@ -1,16 +1,15 @@
 /**
  * DualView - Preload View Windows (portrait)
- * Version: 0.2.6
+ * Version: 0.3.0
  *
- * Changements v0.2.6 :
- * - Nouveaux canaux : tab-switched, tab-closed, tab-created
- * - load-url reçoit maintenant { tabId, url } au lieu d'une chaîne brute
- *   (pour cibler la bonne webview du pool)
+ * Changements v0.3.0 :
+ * - Canaux : sync-state-changed, show-login-popup, sync-resume-state
  */
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('dualview', {
     getTheme: () => ipcRenderer.invoke('get-theme'),
+    getSyncState: () => ipcRenderer.invoke('get-sync-state'),
 
     on: (channel, callback) => {
         const valid = [
@@ -18,8 +17,10 @@ contextBridge.exposeInMainWorld('dualview', {
             'load-url', 'apply-scroll', 'theme-changed', 'resize-mode',
             'video-cmd', 'webview-go-back', 'webview-go-forward',
             'reload-webview',
-            // Nouveaux canaux pool d'onglets
+            // Pool d'onglets
             'tab-switched', 'tab-closed', 'tab-created',
+            // v0.3.0
+            'sync-state-changed', 'show-login-popup', 'login-page-cleared', 'sync-resume-state',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

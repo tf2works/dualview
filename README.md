@@ -1,4 +1,4 @@
-# DualView v0.2.6
+# DualView v0.3.0
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS.
@@ -9,12 +9,12 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 
 ### Prérequis
 - Windows 11 (Build 22000+)
-- Connexion internet (pour télécharger Node.js si absent, ~30 Mo)
+- Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.2.6.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.3.0.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
-3. Acceptez l'élévation Administrateur si demandée
+3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
 5. Lancez **DualView** depuis le Menu Démarrer
 
@@ -22,105 +22,111 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 
 ## Fenêtres
 
-| Fenêtre  | Titre OBS            | Description                          |
-|----------|----------------------|--------------------------------------|
-| Paysage  | `DualView - Paysage` | Barre de contrôle + vue Desktop 16:9 |
-| Portrait | `DualView - Portrait`| Vue Mobile 9:16 (taille fixe)        |
+| Fenêtre | Titre OBS | Description |
+|---------|-----------|-------------|
+| Paysage | `DualView - Paysage` | Barre de contrôle + vue Desktop 16:9 |
+| Portrait | `DualView - Portrait` | Vue Mobile 9:16 (taille fixe) |
 
 ---
 
 ## Barre de navigation
 
 ```
-← → ⟳ 🏠 [url] ▶ [✅] ⚙️
+← → ⟳ 🏠 [url] ▶ [✅] [● Sync] ⚙️
 ```
 
 | Bouton | Fonction |
 |--------|----------|
-| ←  | Page précédente (les deux fenêtres) |
-| →  | Page suivante (les deux fenêtres) |
-| ⟳  | Recharger (les deux fenêtres) |
+| ← → | Page précédente / suivante (les deux fenêtres) |
+| ⟳ | Recharger (les deux fenêtres) |
 | 🏠 | Page d'accueil |
-| ▶  | Charger l'URL saisie |
-| ✅ | Valider le redimensionnement Portrait (visible en mode resize) |
+| ▶ | Charger l'URL saisie |
+| ✅ | Valider le redimensionnement Portrait |
+| ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Nouveautés v0.3.0
+
+### Services connectés
+Connexion aux services web depuis **Paramètres → Services connectés** :
+- 9 services pré-configurés : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam
+- Connexion dans une fenêtre dédiée : clés d'accès Windows Hello, FIDO2, email/mot de passe fonctionnels
+- URL personnalisée avec bouton "J'ai terminé" + confirmation
+- Détection automatique de connexion par cookies
+
+### Démarrage sync différé
+Synchronisation activée 3 secondes après l'ouverture, le temps que les deux fenêtres soient prêtes.
+
+### Contrôle de synchronisation
+Le bouton **● Sync** dans la toolbar : ⏸ Pause / ▶ Reprendre / ↺ Redémarrer.
+
+### Détection des pages de connexion
+- **Landscape** : popup avec bouton "Se connecter" direct pour le service détecté
+- **Portrait** : overlay plein écran, disparaît automatiquement à la navigation
+
+### YouTube Shorts
+Bloqueur de publicités désactivé sur `youtube.com/shorts/`.
+
+---
+
+## Problèmes connus v0.3.0
+
+| # | Symptôme | Contournement |
+|---|----------|---------------|
+| 1 | Portrait non connecté après auth Google | Recharger via ⟳ |
+| 2 | Auth Microsoft : fenêtre ne se ferme pas | Fermer manuellement |
+| 3 | Outlook/services Microsoft : ERR_ABORTED dans portrait | Lié au BUG-2, corrigé en v0.3.1 |
 
 ---
 
 ## Onglets
 
 - **+** pour ajouter un onglet
-- Cliquez sur un onglet pour le sélectionner — **aucun rechargement**, état conservé
-- **×** pour fermer un onglet (minimum 1 requis, fermeture immédiate sans confirmation)
-- Onglets, URLs et onglet actif sauvegardés automatiquement
-- Au redémarrage, DualView rouvre exactement **l'onglet qui était actif** à la fermeture
-- Recommandation streaming OBS : ≤ 5 onglets simultanés (~80–150 Mo RAM par onglet)
+- Cliquez pour sélectionner (sans rechargement)
+- **×** pour fermer (minimum 1)
+- Recommandation OBS : ≤ 5 onglets (~80–150 Mo RAM par onglet)
 
 ---
 
 ## Synchronisation
 
 ### Scroll
-Scrollez dans la fenêtre Paysage → Portrait suit en pourcentage.
+Paysage → Portrait en pourcentage.
 
 ### Vidéo
-DualView détecte les événements play/pause/seek dans Paysage et les
-applique à Portrait avec correction de dérive (±3s / ±5s).
-Compatible YouTube, TikTok, Instagram, et tout site avec balise `<video>`.
-
-Une vidéo YouTube lancée dans un onglet **continue de jouer en arrière-plan**
-lors d'un changement d'onglet — elle n'est pas interrompue.
-
----
-
-## Redimensionnement Portrait
-
-1. **⚙️ → Redimensionner** : Portrait devient redimensionnable (contour orange)
-2. Redimensionnez la fenêtre Portrait
-3. **✅** pour verrouiller et reprendre la synchronisation
-
----
-
-## Paramètres
-
-Cliquez sur **⚙️ → Paramètres** pour accéder aux options :
-
-- **Général** : restauration des onglets au démarrage, page d'accueil, comportement des nouveaux onglets
-- **Apparence** : Automatique / Clair / Sombre (redémarrage requis)
-- **Langue** : Français / English (redémarrage requis)
-- **Confidentialité** : aperçu des protections actives
+play/pause/seek détectés dans Paysage → appliqués à Portrait (±3s / ±5s). YouTube, TikTok, Instagram, générique.
 
 ---
 
 ## Sécurité
 
-- Téléchargements bloqués (DualView est un outil de streaming)
-- Permissions refusées : caméra, micro, géolocalisation, notifications
-- Navigation limitée à `http://`, `https://` et `file://`
-- Bloqueur de publicités intégré (Google Ads, DoubleClick, YouTube pre-roll…)
+- Téléchargements bloqués
+- Permissions refusées (caméra, micro, géoloc, notifications)
+- Navigation limitée à `http://`, `https://`, `file://`
+- Bloqueur pub intégré (Google Ads, DoubleClick, YouTube pre-roll)
+- Exception : YouTube Shorts
 
 ---
 
 ## Configuration OBS
 
-1. Ajoutez une source **Capture de fenêtre**
-2. Sélectionnez `DualView - Paysage` ou `DualView - Portrait`
-3. Décochez "Capturer le curseur" si désiré
+1. Source **Capture de fenêtre** → `DualView - Paysage` ou `DualView - Portrait`
+2. Décochez "Capturer le curseur" si désiré
 
-Les titres de fenêtres sont **stables** entre les changements d'onglets —
-vos scènes OBS ne se cassent pas.
-
-Pour Aitum VerticalCanvas, capturez `DualView - Portrait` dans une scène 9:16.
+Les titres sont stables entre les changements d'onglets.
 
 ---
 
-## Persistance des données
+## Persistance
 
-| Donnée                          | Emplacement                                   |
-|---------------------------------|-----------------------------------------------|
-| Position / taille des fenêtres  | `%APPDATA%\DualView\dualview-config.json`     |
-| Onglets, URLs & onglet actif    | idem                                          |
-| Paramètres                      | idem                                          |
+| Donnée | Emplacement |
+|--------|-------------|
+| Position / taille | `%APPDATA%\DualView\dualview-config.json` |
+| Onglets & URLs | idem |
+| Paramètres & Services | idem |
+| Cookies sessions | `%APPDATA%\DualView\Partitions\persist_dualview\` |
 
 ---
 
@@ -128,8 +134,7 @@ Pour Aitum VerticalCanvas, capturez `DualView - Portrait` dans une scène 9:16.
 
 **Paramètres Windows → Applications → DualView → Désinstaller**
 
-Les données de configuration (`%APPDATA%\DualView\`) sont conservées.
-Supprimez ce dossier manuellement pour tout effacer.
+Supprimez `%APPDATA%\DualView\` pour tout effacer.
 
 ---
 
@@ -141,7 +146,7 @@ Supprimez ce dossier manuellement pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.2.6.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.3.0.exe` (~150 Mo).
 
 ---
 
@@ -149,8 +154,10 @@ Produit `dist/DualView-Setup-0.2.6.exe` (~150 Mo).
 
 - **Electron 42** (Chromium 130+, Node.js 22)
 - **IPC sécurisé** : `contextIsolation` + preload scripts
-- **Persistance** : `fs` + JSON natif (pas de dépendance electron-store)
-- **Installeur** : electron-builder NSIS (désinstallateur Windows natif inclus)
+- **Anti-détection** : `preload-auth.js` (5 couches) + `AutomationControlled` flag
+- **Cookies** : `persist:dualview` partagé entre webviews et fenêtres auth
+- **Persistance** : `fs` + JSON natif
+- **Installeur** : electron-builder NSIS
 
 ---
 
@@ -159,10 +166,11 @@ Produit `dist/DualView-Setup-0.2.6.exe` (~150 Mo).
 | Version | Notes |
 |---------|-------|
 | 0.1.0 | Version initiale. Navigation, onglets, scroll sync, thèmes. |
-| 0.2.0 | Sync vidéo play/pause/seek. YouTube/TikTok/Instagram. |
+| 0.2.0 | Sync vidéo. YouTube/TikTok/Instagram. |
 | 0.2.1 | Bloqueur pub. Boutons nav ←/→. |
 | 0.2.2 | Fix bloqueur pub. Fix nav back/forward. |
-| 0.2.3 | Fix sync vidéo (2ème vidéo). |
-| 0.2.4 | Contrôle intégré dans Paysage. Portrait taille fixe. Bouton ▶. |
-| 0.2.5 | Sécurité. Paramètres. Menu ⚙️. Boutons ⟳ 🏠. i18n FR/EN. |
-| 0.2.6 | Pool de webviews : switch d'onglet instantané sans rechargement. Vidéo non interrompue en arrière-plan. Restauration de l'onglet actif au redémarrage. |
+| 0.2.3 | Fix sync vidéo. |
+| 0.2.4 | Contrôle intégré dans Paysage. Portrait taille fixe. |
+| 0.2.5 | Sécurité. Paramètres. Menu ⚙️. i18n FR/EN. |
+| 0.2.6 | Pool de webviews. Switch onglet sans rechargement. |
+| 0.3.0 | Sync différée. Bouton sync. Services connectés. Anti-détection Electron. Détection login. YouTube Shorts. |

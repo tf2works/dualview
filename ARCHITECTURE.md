@@ -1,4 +1,4 @@
-# DualView - Architecture v0.2.6
+# DualView - Architecture v0.3.0
 
 ## Vue d'ensemble
 
@@ -6,217 +6,370 @@
 PROCESSUS PRINCIPAL (Node.js / Electron Main)
 main.js
   |
+  |-- auth-window.js (module)
+  |     Gestion fenêtres d'authentification services connectés
+  |     checkKnownServiceCookies / checkAllServicesStatus / disconnectService
+  |     openAuthWindow → BrowserWindow indépendante (persist:dualview)
+  |                      preload: preload-auth.js (anti-détection Electron)
+  |
   |-- session.fromPartition('persist:dualview')
   |     webRequest.onBeforeRequest -> bloque ads + schémas non autorisés
+  |                                -> BYPASS si YouTube Shorts (/shorts/)
   |     setPermissionRequestHandler -> bloque toutes les permissions
   |     will-download -> bloque les téléchargements (toast dans landscapeWin)
+  |     NOTE : un seul handler onBeforeSendHeaders autorisé par session
+  |            → toute correction sec-ch-ua doit être faite ici uniquement
   |
   |-- BrowserWindow: landscapeWin (landscape.html)
   |     Pool de webviews desktop (une par onglet, display:none si inactive)
   |     Barre de contrôle intégrée + panneau paramètres
+  |     Bouton sync (Pause/Reprendre/Redémarrer)
+  |     Popup détection page de connexion + bouton "Se connecter" direct
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     Pool de webviews mobile (miroir du pool landscape)
   |     resizable=false (setResizable(true/false) via bouton ↔/✅)
+  |     Indicateur sync (badge discret en haut)
+  |     Overlay login (plein écran, non ignorable, auto-dismiss)
+  |
+  |-- État synchronisation
+  |     syncState : 'paused' | 'active'
+  |     Démarre à 'paused', passe à 'active' après 3 s (scheduleSyncStart)
+  |     Les IPC scroll/vidéo/nav sont silencieux si syncState !== 'active'
+  |     Les URLs d'auth ne sont jamais envoyées à portrait (isAuthUrl guard)
   |
   |-- État onglets (main)
-  |     tabUrls  : Map<tabId, url>   (URL courante par onglet)
-  |     activeTabId : string          (onglet visible dans les deux fenêtres)
+  |     tabUrls  : Map<tabId, url>
+  |     activeTabId : string
+  |     loginPageTabId : string | null  (onglet avec overlay actif)
   |
   |-- Config: dualview-config.json (%AppData%/DualView/)
   |     landscapeWindow {width,height,x,y}
-  |     portraitWindow  {x,y}
+  |     portraitWindow  {x,y,width,height}
   |     tabs[]          {id,title,url}
   |     activeTabId
   |     settings        {restoreTabs, homepageMode, customHomepageUrl,
-  |                      newTabMode, appearance, language}
+  |                      newTabMode, appearance, language,
+  |                      customServices[]}
 ```
 
 ---
 
-## Modèle de pool de webviews (v0.2.6)
+## Modèle de pool de webviews (v0.2.6, inchangé)
 
-### Principe
-Chaque onglet possède **deux webviews persistantes** (une dans landscapeWin,
-une dans portraitWin) qui restent vivantes en mémoire tant que l'onglet est ouvert.
-
-```
-Onglet tab-1  →  wv-landscape[tab-1] (desktop)  +  wv-portrait[tab-1] (mobile)
-Onglet tab-2  →  wv-landscape[tab-2] (desktop)  +  wv-portrait[tab-2] (mobile)
-Onglet tab-3  →  wv-landscape[tab-3] (desktop)  +  wv-portrait[tab-3] (mobile)
-```
-
-### Switch d'onglet
-```
-Avant v0.2.6 :  switchTab(id) → webview.src = tab.url  → rechargement complet
-Depuis v0.2.6 : switchTab(id) → wv[id].classList.add('active')  → affichage instantané
-                                 wv[prev].classList.remove('active') → mise en cache
-```
-
-Les webviews inactives sont positionnées en `display:none` (CSS absolu).
-Le processus renderer Chromium reste actif : JS non suspendu, vidéo non interrompue.
-
-### Cycle de vie d'un onglet
-```
-Création  : createWebview(tabId, url)  → <webview> ajouté au DOM, src=url
-            → IPC tab-created → portraitWin crée sa webview miroir
-
-Switch    : showWebview(tabId)         → display:flex sur wv[tabId], display:none sur les autres
-            → IPC tab-switched → portraitWin fait de même
-
-Fermeture : destroyWebview(tabId)      → wv.stop() + wv.remove() + Map.delete()
-            → IPC tab-closed  → portraitWin détruit sa webview miroir
-            Aucune confirmation (comportement navigateur standard)
-```
-
-### Consommation mémoire
-Chaque webview = un processus renderer Chromium (~80–150 Mo RAM).
-Recommandation : ≤ 5 onglets simultanés pour le streaming OBS.
-Aucun déchargement automatique (pratique standard Chrome/Firefox).
+Chaque onglet possède deux webviews persistantes (landscape + portrait).
+Switch sans rechargement, état préservé en mémoire.
 
 ---
 
-## Flux IPC complet (v0.2.6)
+## Synchronisation v0.3.0
 
+### Démarrage différé (3 secondes)
 ```
-landscapeWin (landscape.html)
-  preload-landscape.js
-    |
-    | navigate(url)          --> main: 'navigate'
-    |                            tabUrls.set(activeTabId, url)
-    |                            --> landscapeWin: 'load-url' (url string)
-    |                            --> portraitWin:  'load-url' ({tabId, url})
-    |
-    | switchTab(tabId)       --> main: 'tab-switched'
-    |                            activeTabId = tabId
-    |                            --> portraitWin: 'tab-switched' (tabId)
-    |
-    | closeTab(tabId)        --> main: 'tab-closed'
-    |                            tabUrls.delete(tabId)
-    |                            --> portraitWin: 'tab-closed' (tabId)
-    |
-    | createTab(tabId, url)  --> main: 'tab-created'
-    |                            tabUrls.set(tabId, url)
-    |                            --> portraitWin: 'tab-created' ({tabId, url})
-    |
-    | navBack()              --> main: 'nav-back'   --> landscapeWin + portraitWin
-    | navForward()           --> main: 'nav-forward' --> landscapeWin + portraitWin
-    | reloadViews()          --> main: 'reload-views' --> portraitWin: 'reload-webview'
-    | saveTabs(data)         --> main: 'save-tabs'  (tabUrls + activeTabId sync)
-    | saveSettings(s)        --> main: 'save-settings'
-    | pauseSync()            --> main: 'sync-pause' -> portraitWin: setResizable(true)
-    | resumeSync()           --> main: 'sync-resume'-> portraitWin: setResizable(false)
-    |                            + portraitWin: 'load-url' ({tabId, url}) si redim
-    | relaunchApp()          --> main: 'relaunch-app' -> app.relaunch()
-    | sendNavigate(url)      --> main: 'sync-navigate'
-    |                            --> portraitWin: 'load-url' ({tabId, url})
-    |                            --> landscapeWin: 'update-addressbar'
-    | notifyNavState(state)  --> main: 'notify-nav-state'
-    |                            --> landscapeWin: 'nav-state-changed'
-    | sendScroll(pct)        --> main: 'sync-scroll'  -> portraitWin: 'apply-scroll'
-    | sendVideoPlay(t)       --> main: 'video-play'
-    | sendVideoPause(t)      --> main: 'video-pause'  --> portraitWin: 'video-cmd'
-    | sendVideoTimeUpdate(t) --> main: 'video-timeupdate'
-    |
-    | <-- 'load-url'          (string : charger dans la webview active du pool)
-    | <-- 'update-addressbar'
-    | <-- 'nav-state-changed'
-    | <-- 'webview-go-back'
-    | <-- 'webview-go-forward'
-    | <-- 'theme-changed'
-    | <-- 'download-blocked'  (affiche toast)
+app.whenReady()
+  → createLandscapeWindow()  → ready-to-show → tryScheduleSyncStart()
+  → createPortraitWindow()   → ready-to-show → tryScheduleSyncStart()
+                                                 ↓ (les deux prêts)
+                                               setTimeout 3000ms
+                                                 ↓
+                                               syncState = 'active'
+                                               broadcastSyncState()
+```
 
-portraitWin (portrait.html)
-  preload-view.js
-    |
-    | <-- 'tab-created'      ({tabId, url}) : crée webview portrait
-    | <-- 'tab-switched'     (tabId)        : affiche webview portrait
-    | <-- 'tab-closed'       (tabId)        : détruit webview portrait
-    | <-- 'load-url'         ({tabId, url} ou string) : charge URL dans webview[tabId]
-    | <-- 'apply-scroll'     : scroll sur la webview active
-    | <-- 'video-cmd'        : {action:'play'|'pause'|'seek', currentTime}
-    | <-- 'resize-mode'      (true|false)
-    | <-- 'webview-go-back'
-    | <-- 'webview-go-forward'
-    | <-- 'reload-webview'
-    | <-- 'theme-changed'
+### Contrôle sync (bouton dans toolbar landscape)
+```
+Bouton [● Sync active / ⏸ Sync pausée]
+  → Clic → menu déroulant :
+      ⏸ Mettre en pause  → ipcMain 'sync-control' pause
+      ▶ Reprendre        → ipcMain 'sync-control' resume
+                              + portraitWin: 'sync-resume-state' {tabId, url}
+      ↺ Redémarrer       → ipcMain 'sync-control' restart (pause 500ms puis resume)
+```
+
+### Guards sync dans main.js
+```
+Channels ignorés si syncState !== 'active' :
+  sync-scroll, sync-navigate, nav-back, nav-forward,
+  reload-views, video-play, video-pause, video-timeupdate
+
+URLs bloquées vers portrait si isAuthUrl(url) :
+  navigate, sync-navigate, sync-resume-state
+  → isAuthUrl() vérifie AUTH_DOMAINS (9 services) + patterns LOGIN_URL
 ```
 
 ---
 
-## Structure des fichiers
+## Services connectés v0.3.0
+
+### Architecture
+```
+auth-window.js
+  |
+  |-- KNOWN_SERVICES : 9 services (Google, Microsoft, Instagram, Facebook,
+  |                    Twitch, TikTok, X/Twitter, Discord, Steam)
+  |
+  |-- checkKnownServiceCookies(serviceKey)
+  |     → session.cookies.get({ domain })
+  |     → vérifie présence cookies de session spécifiques
+  |
+  |-- checkAllServicesStatus()
+  |     → boucle sur tous les services connus
+  |     → retourne Map<serviceKey, boolean>
+  |
+  |-- disconnectService(serviceKey, customUrl?)
+  |     → supprime tous les cookies du domaine service
+  |
+  |-- openAuthWindow(opts)
+  |     → BrowserWindow indépendante, partition:persist:dualview
+  |     → preload: preload-auth.js (neutralise détection Electron)
+  |     → UA desktop standard (Chrome)
+  |     Services connus :
+  |       → Détection fin auth : stratégie A (cookies) + C (URL hors marqueurs)
+  |       → Fermeture automatique dès auth confirmée
+  |     URL personnalisée :
+  |       → idem + bouton "J'ai terminé" injecté dans la page
+  |       → Stratégie A (cookies génériques) → dialog confirmation
+  |       → Confirmation via IPC auth-custom-confirmed
+```
+
+### Anti-détection Electron (preload-auth.js)
+```
+Couche 1 — app.commandLine (main.js, avant app.whenReady)
+  --disable-blink-features=AutomationControlled
+  → neutralise navigator.webdriver au niveau moteur Chromium
+
+Couche 2 — preload-auth.js (webPreferences.preload de authWin)
+  Injection dans le main world via webFrame.executeJavaScript AVANT
+  tout script de la page :
+  - navigator.webdriver          → undefined
+  - navigator.userAgentData      → brands sans "Electron"
+  - window.chrome                → complété (app, runtime, csi, loadTimes)
+  - navigator.plugins/mimeTypes  → 3 plugins PDF simulés
+  - navigator.permissions.query  → patché
+
+Couche 3 — setUserAgent(UA_DESKTOP)
+  UA cohérent avec Chromium réel (pas de marqueur Electron)
+
+ATTENTION : ne pas installer de handler onBeforeSendHeaders
+  supplémentaire dans auth-window.js — session.webRequest n'accepte
+  qu'un seul handler par événement. Un second handler écrase le premier
+  et sa suppression retire TOUS les handlers → ERR_ABORTED généralisé.
+```
+
+### Flux connexion service connu
+```
+Utilisateur → clic tuile service → openAuthWindow({ serviceKey })
+  → BrowserWindow s'ouvre sur URL auth du service
+  → did-navigate : URL hors domaine auth + vérif cookies → fermeture auto
+  → Toast "Connecté avec succès"
+  → loadServicesStatus() → rafraîchit tuiles
+  → Portrait rechargera l'onglet actif via sync-resume-state si nécessaire
+```
+
+### Flux connexion URL personnalisée
+```
+Utilisateur → formulaire (nom + URL) → clic Connecter
+  → openAuthWindow({ serviceKey:'custom', customUrl, customLabel })
+  → BrowserWindow s'ouvre sur customUrl
+  → Bouton "✓ J'ai terminé" injecté (fixed bottom-right)
+  → Poller 500ms détecte clic
+  → checkGenericCookies() → count cookies suspects
+  → main envoie 'auth-custom-confirm' { serviceLabel, hasCookies, cookieCount }
+  → landscape affiche dialog confirmation
+  → Utilisateur confirme → ipcMain 'auth-custom-confirmed' true
+  → configSet customServices + connected:true
+  → Toast "Connecté avec succès"
+```
+
+### Reconnexion (session expirée)
+```
+Bouton "Se reconnecter" → connectService(serviceKey, ...)
+  → openAuthWindow() comme une connexion normale
+  → Les cookies existants sont dans la session → auto-login possible
+  → Si page login réapparaît → flux auth normal
+```
+
+### Bugs identifiés v0.3.0 (à corriger en v0.3.1)
+```
+BUG-1 : Portrait non connecté après auth Google/YouTube
+  Symptôme : connexion Google réussie dans authWin, mais YouTube dans
+             portrait affiche l'utilisateur comme non connecté.
+  Cause    : la webview portrait a chargé YouTube AVANT la fin de l'écriture
+             des cookies par authWin. Les cookies persist:dualview sont
+             présents mais la page ne les a pas relus (pas de rechargement).
+  Fix prévu : après finish(true) dans openAuthWindow, envoyer un IPC
+              'auth-success' { serviceKey } → main recharge la webview
+              portrait de l'onglet actif si son URL appartient au service.
+
+BUG-2 : Microsoft — fenêtre auth ne se ferme pas, service déconnecté
+  Symptôme : après login Microsoft, la fenêtre auth reste ouverte et
+             redirige dans auth-window sans se fermer. Le statut reste
+             "Non connecté" dans les paramètres.
+  Cause A  : authDomains trop larges — après login, Microsoft redirige
+             vers login.microsoftonline.com/common/oauth2/... qui reste
+             dans authDomains → la condition "hors domaine auth" n'est
+             jamais vraie, la fenêtre ne se ferme pas.
+  Cause B  : les cookies ESTSAUTH sont créés sur login.microsoftonline.com
+             mais checkKnownServiceCookies cherche sur .microsoft.com et
+             .microsoftonline.com — le domaine exact peut ne pas matcher.
+  Fix prévu : affiner authDomains Microsoft + ajouter login.microsoftonline.com
+              dans cookieDomains avec domaine exact.
+
+BUG-3 : Outlook non synchronisé dans portrait (ERR_ABORTED)
+  Symptôme : navigation vers outlook.live.com dans landscape → portrait
+             reçoit ERR_ABORTED, ne charge pas la page.
+  Cause    : le handler onBeforeSendHeaders installé dans auth-window.js
+             sur la session persist:dualview écrase le handler de
+             setupSessionSecurity(). Sa suppression à la fermeture retire
+             tous les handlers → les requêtes des webviews portrait sont
+             bloquées (ERR_ABORTED généralisé sur toutes les URLs).
+  Fix prévu : supprimer onBeforeSendHeaders de auth-window.js. Intégrer
+              la correction sec-ch-ua dans setupSessionSecurity() de
+              main.js (seul handler autorisé sur la session).
+```
+
+---
+
+## Détection pages de connexion v0.3.0
+
+```
+Patterns URL (renderer landscape, attachWebviewListeners) :
+  /\/login\b/i, /\/signin\b/i, /\/sign-in\b/i, /\/sign_in\b/i,
+  /\/auth\b/i, /\/oauth\b/i, /\/connexion\b/i, /\/identification\b/i,
+  /\/compte\/connexion/i, /\/account\/login/i
+
+Whitelist : localhost, 127.0.0.1
+Exclusions : /callback, /token, /redirect (retours OAuth)
+
+Flux :
+  did-navigate → isLoginPage(url) → dualview.notifyLoginPage(url, tabId)
+    → ipcMain 'login-page-detected'
+    → detectServiceKeyFromUrl(url) → serviceKey (null si inconnu)
+    → landscapeWin: 'show-login-popup' { url, tabId, serviceKey }
+    → portraitWin:  'show-login-popup' { url, tabId, serviceKey }
+
+  did-navigate URL non-login → dualview.notifyLoginPageLeft(tabId)
+    → ipcMain 'login-page-left'
+    → broadcastLoginPageCleared() → les deux fenêtres masquent leur UI
+
+Popup landscape :
+  - "Retour"             → goBack() dans la webview
+  - "Se connecter (Svc)" → openAuthWindow direct (si service détecté)
+  - "Services connectés" → openSettingsTab('services')
+  - Clic fond → dialog confirmation ignorance
+    - "Annuler"          → retour au popup
+    - "Ignorer quand même" → ferme tout
+
+Overlay portrait (plein écran, non ignorable) :
+  - Masqué automatiquement par login-page-cleared (piloté par main.js)
+  - Message : "Page de connexion détectée — Synchronisation en pause"
+```
+
+---
+
+## YouTube Shorts v0.3.0
+
+```
+main.js → isYouTubeShort(initiatorUrl)
+  Si URL initiateur = https://www.youtube.com/shorts/*
+  → isBlockedUrl() retourne false (bypass bloqueur pub)
+  → Les requêtes ads/tracking passent pour les Shorts
+
+Les scripts VIDEO_WATCHER/EXECUTOR restent actifs sur les Shorts.
+```
+
+---
+
+## Flux IPC complet v0.3.0
+
+```
+Nouveaux canaux v0.3.0 :
+
+landscapeWin → main :
+  sync-control(action)              : 'pause'|'resume'|'restart'
+  login-page-detected({url,tabId})  : détection page login
+  login-page-left({tabId})          : navigation hors page login
+  open-auth-window(opts)            : ouvre fenêtre auth (invoke)
+  disconnect-service(opts)          : supprime cookies (invoke)
+  delete-custom-service(opts)       : supprime service perso (invoke)
+  auth-custom-confirmed(bool)       : confirmation auth perso
+  auth-custom-cancelled()           : annulation auth perso
+
+main → landscapeWin + portraitWin :
+  sync-state-changed(state)         : 'active'|'paused'
+  show-login-popup({url,tabId,serviceKey}) : affiche popup/overlay connexion
+  login-page-cleared()              : masque popup/overlay connexion
+
+main → portraitWin :
+  sync-resume-state({tabId,url})    : reprise sync (réinjection scripts)
+
+main → landscapeWin :
+  auth-custom-confirm({serviceLabel,hasCookies,cookieCount})
+```
+
+---
+
+## Structure des fichiers v0.3.0
 
 ```
 dualview/
 |
-|-- package.json              Version, dépendances, config electron-builder
-|-- HOW_TO_INSTALL.md         Instructions utilisateur et contributeurs
+|-- package.json              Version 0.3.0
+|-- HOW_TO_INSTALL.md
 |-- ARCHITECTURE.md           Ce fichier
+|-- README.md
 |
 |-- src/
-|   |-- main.js               Processus principal Electron
-|   |                         - Crée landscapeWin et portraitWin
-|   |                         - Sécurité : blocage schémas, permissions,
-|   |                           téléchargements, validation IPC
-|   |                         - Bloqueur publicités (persist:dualview)
-|   |                         - Handlers IPC navigation, vidéo, settings
-|   |                         - État onglets : tabUrls (Map) + activeTabId
-|   |                         - Handlers IPC pool : tab-switched, tab-closed,
-|   |                           tab-created (relay vers portraitWin)
-|   |                         - Persistance config (fs + JSON)
+|   |-- main.js               Processus principal v0.3.0
+|   |                         + syncState, scheduleSyncStart
+|   |                         + IPC sync-control, login-page-detected/left
+|   |                         + IPC services connectés
+|   |                         + isYouTubeShort (bypass bloqueur)
+|   |                         + isAuthUrl / AUTH_DOMAINS (guard portrait)
+|   |                         + detectServiceKeyFromUrl
+|   |                         + app.commandLine AutomationControlled
 |   |
-|   |-- preload-landscape.js  Bridge sécurisé pour landscapeWin
-|   |                         - Expose : navigate, navBack/Forward, reloadViews,
-|   |                           saveTabs, saveSettings, getHomepageUrl,
-|   |                           getStore, getVersion, pauseSync, resumeSync,
-|   |                           relaunchApp, sendScroll, sendNavigate,
-|   |                           sendVideoPlay/Pause/TimeUpdate, notifyNavState
-|   |                         - Nouveaux : switchTab, closeTab, createTab
+|   |-- auth-window.js        Fenêtres authentification services
+|   |                         KNOWN_SERVICES, openAuthWindow
+|   |                         checkKnownServiceCookies, disconnectService
+|   |                         preload-auth.js via webPreferences.preload
 |   |
-|   |-- preload-view.js       Bridge sécurisé pour portraitWin
-|   |                         - Écoute : load-url, apply-scroll, video-cmd,
-|   |                           resize-mode, webview-go-back/forward,
-|   |                           reload-webview, theme-changed
-|   |                         - Nouveaux : tab-created, tab-switched, tab-closed
+|   |-- preload-auth.js       NOUVEAU — Anti-détection Electron (authWin)
+|   |                         webFrame.executeJavaScript (main world) :
+|   |                         navigator.webdriver, userAgentData,
+|   |                         window.chrome, plugins, permissions
 |   |
-|   |-- landscape.html        Fenêtre paysage (Desktop 16:9)
-|   |                         POOL DE WEBVIEWS (v0.2.6) :
-|   |                           - Map<tabId, HTMLWebViewElement> webviewPool
-|   |                           - createWebview(tabId, url) : crée + attache listeners
-|   |                           - destroyWebview(tabId) : stop + remove + delete
-|   |                           - showWebview(tabId) : display:flex / display:none
-|   |                           - getActiveWebview() : retourne wv de l'onglet actif
-|   |                           - switchTab() : show/hide sans rechargement
-|   |                         BARRE DE CONTRÔLE INTÉGRÉE :
-|   |                           - Onglets (ajout, fermeture, switch)
-|   |                           - Toolbar : ← → ⟳ 🏠 [url] ▶ [✅] ⚙️
-|   |                           - Menu ⚙️ : Redimensionner | Paramètres
-|   |                           - Barre de statut (sync, adblock, version)
-|   |                         PANNEAU PARAMÈTRES (onglet dédié) :
-|   |                           - Général, Apparence, Langue, Confidentialité
-|   |                         POLLERS :
-|   |                           - pollVideoState() 150ms → webview ACTIVE uniquement
-|   |                           - pollScroll()     100ms → webview ACTIVE uniquement
-|   |                           - VIDEO_WATCHER_SCRIPT injecté par webview à dom-ready
-|   |                           - SCROLL_INJECT injecté par webview à dom-ready
+|   |-- preload-landscape.js  Bridge sécurisé v0.3.0
+|   |                         + syncControl, getSyncState
+|   |                         + notifyLoginPage, notifyLoginPageLeft
+|   |                         + getConnectedServicesStatus, openAuthWindow
+|   |                         + disconnectService, deleteCustomService
+|   |                         + confirmCustomAuth, cancelCustomAuth
 |   |
-|   |-- portrait.html         Fenêtre portrait (Mobile 9:16)
-|   |                         POOL DE WEBVIEWS (v0.2.6) :
-|   |                           - Map<tabId, HTMLWebViewElement> webviewPool
-|   |                           - Miroir exact du pool landscape
-|   |                           - Piloté par IPC tab-created/switched/closed
-|   |                         - useragent Mobile Chrome Pixel 7
-|   |                         - resizable=false (togglable via ↔/✅)
-|   |                         - VIDEO_EXECUTOR_SCRIPT injecté à dom-ready
-|   |                         - Overlay mode redimensionnement
-|
+|   |-- preload-view.js       Bridge sécurisé v0.3.0
+|   |                         + sync-state-changed, show-login-popup
+|   |                         + login-page-cleared, sync-resume-state
+|   |
+|   |-- landscape.html        Fenêtre paysage v0.3.0
+|   |                         + Bouton sync (toolbar) + menu dropdown
+|   |                         + Section "Services connectés" dans Paramètres
+|   |                         + Popup page de connexion + bouton Se connecter
+|   |                         + Dialog ignorance + dialog auth personnalisée
+|   |                         + Pollers guards (syncState !== 'active')
+|   |                         + Détection isLoginPage() sur did-navigate
+|   |
+|   |-- portrait.html         Fenêtre portrait v0.3.0
+|   |                         + Indicateur sync (badge discret)
+|   |                         + Overlay login plein écran (non ignorable)
+|   |                         + sync-resume-state → réinjection scripts
+|   |
 |-- assets/
-|   |-- icon.ico              Icône application
-|   |-- README.txt            Instructions icône
+|   |-- icon.ico
+|   |-- README.txt
 |
 |-- installer/
-    |-- build-installer.bat   Lanceur contributeurs (double-clic)
-    |-- build-installer.ps1   Build electron-builder -> Setup.exe + désinstallateur
+    |-- build-installer.bat
+    |-- build-installer.ps1
 ```
 
 ---
@@ -224,115 +377,31 @@ dualview/
 ## Sécurité
 
 ```
-Session persist:dualview
-  |
-  |-- webRequest.onBeforeRequest (toutes URLs)
-  |     isBlockedUrl() :
-  |       - Protocoles non autorisés (seuls http:, https:, file: permis)
-  |       - Domaines publicitaires (doubleclick, googlesyndication, etc.)
-  |       - Paths analytics/imasdk
-  |
-  |-- setPermissionRequestHandler -> callback(false) pour toute permission
-  |
-  |-- will-download -> item.cancel() + toast 'Téléchargement non autorisé'
-  |
-  IPC entrant (main.js)
-  |-- sanitizeUrl()    : vérifie protocole http/https/file + URL valide
-  |-- save-settings    : validation de chaque valeur (whitelist)
-  |-- sync-scroll      : vérifie typeof number
-  |-- notify-nav-state : vérifie typeof object
-  |-- tab-switched     : vérifie typeof string
-  |-- tab-closed       : vérifie typeof string
-  |-- tab-created      : vérifie typeof string + sanitizeUrl sur l'URL
+Session persist:dualview — UN SEUL handler par événement webRequest
+  webRequest.onBeforeRequest (setupSessionSecurity dans main.js)
+    isBlockedUrl(url, initiatorUrl)
+      → isYouTubeShort(initiatorUrl) → bypass si Shorts
+      → sinon : protocoles + domaines pub + paths analytics
+
+  RÈGLE : ne jamais installer un second onBeforeSendHeaders dans
+  auth-window.js ou ailleurs — cela écrase le handler de main.js
+  et provoque ERR_ABORTED sur toutes les webviews portrait.
 ```
 
 ---
 
-## Paramètres
+## Paramètres v0.3.0
 
 ```
-Stockage : dualview-config.json > settings{}
-
 Clé               | Valeurs                         | Effet
 ------------------|----------------------------------|---------------------------
-restoreTabs       | true / false                     | Immédiat (prochain démarrage)
+restoreTabs       | true / false                     | Prochain démarrage
 homepageMode      | knack3 / custom / empty          | Immédiat
-customHomepageUrl | URL http/https validée           | Immédiat (après Valider)
+customHomepageUrl | URL http/https validée           | Immédiat
 newTabMode        | homepage / empty                 | Immédiat
 appearance        | auto / light / dark              | Redémarrage requis
 language          | fr / en                          | Redémarrage requis
-
-Page d'accueil par défaut : https://marketplace.atlassian.com/vendors/920480808/
-```
-
----
-
-## Synchronisation vidéo
-
-```
-landscapeWin <webview active>
-  VIDEO_WATCHER_SCRIPT injecté au dom-ready (par webview, dans attachWebviewListeners)
-    resetWatcherFlags() sur did-navigate
-    MutationObserver + polling 500ms -> attache listeners play/pause/seeked
-    window.__dualviewVideoEvent = {type, time, platform}
-
-  pollVideoState() 150ms → getActiveWebview() → executeJavaScript
-  pollScroll()     100ms → getActiveWebview() → executeJavaScript
-
-main.js
-  video-play       -> portraitWin: video-cmd {action:'play',  currentTime}
-  video-pause      -> portraitWin: video-cmd {action:'pause', currentTime}
-  video-timeupdate -> portraitWin: video-cmd {action:'seek',  currentTime}
-
-portraitWin <webview active>
-  VIDEO_EXECUTOR_SCRIPT injecté au dom-ready (par webview, dans attachWebviewListeners)
-    reset __dualviewExecutorReady sur did-navigate
-    play/pause : sync si écart > 3s
-    seek       : sync si écart > 5s
-  video-cmd → getActiveWebview() → executeJavaScript(__dualviewApplyCmd)
-```
-
----
-
-## Persistance
-
-```
-Fichier : %AppData%\DualView\dualview-config.json
-
-{
-  "landscapeWindow": { "width": 1280, "height": 720, "x": 20, "y": 200 },
-  "portraitWindow":  { "x": 1500, "y": 100 },
-  "tabs": [
-    { "id": "tab-1", "title": "youtube.com", "url": "https://youtube.com" },
-    { "id": "tab-2", "title": "tiktok.com",  "url": "https://tiktok.com"  }
-  ],
-  "activeTabId": "tab-1",
-  "settings": {
-    "restoreTabs": true,
-    "homepageMode": "knack3",
-    "customHomepageUrl": "",
-    "newTabMode": "homepage",
-    "appearance": "auto",
-    "language": "fr"
-  },
-  "appVersion": "0.2.6"
-}
-```
-
----
-
-## Installation (contributeurs)
-
-```
-installer/build-installer.bat
-  |
-  |-- build-installer.ps1 (Admin)
-        |
-        |-- Vérification Node.js >= 22
-        |-- npm install
-        |-- npm run build (electron-builder --win --x64)
-              -> dist/DualView-Setup-[version].exe
-                 Inclut désinstallateur Windows natif
+customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 ```
 
 ---
@@ -347,5 +416,6 @@ installer/build-installer.bat
 | 0.2.2 | Fix bloqueur pub (persist:dualview). Fix nav (webview.canGoBack dans renderer). |
 | 0.2.3 | Fix sync vidéo (reset flags sur navigation). |
 | 0.2.4 | Barre de contrôle intégrée dans paysage. Portrait non redimensionnable. Bouton ▶. |
-| 0.2.5 | Sécurité (blocage schémas, permissions, téléchargements, validation IPC). Paramètres (apparence, langue, page d'accueil, restauration onglets). Menu ⚙️. Boutons ⟳ 🏠. i18n FR/EN. Installeur simplifié (electron-builder NSIS). |
-| 0.2.6 | **Pool de webviews** : chaque onglet conserve son état (pas de rechargement au switch d'onglet). Vidéo YouTube/TikTok non interrompue lors du changement d'onglet. IPC tab-switched / tab-closed / tab-created. Pollers scroll et vidéo ciblant la webview active. |
+| 0.2.5 | Sécurité. Paramètres. Menu ⚙️. Boutons ⟳ 🏠. i18n FR/EN. Installeur simplifié. |
+| 0.2.6 | Pool de webviews. Switch onglet sans rechargement. IPC tab-switched/closed/created. |
+| 0.3.0 | Démarrage sync différé 3 s. Bouton sync. Services connectés (9 + URL perso). Détection pages login + popup/overlay. Bouton "Se connecter" direct. YouTube Shorts bypass. Anti-détection Electron (preload-auth.js, 4 couches). |

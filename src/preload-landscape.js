@@ -1,12 +1,16 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.2.6
+ * Version: 0.3.0
  *
- * Changements v0.2.6 :
- * - switchTab(tabId)  : notifie main du switch d'onglet (main relaie à portrait)
- * - closeTab(tabId)   : notifie main de la fermeture (main relaie à portrait)
- * - createTab(tabId, url) : notifie main de la création (main relaie à portrait)
- * - getCurrentUrl retiré (plus de currentUrl global, géré par onglet)
+ * Changements v0.3.0 :
+ * - syncControl(action)           : pause / resume / restart
+ * - getSyncState()                : état courant de la sync
+ * - getConnectedServicesStatus()  : statuts cookies services
+ * - openAuthWindow(opts)          : ouvre fenêtre auth service
+ * - disconnectService(opts)       : supprime cookies service
+ * - deleteCustomService(opts)     : supprime service perso
+ * - Canaux entrants : sync-state-changed, show-login-popup,
+ *                     auth-custom-confirm, sync-resume-state
  */
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -20,6 +24,10 @@ contextBridge.exposeInMainWorld('dualview', {
     sendVideoTimeUpdate: (t) => ipcRenderer.send('video-timeupdate', t),
     notifyNavState: (s) => ipcRenderer.send('notify-nav-state', s),
 
+    // ── Contrôle sync ──────────────────────────────────────────
+    syncControl: (action) => ipcRenderer.send('sync-control', action),
+    getSyncState: () => ipcRenderer.invoke('get-sync-state'),
+
     // ── Contrôle navigation ────────────────────────────────────
     navigate: (url) => ipcRenderer.send('navigate', url),
     navBack: () => ipcRenderer.send('nav-back'),
@@ -29,13 +37,23 @@ contextBridge.exposeInMainWorld('dualview', {
     resumeSync: () => ipcRenderer.send('sync-resume'),
     relaunchApp: () => ipcRenderer.send('relaunch-app'),
 
-    // ── Gestion des onglets (pool webviews) ────────────────────
-    // Notifie main + portrait du switch d'onglet actif
+    // ── Onglets (pool webviews) ────────────────────────────────
     switchTab: (tabId) => ipcRenderer.send('tab-switched', tabId),
-    // Notifie main + portrait de la fermeture d'un onglet (destruction immédiate)
     closeTab: (tabId) => ipcRenderer.send('tab-closed', tabId),
-    // Notifie main + portrait de la création d'un nouvel onglet
     createTab: (tabId, url) => ipcRenderer.send('tab-created', { tabId, url }),
+
+    // ── Détection page de connexion ────────────────────────────
+    notifyLoginPage: (url, tabId) => ipcRenderer.send('login-page-detected', { url, tabId }),
+    notifyLoginPageLeft: (tabId) => ipcRenderer.send('login-page-left', { tabId }),
+
+    // ── Services connectés ─────────────────────────────────────
+    getConnectedServicesStatus: () => ipcRenderer.invoke('get-connected-services-status'),
+    openAuthWindow: (opts) => ipcRenderer.invoke('open-auth-window', opts),
+    disconnectService: (opts) => ipcRenderer.invoke('disconnect-service', opts),
+    deleteCustomService: (opts) => ipcRenderer.invoke('delete-custom-service', opts),
+    // Confirmation auth personnalisée
+    confirmCustomAuth: (confirmed) => ipcRenderer.send('auth-custom-confirmed', confirmed),
+    cancelCustomAuth: () => ipcRenderer.send('auth-custom-cancelled'),
 
     // ── Store / persistance ────────────────────────────────────
     getStore: () => ipcRenderer.invoke('get-store'),
@@ -50,6 +68,9 @@ contextBridge.exposeInMainWorld('dualview', {
             'load-url', 'theme-changed', 'update-addressbar',
             'nav-state-changed', 'webview-go-back', 'webview-go-forward',
             'download-blocked',
+            // v0.3.0
+            'sync-state-changed', 'show-login-popup', 'login-page-cleared',
+            'auth-custom-confirm', 'sync-resume-state',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

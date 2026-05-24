@@ -1,9 +1,9 @@
 @echo off
 echo.
-echo  DualView v0.2.6 - Build
+echo  DualView v0.3.0 - Build
 echo  ========================
 echo.
-echo  Produit dist\DualView-Setup-0.2.6.exe
+echo  Produit dist\DualView-Setup-0.3.0.exe
 echo  Inclut un desinstallateur Windows natif.
 echo.
 echo  Prerequis : Node.js v22+ (https://nodejs.org)

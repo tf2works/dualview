@@ -9,6 +9,9 @@
             --fg: #1a1a1a;
             --resize-overlay: rgba(230,126,0,0.12);
             --resize-border: #e67e00;
+            --accent: #0066cc;
+            --border: #c0c0c0;
+            --danger: #dc3545;
         }
 
         [data-theme="dark"] {
@@ -63,18 +66,39 @@
             pointer-events: none;
         }
 
+        /* Indicateur sync */
+        #sync-indicator {
+            position: fixed;
+            top: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.55);
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 10px;
+            z-index: 9990;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+
+            #sync-indicator.visible {
+                opacity: 1;
+            }
+
+            #sync-indicator.paused {
+                background: rgba(230,126,0,0.85);
+            }
+
         #webview-container {
             flex: 1;
             position: relative;
             overflow: hidden;
         }
 
-        /*
-         * Pool de webviews portrait.
-         * Même logique que landscape :
-         *   display:none  → inactive (contenu vivant en mémoire)
-         *   display:flex  → active et visible
-         */
         .wv-portrait {
             position: absolute;
             inset: 0;
@@ -102,29 +126,67 @@
         }
 
             #empty-state .icon {
-                font-size: 48px;
+                font-size: 48px
             }
 
             #empty-state .text {
                 font-size: 15px;
-                font-weight: 500;
+                font-weight: 500
             }
 
             #empty-state .sub {
                 font-size: 12px;
                 text-align: center;
-                padding: 0 20px;
+                padding: 0 20px
             }
+
+        /* Overlay login portrait — plein écran, non ignorable */
+        #login-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 8000;
+            background: rgba(230,126,0,0.92);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            pointer-events: all;
+        }
+
+            #login-overlay.show {
+                display: flex;
+            }
+
+        #login-overlay-icon {
+            font-size: 40px;
+        }
+
+        #login-overlay-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            line-height: 1.4;
+            padding: 0 24px;
+        }
+
+        #login-overlay-sub {
+            font-size: 12px;
+            color: rgba(255,255,255,0.85);
+            text-align: center;
+            padding: 0 32px;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
-
     <div id="resize-overlay">
-        <div id="resize-msg">
-            Redimensionnez cette fenetre<br>
-            <span style="font-weight:400;font-size:11px;">Cliquez Valider dans le controle pour reprendre</span>
-        </div>
+        <div id="resize-msg">Redimensionnez cette fenêtre<br><span style="font-weight:400;font-size:11px;">Cliquez Valider dans le contrôle pour reprendre</span></div>
     </div>
+
+    <!-- Indicateur sync -->
+    <div id="sync-indicator"></div>
 
     <div id="webview-container">
         <div id="empty-state">
@@ -132,29 +194,49 @@
             <div class="text">Vue Portrait (Mobile)</div>
             <div class="sub">Entrez une URL dans la fenêtre de contrôle</div>
         </div>
-        <!-- Les webviews sont créées dynamiquement par le JS (pool) -->
+    </div>
+
+    <!-- Overlay login portrait — plein écran, non ignorable, disparaît à la navigation -->
+    <div id="login-overlay">
+        <div id="login-overlay-icon">🔐</div>
+        <div id="login-overlay-title">Page de connexion détectée<br>Synchronisation en pause</div>
+        <div id="login-overlay-sub">Connectez-vous dans la fenêtre Paysage.<br>La synchronisation reprendra automatiquement.</div>
     </div>
 
     <script>
-        // ── Constantes ─────────────────────────────────────────────────────────────────
         const UA_MOBILE = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
-
-        // ── Références DOM ─────────────────────────────────────────────────────────────
         const webviewCont = document.getElementById('webview-container');
         const emptyState = document.getElementById('empty-state');
+        const syncIndicator = document.getElementById('sync-indicator');
 
-        // ── État ───────────────────────────────────────────────────────────────────────
-        // Map<tabId, HTMLWebViewElement>
         const webviewPool = new Map();
         let activeTabId = null;
+        let currentSyncState = 'paused';
 
-        // ── Script exécuteur vidéo (injecté dans chaque webview portrait) ──────────────
+        // ── Indicateur sync ────────────────────────────────────────────────────────────
+        function updateSyncIndicator(state) {
+            currentSyncState = state;
+            if (state === 'active') {
+                syncIndicator.classList.remove('paused');
+                syncIndicator.textContent = '● Sync active';
+                syncIndicator.classList.add('visible');
+                setTimeout(() => syncIndicator.classList.remove('visible'), 2000);
+            } else {
+                syncIndicator.classList.add('paused');
+                syncIndicator.textContent = '⏸ Sync pausée';
+                syncIndicator.classList.add('visible');
+            }
+        }
+
+        window.dualview.getSyncState().then(state => updateSyncIndicator(state));
+        window.dualview.on('sync-state-changed', state => updateSyncIndicator(state));
+
+        // ── Script vidéo exécuteur ─────────────────────────────────────────────────────
         const VIDEO_EXECUTOR_SCRIPT = `
 (function() {
         if (window.__dualviewExecutorReady) return;
         window.__dualviewExecutorReady = true;
         window.__dualviewPendingCmd = null;
-
         function detectPlatform() {
             const host = location.hostname;
             if (host.includes('youtube.com'))   return 'youtube';
@@ -173,80 +255,42 @@
         function findBestVideo(selectors) {
             for (const sel of selectors) {
                 const videos = Array.from(document.querySelectorAll(sel));
-                const visible = videos.filter(v => {
-                    const r = v.getBoundingClientRect();
-                    return r.width > 100 && r.height > 100;
-                });
-                if (visible.length > 0) {
-                    visible.sort((a,b) => {
-                        const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
-                        return (rb.width*rb.height)-(ra.width*ra.height);
-                    });
-                    return visible[0];
-                }
+                const visible = videos.filter(v => { const r=v.getBoundingClientRect(); return r.width>100&&r.height>100; });
+                if (visible.length>0) { visible.sort((a,b)=>{ const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect(); return(rb.width*rb.height)-(ra.width*ra.height); }); return visible[0]; }
             }
             return null;
         }
-
-        const platform  = detectPlatform();
-        const selectors = getVideoSelectors(platform);
-
+        const platform=detectPlatform(), selectors=getVideoSelectors(platform);
         window.__dualviewApplyCmd = function(cmd) {
             const video = findBestVideo(selectors);
-            if (!video) { window.__dualviewPendingCmd = cmd; return false; }
-
-            if (cmd.action === 'pause') {
-                video.pause();
-                if (Math.abs(video.currentTime - cmd.currentTime) > 3) video.currentTime = cmd.currentTime;
-            } else if (cmd.action === 'play') {
-                if (Math.abs(video.currentTime - cmd.currentTime) > 3) video.currentTime = cmd.currentTime;
-                const p = video.play(); if (p && p.catch) p.catch(()=>{});
-            } else if (cmd.action === 'seek') {
-                if (Math.abs(video.currentTime - cmd.currentTime) > 5) {
-                    video.currentTime = cmd.currentTime;
-                    if (!video.paused) { const p = video.play(); if (p && p.catch) p.catch(()=>{}); }
-                }
-            }
+            if (!video) { window.__dualviewPendingCmd=cmd; return false; }
+            if (cmd.action==='pause') { video.pause(); if (Math.abs(video.currentTime-cmd.currentTime)>3) video.currentTime=cmd.currentTime; }
+            else if (cmd.action==='play') { if (Math.abs(video.currentTime-cmd.currentTime)>3) video.currentTime=cmd.currentTime; const p=video.play(); if(p&&p.catch)p.catch(()=>{}); }
+            else if (cmd.action==='seek') { if (Math.abs(video.currentTime-cmd.currentTime)>5) { video.currentTime=cmd.currentTime; if(!video.paused){const p=video.play();if(p&&p.catch)p.catch(()=>{});} } }
             return true;
         };
-
         const observer = new MutationObserver(function() {
-            if (window.__dualviewPendingCmd) {
-                const ok = window.__dualviewApplyCmd(window.__dualviewPendingCmd);
-                if (ok) window.__dualviewPendingCmd = null;
-            }
+            if (window.__dualviewPendingCmd) { const ok=window.__dualviewApplyCmd(window.__dualviewPendingCmd); if(ok)window.__dualviewPendingCmd=null; }
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body,{childList:true,subtree:true});
         true;
 })();`;
 
         // ── Pool de webviews ───────────────────────────────────────────────────────────
-
-        /**
-         * Crée une webview portrait pour un onglet donné.
-         * Cachée par défaut, activée seulement lors du switch.
-         */
         function createWebview(tabId, url) {
             if (webviewPool.has(tabId)) return webviewPool.get(tabId);
-
             const wv = document.createElement('webview');
             wv.setAttribute('useragent', UA_MOBILE);
             wv.setAttribute('allowpopups', '');
             wv.className = 'wv-portrait';
             wv.dataset.tabId = tabId;
             wv.src = url || 'about:blank';
-
             attachWebviewListeners(wv, tabId);
-
             webviewCont.appendChild(wv);
             webviewPool.set(tabId, wv);
             return wv;
         }
 
-        /**
-         * Détruit la webview d'un onglet fermé.
-         * Aucune confirmation — comportement navigateur standard.
-         */
         function destroyWebview(tabId) {
             const wv = webviewPool.get(tabId);
             if (!wv) return;
@@ -255,42 +299,28 @@
             webviewPool.delete(tabId);
         }
 
-        /**
-         * Active la webview de l'onglet cible, cache les autres.
-         */
         function showWebview(tabId) {
-            webviewPool.forEach((wv, id) => {
-                wv.classList.toggle('active', id === tabId);
-            });
+            webviewPool.forEach((wv, id) => { wv.classList.toggle('active', id === tabId); });
             const wv = webviewPool.get(tabId);
             const hasUrl = wv && wv.src && wv.src !== 'about:blank';
             emptyState.style.display = hasUrl ? 'none' : 'flex';
         }
 
-        function getActiveWebview() {
-            return webviewPool.get(activeTabId) || null;
-        }
+        function getActiveWebview() { return webviewPool.get(activeTabId) || null; }
 
-        // ── Injection du script exécuteur dans une webview ────────────────────────────
         function injectExecutor(wv) {
-            wv.executeJavaScript('window.__dualviewExecutorReady = false; true;')
+            wv.executeJavaScript('window.__dualviewExecutorReady=false;true;')
                 .then(() => wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT))
                 .catch(() => { });
         }
 
         function attachWebviewListeners(wv, tabId) {
             wv.addEventListener('did-navigate', () => {
-                wv.executeJavaScript(
-                    'window.__dualviewExecutorReady = false; window.__dualviewPendingCmd = null; true;'
-                ).catch(() => { });
+                wv.executeJavaScript('window.__dualviewExecutorReady=false;window.__dualviewPendingCmd=null;true;').catch(() => { });
             });
-
             wv.addEventListener('did-navigate-in-page', () => {
-                wv.executeJavaScript(
-                    'window.__dualviewExecutorReady = false; window.__dualviewPendingCmd = null; true;'
-                ).catch(() => { });
+                wv.executeJavaScript('window.__dualviewExecutorReady=false;window.__dualviewPendingCmd=null;true;').catch(() => { });
             });
-
             wv.addEventListener('dom-ready', () => {
                 injectExecutor(wv);
                 setTimeout(() => injectExecutor(wv), 2000);
@@ -301,75 +331,36 @@
         window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
         window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
 
-        // ── Channels IPC : gestion du pool d'onglets ──────────────────────────────────
-
-        /**
-         * tab-created : landscape vient de créer un nouvel onglet.
-         * On crée la webview miroir portrait (cachée).
-         */
+        // ── IPC pool onglets ──────────────────────────────────────────────────────────
         window.dualview.on('tab-created', ({ tabId, url }) => {
-            if (!webviewPool.has(tabId)) {
-                createWebview(tabId, url || '');
-            }
+            if (!webviewPool.has(tabId)) createWebview(tabId, url || '');
         });
-
-        /**
-         * tab-switched : l'utilisateur a cliqué sur un onglet dans landscape.
-         * On affiche la webview portrait correspondante sans recharger.
-         */
         window.dualview.on('tab-switched', tabId => {
             activeTabId = tabId;
-            if (!webviewPool.has(tabId)) {
-                // Cas de secours : la webview n'existe pas encore (ne devrait pas arriver)
-                createWebview(tabId, '');
-            }
+            if (!webviewPool.has(tabId)) createWebview(tabId, '');
             showWebview(tabId);
         });
+        window.dualview.on('tab-closed', tabId => { destroyWebview(tabId); });
 
-        /**
-         * tab-closed : un onglet a été fermé dans landscape.
-         * On détruit la webview portrait immédiatement.
-         */
-        window.dualview.on('tab-closed', tabId => {
-            destroyWebview(tabId);
-        });
-
-        // ── Channels IPC : navigation et sync ────────────────────────────────────────
-
-        /**
-         * load-url : reçoit { tabId, url } pour charger une URL dans la webview
-         * de l'onglet spécifié (pas nécessairement l'onglet actif).
-         * Compatibilité ascendante : si on reçoit une chaîne (ancienne API), on
-         * cible l'onglet actif.
-         */
+        // ── IPC navigation ────────────────────────────────────────────────────────────
         window.dualview.on('load-url', payload => {
             let tabId, url;
-            if (typeof payload === 'string') {
-                // Compatibilité : ancienne API string
-                tabId = activeTabId;
-                url = payload;
-            } else {
-                tabId = payload.tabId;
-                url = payload.url;
-            }
-
+            if (typeof payload === 'string') { tabId = activeTabId; url = payload; }
+            else { tabId = payload.tabId; url = payload.url; }
             if (!url || url === 'about:blank') return;
-
-            // Créer la webview si elle n'existe pas encore
-            if (!webviewPool.has(tabId)) {
-                createWebview(tabId, url);
-                if (tabId === activeTabId) showWebview(tabId);
-                return;
-            }
-
+            if (!webviewPool.has(tabId)) { createWebview(tabId, url); if (tabId === activeTabId) showWebview(tabId); return; }
             const wv = webviewPool.get(tabId);
             wv.src = url;
+            if (tabId === activeTabId) { emptyState.style.display = 'none'; wv.classList.add('active'); }
+        });
 
-            // Mettre à jour empty-state si c'est l'onglet actif
-            if (tabId === activeTabId) {
-                emptyState.style.display = 'none';
-                wv.classList.add('active');
-            }
+        // Quand la sync reprend : rejouer scroll + vidéo dans l'onglet actif
+        window.dualview.on('sync-resume-state', ({ tabId, url }) => {
+            const wv = webviewPool.get(tabId);
+            if (!wv) return;
+            // Réinjecter le script vidéo pour reprendre la sync
+            injectExecutor(wv);
+            // Scroll : remettre à zéro (le landscape enverra la position courante)
         });
 
         // ── Scroll ─────────────────────────────────────────────────────────────────────
@@ -377,11 +368,8 @@
             const wv = getActiveWebview();
             if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
             wv.executeJavaScript(`
-            (function() {
-                const el  = document.documentElement;
-                const max = el.scrollHeight - el.clientHeight;
-                if (max > 0) window.scrollTo({ top: ${scrollPct} * max, behavior: 'smooth' });
-            })(); true;
+            (function(){const el=document.documentElement,max=el.scrollHeight-el.clientHeight;
+            if(max>0)window.scrollTo({top:${scrollPct}*max,behavior:'smooth'});})();true;
         `).catch(() => { });
         });
 
@@ -390,32 +378,28 @@
             const wv = getActiveWebview();
             if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
             wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
-                .then(() => {
-                    const cmdStr = JSON.stringify(cmd);
-                    return wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + '); true;');
-                })
+                .then(() => { const cmdStr = JSON.stringify(cmd); return wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + ');true;'); })
                 .catch(() => { });
         });
 
-        // ── Nav back / forward ─────────────────────────────────────────────────────────
-        window.dualview.on('webview-go-back', () => {
-            const wv = getActiveWebview();
-            if (wv && wv.canGoBack && wv.canGoBack()) wv.goBack();
-        });
-        window.dualview.on('webview-go-forward', () => {
-            const wv = getActiveWebview();
-            if (wv && wv.canGoForward && wv.canGoForward()) wv.goForward();
+        // ── Nav ────────────────────────────────────────────────────────────────────────
+        window.dualview.on('webview-go-back', () => { const wv = getActiveWebview(); if (wv && wv.canGoBack && wv.canGoBack()) wv.goBack(); });
+        window.dualview.on('webview-go-forward', () => { const wv = getActiveWebview(); if (wv && wv.canGoForward && wv.canGoForward()) wv.goForward(); });
+        window.dualview.on('reload-webview', () => { const wv = getActiveWebview(); if (wv && wv.getURL && wv.getURL() !== 'about:blank') wv.reload(); });
+
+        // ── Resize ─────────────────────────────────────────────────────────────────────
+        window.dualview.on('resize-mode', active => { document.body.classList.toggle('resize-mode', active); });
+
+        // ── Overlay login portrait ────────────────────────────────────────────────────
+        const loginOverlay = document.getElementById('login-overlay');
+
+        window.dualview.on('show-login-popup', ({ url, tabId }) => {
+            loginOverlay.classList.add('show');
         });
 
-        // ── Reload ─────────────────────────────────────────────────────────────────────
-        window.dualview.on('reload-webview', () => {
-            const wv = getActiveWebview();
-            if (wv && wv.getURL && wv.getURL() !== 'about:blank') wv.reload();
-        });
-
-        // ── Mode redimensionnement ─────────────────────────────────────────────────────
-        window.dualview.on('resize-mode', active => {
-            document.body.classList.toggle('resize-mode', active);
+        // main.js confirme que l'URL n'est plus une page de login → masquer l'overlay
+        window.dualview.on('login-page-cleared', () => {
+            loginOverlay.classList.remove('show');
         });
     </script>
 </body>

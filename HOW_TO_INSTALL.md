@@ -1,49 +1,40 @@
-# DualView v0.2.6 - Instructions d'installation
+# DualView v0.3.0 - Instructions d'installation
 
-## Nouveautés v0.2.6
+## Nouveautés v0.3.0
 
-- **Pool de webviews** : chaque onglet conserve son état indépendamment
-- Switch d'onglet instantané — aucun rechargement, aucune interruption de lecture
-- YouTube, TikTok, Instagram : la vidéo continue en arrière-plan lors d'un changement d'onglet
-- Fermeture d'onglet immédiate (comportement navigateur standard, sans dialog)
-- Les pollers scroll et vidéo ciblent exclusivement la webview de l'onglet actif
+- **Démarrage sync différé** : la synchronisation démarre 3 secondes après l'ouverture
+- **Contrôle de la synchronisation** : bouton dans la toolbar — ⏸ Pause / ▶ Reprendre / ↺ Redémarrer
+- **Services connectés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam + URL personnalisée
+- **Anti-détection Electron** : connexion par clé d'accès (Windows Hello, FIDO2) et email/mot de passe fonctionnels via une fenêtre dédiée
+- **Détection des pages de connexion** : popup dans landscape + overlay dans portrait avec bouton "Se connecter" direct
+- **YouTube Shorts** : bloqueur de publicités désactivé sur les Shorts
 
-## Nouveautés v0.2.5
+## Problèmes connus v0.3.0
 
-- Paramètres intégrés (onglet ⚙️) : page d'accueil, restauration onglets,
-  apparence, langue (FR/EN)
-- Boutons ⟳ (recharger) et 🏠 (accueil) dans la barre de navigation
-- Menu ⚙️ : Redimensionner | Paramètres
-- Sécurité renforcée : blocage téléchargements, permissions, schémas non-http
-- Installeur simplifié : un seul script, pas de dépendance WiX
-- Page d'accueil par défaut : Knack3 Marketplace
+> Ces bugs sont identifiés et seront corrigés en v0.3.1.
+
+| # | Symptôme | Contournement |
+|---|----------|---------------|
+| 1 | Après connexion Google/YouTube dans Services connectés, portrait affiche toujours l'utilisateur comme non connecté | Recharger manuellement l'onglet via ⟳ |
+| 2 | Connexion Microsoft : la fenêtre auth ne se ferme pas automatiquement, le statut reste "Non connecté" | Fermer la fenêtre manuellement ; rouvrir les paramètres pour vérifier le statut |
+| 3 | Navigation vers Outlook (et autres services Microsoft) : portrait affiche ERR_ABORTED au lieu de la page | Lié au BUG-2 ; sera corrigé avec la fermeture automatique Microsoft |
 
 ---
 
 ## Installation (utilisateurs)
 
 ### Prérequis
-
 - Windows 11 (Build 22000+)
-- Connexion internet pour télécharger Node.js si absent (~30 Mo)
+- Connexion internet
 
 ### Procédure
+1. Double-cliquez sur **DualView-Setup-0.3.0.exe**
+2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
+3. Acceptez l'élévation Administrateur si demandée
 
-1. Double-cliquez sur **DualView-Setup-0.2.6.exe**
-2. Si Windows affiche "Éditeur inconnu" → cliquez **Plus d'informations**
-   puis **Exécuter quand même**
-3. Si Windows demande une élévation → cliquez **Oui**
-
-L'installeur effectue automatiquement :
-- Détection de Node.js ; téléchargement et installation si absent
-- Compilation de DualView (npm install + electron-builder)
-- Installation dans Program Files\DualView\
-- Création d'un raccourci dans le Menu Démarrer
-
-Durée estimée : 5 à 15 minutes selon la connexion.
+Durée estimée : 5 à 15 minutes.
 
 ### Lancer DualView
-
 Cherchez **DualView** dans le Menu Démarrer.
 
 ---
@@ -52,106 +43,110 @@ Cherchez **DualView** dans le Menu Démarrer.
 
 **Paramètres Windows → Applications → DualView → Désinstaller**
 
-Les données de configuration (`%APPDATA%\DualView\`) sont conservées
-par défaut. Supprimez ce dossier manuellement si vous souhaitez
-tout effacer.
+Les données (`%APPDATA%\DualView\`) sont conservées. Supprimez ce dossier pour tout effacer.
 
 ---
 
 ## Fenêtres
 
-| Fenêtre             | Description                                      |
-|---------------------|--------------------------------------------------|
-| DualView - Paysage  | Barre de contrôle + vue Desktop 16:9             |
-| DualView - Portrait | Vue Mobile 9:16 (taille fixe par défaut)         |
+| Fenêtre | Description |
+|---------|-------------|
+| DualView - Paysage | Barre de contrôle + vue Desktop 16:9 |
+| DualView - Portrait | Vue Mobile 9:16 (taille fixe par défaut) |
 
 ---
 
 ## Barre de navigation (fenêtre Paysage)
 
-`← → ⟳ 🏠 [url] ▶ [✅] ⚙️`
+`← → ⟳ 🏠 [url] ▶ [✅] [● Sync] ⚙️`
 
 | Bouton | Fonction |
 |--------|----------|
-| ←  | Page précédente (les deux fenêtres) |
-| →  | Page suivante (les deux fenêtres) |
-| ⟳  | Recharger (les deux fenêtres) |
+| ← | Page précédente (les deux fenêtres) |
+| → | Page suivante (les deux fenêtres) |
+| ⟳ | Recharger (les deux fenêtres) |
 | 🏠 | Page d'accueil |
-| ▶  | Charger l'URL saisie |
+| ▶ | Charger l'URL saisie |
 | ✅ | Valider le redimensionnement Portrait |
+| ● Sync | Contrôle de la synchronisation |
 | ⚙️ | Menu : Redimensionner / Paramètres |
 
 ---
 
-## Onglets (comportement v0.2.6)
+## Contrôle de la synchronisation
 
-- Chaque onglet est **indépendant** : son état (page, scroll, vidéo) est
-  conservé en mémoire tant qu'il est ouvert.
-- Cliquer sur un onglet déjà chargé **n'entraîne aucun rechargement**.
-- Une vidéo YouTube lancée dans un onglet continue à jouer en arrière-plan
-  si vous passez sur un autre onglet.
-- Fermer un onglet est immédiat, sans dialog de confirmation.
-- **Recommandation streaming OBS** : limiter à 5 onglets simultanés
-  (chaque onglet consomme ~80–150 Mo de RAM supplémentaire).
+Cliquez sur **● Sync** pour afficher le menu :
+
+| Option | Description |
+|--------|-------------|
+| ⏸ Mettre en pause | Suspend la sync (scroll, vidéo, navigation) |
+| ▶ Reprendre | Relance la sync ; réinjecte les scripts vidéo et scroll |
+| ↺ Redémarrer | Pause 500 ms puis reprise complète |
+
+La synchronisation démarre automatiquement 3 secondes après l'ouverture.
+
+---
+
+## Services connectés
+
+**⚙️ → Paramètres → Services connectés**
+
+### Services pré-configurés
+Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam.
+
+La connexion s'effectue dans une fenêtre dédiée qui contourne les restrictions des webviews Electron (clés d'accès Windows Hello, FIDO2, et email/mot de passe sont supportés).
+
+### Service personnalisé
+Cliquez **+ Ajouter un service**, entrez un nom et une URL, puis **Connecter**. Un bouton **"✓ J'ai terminé"** apparaît dans la fenêtre d'auth. Cliquez-le une fois connecté et confirmez.
+
+### Déconnexion
+Survolez une tuile connectée → **✕**, ou utilisez **Déconnecter** pour les services personnalisés.
+
+---
+
+## Détection des pages de connexion
+
+Quand DualView détecte une page de connexion :
+
+**Dans landscape** : popup proposant :
+- **Retour** — revenir à la page précédente
+- **Se connecter (Nom du service)** — ouvre directement la fenêtre d'auth
+- **Services connectés** — ouvre l'onglet Services connectés
+
+**Dans portrait** : overlay plein écran orange indiquant *"Page de connexion détectée — Synchronisation en pause"*. Disparaît automatiquement quand l'utilisateur quitte la page de connexion.
+
+---
+
+## YouTube Shorts
+
+Les Shorts (`youtube.com/shorts/...`) sont exemptés du bloqueur de publicités. La synchronisation vidéo reste active.
 
 ---
 
 ## Paramètres
 
-Cliquez sur **⚙️ → Paramètres** pour ouvrir l'onglet dédié.
+**⚙️ → Paramètres**
 
-### Général
-- **Ouvrir les fenêtres et onglets précédents** : restaure la session
-  précédente au démarrage
-- **Page d'accueil** : Knack3 (défaut), URL personnalisée, ou page vide
-- **Nouveaux onglets** : page d'accueil sélectionnée ou page vide
-
-### Apparence
-- Automatique (suit Windows), Clair, Sombre
-- Un redémarrage est proposé pour appliquer le changement
-
-### Langue
-- Français (défaut), English
-- Un redémarrage est proposé pour appliquer le changement
-
-### Confidentialité (informatif)
-- Téléchargements bloqués
-- Permissions (caméra, micro, géoloc, notifs) bloquées
-- Seuls http://, https:// et file:// autorisés
+- **Général** : restauration onglets, page d'accueil, nouveaux onglets
+- **Apparence** : Automatique / Clair / Sombre (redémarrage requis)
+- **Langue** : Français / English (redémarrage requis)
+- **Services connectés** : gestion des connexions
+- **Confidentialité** : informations sur les protections actives
 
 ---
 
 ## Redimensionnement de la fenêtre Portrait
 
-1. Cliquez **⚙️ → Redimensionner** : la fenêtre Portrait devient
-   redimensionnable (contour orange)
-2. Redimensionnez la fenêtre Portrait à votre convenance
-3. Cliquez **✅** pour verrouiller et reprendre la synchronisation
-
----
-
-## Bloqueur de publicités
-
-Actif par défaut, sans configuration.
-Bloque : Google Ads, DoubleClick, imasdk (YouTube pre-roll),
-Google Analytics, pagead, pubads, securepubads.
-
----
-
-## Synchronisation vidéo
-
-DualView détecte les événements play/pause/seek dans Paysage
-et les applique à Portrait avec correction de position (±3s).
-Correction anti-dérive toutes les 5 secondes (tolérance ±5s).
-
-Plateformes : YouTube, TikTok, Instagram, générique.
+1. **⚙️ → Redimensionner** : contour orange, portrait redimensionnable
+2. Redimensionnez à votre convenance
+3. **✅** pour verrouiller et reprendre la synchronisation
 
 ---
 
 ## Configuration OBS
 
 Deux sources "Capture de fenêtre" :
-- `DualView - Paysage` : vue Desktop (inclut la barre de contrôle)
+- `DualView - Paysage` : vue Desktop
 - `DualView - Portrait` : vue Mobile
 
 Les titres sont stables entre les changements d'onglets.
@@ -163,7 +158,4 @@ Les titres sont stables entre les changements d'onglets.
 **Prérequis** : Node.js >= 22 (https://nodejs.org)
 
 Lancez **installer/build-installer.bat** depuis le dossier racine.
-Le script produit **dist/DualView-Setup-0.2.6.exe** (~150 Mo).
-
-Le fichier Setup inclut un désinstallateur natif Windows enregistré
-dans Paramètres > Applications.
+Produit **dist/DualView-Setup-0.3.0.exe** (~150 Mo).
