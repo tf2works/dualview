@@ -443,6 +443,28 @@
             margin-left: auto
         }
 
+        #dev-btn {
+            background: none;
+            border: 1px solid var(--orange);
+            border-radius: 4px;
+            color: var(--orange);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 6px;
+            cursor: pointer;
+            display: none;
+            margin-left: 8px;
+            transition: background 0.15s
+        }
+
+            #dev-btn:hover {
+                background: rgba(230,126,0,0.15)
+            }
+
+        body.dev-mode #dev-btn {
+            display: inline-block
+        }
+
         /* ── Toast ── */
         #toast {
             position: fixed;
@@ -1256,7 +1278,8 @@
 
     <div id="status-bar">
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
-        <span id="version-label">v0.3.0</span>
+        <span id="version-label">v0.3.1</span>
+        <button id="dev-btn" title="Inspecter webview active (Ctrl+F12)">🔧 DEV</button>
     </div>
 
     <div id="toast"></div>
@@ -1786,9 +1809,12 @@
             wv.setAttribute('allowpopups', '');
             wv.className = 'wv-landscape';
             wv.dataset.tabId = tabId;
-            wv.src = url || 'about:blank';
+            // Attacher les listeners AVANT appendChild puis assigner src APRÈS
+            // appendChild pour éviter ERR_ABORTED sur les webviews nouvellement créées
             attachWebviewListeners(wv, tabId);
             webviewCont.appendChild(wv);
+            // src après DOM attachment — sinon Electron lève ERR_ABORTED
+            wv.src = url || 'about:blank';
             webviewPool.set(tabId, wv);
             window.dualview.createTab(tabId, url || '');
             return wv;
@@ -1814,10 +1840,16 @@
 
         function attachWebviewListeners(wv, tabId) {
             wv.addEventListener('dom-ready', () => {
-                resetWatcherFlags(wv); injectWatcher(wv);
+                resetWatcherFlags(wv);
+                injectWatcher(wv);
                 wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
-                setTimeout(() => injectWatcher(wv), 2000);
-                setTimeout(() => injectWatcher(wv), 5000);
+                // Réinjections différées : vérifier que la webview est toujours vivante
+                setTimeout(() => {
+                    if (webviewPool.has(tabId)) injectWatcher(wv);
+                }, 2000);
+                setTimeout(() => {
+                    if (webviewPool.has(tabId)) injectWatcher(wv);
+                }, 5000);
                 if (tabId === activeTabId) sendNavState(wv);
                 applyWebviewTheme(wv);
             });
@@ -1858,6 +1890,12 @@
                     }
                 }
                 if (tabId === activeTabId) sendNavState(wv);
+                // Réinjecter scroll + vidéo après navigation SPA (Google Search,
+                // YouTube, etc.) — dom-ready ne se redéclenche pas pour ces navigations
+                if (webviewPool.has(tabId)) {
+                    wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
+                    injectWatcher(wv);
+                }
             });
         }
 
@@ -2025,8 +2063,9 @@
                 if (!webviewPool.has(id)) createWebview(id, tab.url || '');
                 showWebview(id);
                 updateNavButtons({ canGoBack: false, canGoForward: false });
-                const wv = getActiveWebview();
-                if (wv) sendNavState(wv);
+                // Ne pas appeler sendNavState ici : la webview peut ne pas encore
+                // être attachée au DOM (dom-ready pas encore émis → exception Electron).
+                // dom-ready appellera sendNavState une fois la webview prête.
                 window.dualview.switchTab(id);
             }
             renderTabs(); saveTabs(); resetVideoCounters();
@@ -2102,7 +2141,20 @@
             }
             updateNavButtons({ canGoBack: false, canGoForward: false });
             const wv = getActiveWebview();
-            if (wv) wv.src = url;
+            if (wv) {
+                // Si la webview est déjà attachée et prête, charger directement
+                // Sinon attendre dom-ready (1er chargement après createWebview)
+                if (wv.getURL !== undefined) {
+                    try {
+                        wv.src = url;
+                    } catch (e) {
+                        console.warn('Unexpected error while loading URL', e);
+                        wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
+                    }
+                } else {
+                    wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
+                }
+            }
             window.dualview.navigate(url);
         }
 
@@ -2124,7 +2176,11 @@
             if (activeTabId === SETTINGS_TAB_ID) return;
             const wv = getActiveWebview();
             if (!wv || !url || url === 'about:blank') return;
-            wv.src = url;
+            try {
+                wv.src = url;
+            } catch (e) {
+                wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
+            }
             emptyState.style.display = 'none';
             wv.classList.add('active');
         });
@@ -2393,7 +2449,14 @@
                 wv.executeJavaScript('window.__dualviewVideoEvent=null;true;').catch(() => { });
                 if (evt.type === 'play') { showIndicator('Lecture (' + evt.platform + ')', false); window.dualview.sendVideoPlay(evt.time); }
                 if (evt.type === 'pause') { showIndicator('Pause (' + evt.platform + ')', true); window.dualview.sendVideoPause(evt.time); }
-                if (evt.type === 'seek') { window.dualview.sendVideoPlay(evt.time); }
+                // seek : envoyer l'état courant (pause ou lecture) plutôt que toujours play
+                if (evt.type === 'seek') {
+                    wv.executeJavaScript('(window.__dualviewVideoState&&window.__dualviewVideoState.playing)||false')
+                        .then(isPlaying => {
+                            if (isPlaying) window.dualview.sendVideoPlay(evt.time);
+                            else window.dualview.sendVideoPause(evt.time);
+                        }).catch(() => window.dualview.sendVideoPlay(evt.time));
+                }
             }).catch(() => { });
             const now = Date.now();
             if (now - lastTimeSyncAt >= 5000) {
@@ -2426,6 +2489,41 @@
 
         // ── Initialisation ─────────────────────────────────────────────────────────────
         window.dualview.getSyncState().then(state => updateSyncUI(state));
+
+        // Mode dev : activer classe CSS + raccourci bouton 🔧
+        window.dualview.getIsDev().then(isDev => {
+            if (!isDev) return;
+
+            document.body.classList.add('dev-mode');
+
+            // ── Bouton 🔧 : DevTools de la webview active ──────────────────────────
+            document.getElementById('dev-btn').addEventListener('click', () => {
+                const wv = getActiveWebview();
+                if (!wv) return;
+                if (wv.isDevToolsOpened()) wv.closeDevTools();
+                else wv.openDevTools();
+            });
+
+            // ── F12 : DevTools de la fenêtre landscape (renderer) ──────────────────
+            // Géré dans le renderer car main n'a pas accès aux webviews du pool.
+            window.addEventListener('keydown', (e) => {
+                if (e.key !== 'F12') return;
+                e.preventDefault();
+
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl+F12 → DevTools de la webview active
+                    const wv = getActiveWebview();
+                    if (!wv) return;
+                    if (wv.isDevToolsOpened()) wv.closeDevTools();
+                    else wv.openDevTools();
+                } else {
+                    // F12 → DevTools de la fenêtre landscape elle-même
+                    // Passe par IPC car le renderer ne peut pas appeler
+                    // webContents.openDevTools() sur sa propre fenêtre directement
+                    window.dualview.toggleDevTools();
+                }
+            });
+        });
 
         window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings }) => {
             loadSettingsUI(settings || {});

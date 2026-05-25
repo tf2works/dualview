@@ -1,6 +1,6 @@
-# DualView v0.3.0 - Instructions d'installation
+# DualView v0.3.1 - Instructions d'installation
 
-## Nouveautés v0.3.0
+## Nouveautés v0.3.1
 
 - **Démarrage sync différé** : la synchronisation démarre 3 secondes après l'ouverture
 - **Contrôle de la synchronisation** : bouton dans la toolbar — ⏸ Pause / ▶ Reprendre / ↺ Redémarrer
@@ -9,7 +9,7 @@
 - **Détection des pages de connexion** : popup dans landscape + overlay dans portrait avec bouton "Se connecter" direct
 - **YouTube Shorts** : bloqueur de publicités désactivé sur les Shorts
 
-## Problèmes connus v0.3.0
+## Problèmes connus v0.3.1
 
 > Ces bugs sont identifiés et seront corrigés en v0.3.1.
 
@@ -28,7 +28,7 @@
 - Connexion internet
 
 ### Procédure
-1. Double-cliquez sur **DualView-Setup-0.3.0.exe**
+1. Double-cliquez sur **DualView-Setup-0.3.1.exe**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur si demandée
 
@@ -158,4 +158,4 @@ Les titres sont stables entre les changements d'onglets.
 **Prérequis** : Node.js >= 22 (https://nodejs.org)
 
 Lancez **installer/build-installer.bat** depuis le dossier racine.
-Produit **dist/DualView-Setup-0.3.0.exe** (~150 Mo).
+Produit **dist/DualView-Setup-0.3.1.exe** (~150 Mo).

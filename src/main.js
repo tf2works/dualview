@@ -1,8 +1,8 @@
 /**
  * DualView - Main Process
- * Version: 0.3.0
+ * Version: 0.3.1
  *
- * Changements v0.3.0 :
+ * Changements v0.3.1 :
  * - Délai de démarrage sync (3 s) pour éviter les interruptions au lancement
  * - IPC sync-control : pause / resume / restart de la synchronisation portrait
  * - Services connectés : openAuthWindow, checkAllServicesStatus, disconnectService
@@ -11,15 +11,23 @@
  */
 
 const { app, BrowserWindow, ipcMain, nativeTheme, screen, session } = require('electron');
+const logger = require('./logger');
 const path = require('path');
 const fs = require('fs');
 const {
     KNOWN_SERVICES,
+    authWindowEvents,
     checkKnownServiceCookies,
     checkAllServicesStatus,
     disconnectService,
     openAuthWindow,
 } = require('./auth-window');
+
+// ── Mode dev ─────────────────────────────────────────────────────────────────
+// Activer avec : npm start -- --dev
+// Logs dans %AppData%/DualView/dualview.log
+logger.init();
+logger.setupIpc();
 
 // ── Config JSON ──────────────────────────────────────────────────────────────
 const CONFIG_PATH = path.join(app.getPath('userData'), 'dualview-config.json');
@@ -150,12 +158,21 @@ function isBlockedUrl(urlStr, initiatorUrl) {
     return false;
 }
 
-// ── Whitelist détection pages de connexion ────────────────────────────────────
-// Ces domaines sont connus pour avoir "login" dans leur URL sans être des pages d'auth
+// ── Détection pages de connexion ─────────────────────────────────────────────
+// Domaines exclus de la détection (jamais de popup login)
 const LOGIN_DETECTION_WHITELIST = [
     'localhost', '127.0.0.1',
 ];
-// Chemins qui déclenchent la détection (sur les domaines non-whitelistés)
+// Domaines TOUJOURS considérés comme pages de login (sans vérifier les patterns)
+const LOGIN_FORCED_DOMAINS = [
+    'accounts.google.com',
+    'login.microsoftonline.com', 'login.live.com', 'account.live.com',
+    'www.facebook.com', 'www.instagram.com',
+    'www.tiktok.com', 'twitter.com', 'x.com',
+    'discord.com', 'store.steampowered.com',
+    'login.steampowered.com', 'passport.twitch.tv',
+];
+// Patterns de chemin qui déclenchent la détection sur les autres domaines
 const LOGIN_URL_PATTERNS = [
     /\/login\b/i, /\/signin\b/i, /\/sign-in\b/i, /\/sign_in\b/i,
     /\/auth\b/i, /\/oauth\b/i, /\/connexion\b/i, /\/identification\b/i,
@@ -166,19 +183,29 @@ function isLoginPage(url) {
     try {
         const u = new URL(url);
         if (LOGIN_DETECTION_WHITELIST.some(d => u.hostname.includes(d))) return false;
-        // Exclure les URLs de type callback/token (retour d'OAuth — pas une page de login)
+        // Domaines forcés → toujours une page de login
+        if (LOGIN_FORCED_DOMAINS.some(d => u.hostname === d || u.hostname.endsWith('.' + d))) return true;
+        // Exclure les callbacks OAuth (destination finale, pas une page de login)
         if (/\/callback|\/token|\/redirect/i.test(u.pathname)) return false;
         return LOGIN_URL_PATTERNS.some(re => re.test(u.pathname + u.search));
     } catch { return false; }
 }
 
 // Domaines d'authentification connus — ne jamais synchroniser vers portrait
+// AUTH_DOMAINS : domaines de LOGIN uniquement.
+// Ne pas inclure les domaines de destination post-auth (outlook.live.com,
+// office.com, etc.) — ces URLs arrivent dans portrait après une navigation
+// légitime et ne doivent PAS être bloquées.
 const AUTH_DOMAINS = [
-    'accounts.google.com', 'login.microsoftonline.com', 'login.live.com',
-    'www.facebook.com', 'www.instagram.com', 'www.tiktok.com',
-    'twitter.com', 'x.com', 'discord.com',
+    'accounts.google.com',
+    'login.microsoftonline.com', 'login.live.com', 'account.live.com',
+    'www.facebook.com',
+    'www.instagram.com',
+    'www.tiktok.com',
+    'twitter.com', 'x.com',
+    'discord.com',
     'store.steampowered.com', 'login.steampowered.com',
-    'passport.twitch.tv', 'www.twitch.tv',
+    'passport.twitch.tv',
 ];
 
 /**
@@ -189,7 +216,13 @@ const AUTH_DOMAINS = [
 function isAuthUrl(url) {
     try {
         const u = new URL(url);
+        // Vérifier uniquement le hostname — PAS pathname ni search.
+        // outlook.live.com/mail/ a un paramètre redirect_uri contenant
+        // oauth2/authorize mais ce n'est PAS une page d'auth : c'est la
+        // destination finale après connexion.
         if (AUTH_DOMAINS.some(d => u.hostname === d || u.hostname.endsWith('.' + d))) return true;
+        // isLoginPage vérifie pathname + search mais exclut les domaines
+        // courants (google.com, microsoft.com) → peu de faux positifs
         return isLoginPage(url);
     } catch { return false; }
 }
@@ -224,6 +257,19 @@ function setupSessionSecurity() {
         callback({ cancel: blocked });
     });
 
+    // Correction sec-ch-ua : Electron expose "Electron" dans ce header HTTP
+    // par défaut. Google le vérifie côté serveur pour détecter les navigateurs
+    // automatisés. Ce handler est unique sur la session — ne jamais en installer
+    // un second ailleurs (auth-window.js, etc.) car cela écraserait celui-ci.
+    ses.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
+        const h = details.requestHeaders;
+        const v = process.versions.chrome.split('.')[0];
+        h['sec-ch-ua'] = `"Google Chrome";v="${v}", "Chromium";v="${v}", "Not=A?Brand";v="99"`;
+        h['sec-ch-ua-mobile'] = '?0';
+        h['sec-ch-ua-platform'] = '"Windows"';
+        callback({ requestHeaders: h });
+    });
+
     ses.setPermissionRequestHandler((webContents, permission, callback) => {
         callback(false);
     });
@@ -236,6 +282,18 @@ function setupSessionSecurity() {
         }
     });
 }
+
+// ── Auth success handler (BUG-1 fix) ─────────────────────────────────────────
+// Après une auth réussie, recharger la webview portrait de l'onglet actif
+// afin qu'elle lise les cookies fraîchement écrits par la fenêtre auth.
+authWindowEvents.on('auth-success', ({ serviceKey, serviceLabel }) => {
+    logger.log('auth', 'LOG', [`Auth réussie : ${serviceLabel} (${serviceKey})`]);
+    if (!activeTabId || !portraitWin || portraitWin.isDestroyed()) return;
+    const url = tabUrls.get(activeTabId) || '';
+    logger.log('auth', 'LOG', [`Rechargement portrait — onglet actif: ${activeTabId}, url: ${url}`]);
+    if (!url || isAuthUrl(url)) return;
+    portraitWin.webContents.send('reload-webview');
+});
 
 // ── État global ───────────────────────────────────────────────────────────────
 let tabUrls = new Map();
@@ -309,11 +367,13 @@ function createLandscapeWindow() {
         width: w, height: h, x, y,
         minWidth: 700, minHeight: 480,
         title: 'DualView - Paysage',
+        icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload-landscape.js'),
             webviewTag: true,
+            additionalArguments: logger.IS_DEV ? ['--dev-source=landscape'] : [],
         },
         autoHideMenuBar: true,
         resizable: true,
@@ -322,8 +382,15 @@ function createLandscapeWindow() {
     });
 
     landscapeWin.loadFile(path.join(__dirname, 'landscape.html'));
-    // Augmenter la limite de listeners pour les webviews multiples (pool)
     landscapeWin.webContents.setMaxListeners(50);
+    // Mode dev : injecter preload-dev.js comme second preload via session
+    if (logger.IS_DEV) {
+        landscapeWin.webContents.session.registerPreloadScript({
+            id: 'dev-preload-landscape',
+            type: 'frame',
+            filePath: path.join(__dirname, 'preload-dev.js'),
+        });
+    }
     landscapeWin.once('ready-to-show', () => {
         landscapeWin.show();
         tryScheduleSyncStart();
@@ -344,12 +411,14 @@ function createPortraitWindow() {
     portraitWin = new BrowserWindow({
         width: w, height: h, x, y,
         title: 'DualView - Portrait',
+        icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
         resizable: false,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload-view.js'),
             webviewTag: true,
+            additionalArguments: logger.IS_DEV ? ['--dev-source=portrait'] : [],
         },
         autoHideMenuBar: true,
         show: false,
@@ -358,8 +427,21 @@ function createPortraitWindow() {
 
     portraitWin.loadFile(path.join(__dirname, 'portrait.html'));
     portraitWin.webContents.setMaxListeners(50);
+    if (logger.IS_DEV) {
+        portraitWin.webContents.session.registerPreloadScript({
+            id: 'dev-preload-portrait',
+            type: 'frame',
+            filePath: path.join(__dirname, 'preload-dev.js'),
+        });
+    }
     portraitWin.once('ready-to-show', () => {
-        portraitWin.show();
+        // Attendre que landscape soit visible avant d'afficher portrait
+        // pour éviter que portrait charge son contenu en premier
+        if (landscapeWin && !landscapeWin.isDestroyed() && landscapeWin.isVisible()) {
+            portraitWin.show();
+        } else {
+            landscapeWin.once('show', () => portraitWin.show());
+        }
         tryScheduleSyncStart();
     });
     portraitWin.on('moved', () => { const [x, y] = portraitWin.getPosition(); configSet('portraitWindow.x', x); configSet('portraitWindow.y', y); });
@@ -534,6 +616,7 @@ ipcMain.on('login-page-detected', (event, { url, tabId }) => {
     const safe = sanitizeUrl(url);
     if (!safe) return;
     loginPageTabId = tabId;
+    logger.log('main', 'LOG', [`Login détecté: ${safe} (tab: ${tabId})`]);
     const serviceKey = detectServiceKeyFromUrl(safe);
     if (landscapeWin && !landscapeWin.isDestroyed())
         landscapeWin.webContents.send('show-login-popup', { url: safe, tabId, serviceKey });
@@ -601,6 +684,17 @@ ipcMain.on('auth-custom-cancelled', () => { });
 
 // ── IPC : Divers ──────────────────────────────────────────────────────────────
 ipcMain.handle('get-theme', () => getTheme());
+ipcMain.handle('get-is-dev', () => logger.IS_DEV);
+// Toggle DevTools de landscapeWin depuis le renderer (F12)
+ipcMain.on('toggle-dev-tools', () => {
+    if (!logger.IS_DEV || !landscapeWin || landscapeWin.isDestroyed()) return;
+    if (landscapeWin.webContents.isDevToolsOpened()) {
+        landscapeWin.webContents.closeDevTools();
+    } else {
+        landscapeWin.webContents.openDevTools({ mode: 'detach' });
+    }
+});
+
 ipcMain.handle('get-version', () => app.getVersion());
 ipcMain.handle('get-homepage-url', () => getHomepageUrl());
 ipcMain.handle('get-sync-state', () => syncState);
@@ -645,15 +739,28 @@ ipcMain.on('save-settings', (event, settings) => {
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 // Désactiver les marqueurs d'automatisation Chromium détectés par les services
 // (Google, Microsoft, etc. bloquent les connexions si ces flags sont présents)
+// AutomationControlled masqué pour que Google/Microsoft n'identifient pas Electron.
+// IsolateOrigins/site-per-process retiré : cause ERR_NETWORK_ACCESS_DENIED
+// dans les webviews portrait sous Electron 42.
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
-app.commandLine.appendSwitch('disable-features', 'IsolateOrigins,site-per-process');
 
 app.whenReady().then(() => {
     applyAppearance();
-    setupSessionSecurity();
+    // Forcer la création de la session persist:dualview et enregistrement
+    // des handlers webRequest AVANT la création des fenêtres et webviews.
+    // Sans cela, la première webview peut charger une URL avant que
+    // onBeforeRequest soit actif → pub non bloquée sur la 1re vidéo YouTube.
+    session.fromPartition('persist:dualview');  // crée la session avant setupSessionSecurity
+    setupSessionSecurity();                              // enregistre les handlers
     createLandscapeWindow();
     createPortraitWindow();
     nativeTheme.on('updated', broadcastTheme);
+
+    // Activer DevTools et raccourcis clavier en mode dev
+    // (après création des fenêtres)
+    if (logger.IS_DEV) {
+        logger.setupDevTools({ landscapeWin, portraitWin });
+    }
 });
 
 app.on('window-all-closed', () => app.quit());

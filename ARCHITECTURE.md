@@ -1,4 +1,4 @@
-# DualView - Architecture v0.3.0
+# DualView - Architecture v0.3.1
 
 ## Vue d'ensemble
 
@@ -390,7 +390,7 @@ Session persist:dualview — UN SEUL handler par événement webRequest
 
 ---
 
-## Paramètres v0.3.0
+## Paramètres v0.3.1
 
 ```
 Clé               | Valeurs                         | Effet
@@ -419,3 +419,4 @@ customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 | 0.2.5 | Sécurité. Paramètres. Menu ⚙️. Boutons ⟳ 🏠. i18n FR/EN. Installeur simplifié. |
 | 0.2.6 | Pool de webviews. Switch onglet sans rechargement. IPC tab-switched/closed/created. |
 | 0.3.0 | Démarrage sync différé 3 s. Bouton sync. Services connectés (9 + URL perso). Détection pages login + popup/overlay. Bouton "Se connecter" direct. YouTube Shorts bypass. Anti-détection Electron (preload-auth.js, 4 couches). |
+| 0.3.1 | Fix portrait partition persist:dualview (connexion cookies). Fix ERR_ABORTED (isAuthUrl hostname-only, AUTH_DOMAINS login-only). Fix sync vidéo (seek préserve état pause, executor réaligné). Fix injection scripts SPA (did-navigate-in-page). Fix session pre-init (pub 1re vidéo YouTube). Fix ordre fenêtres (portrait attend landscape). Fix déconnexion Microsoft (flush complet cookies). Auth Microsoft : confirmation obligatoire + bouton fallback (plus de fermeture automatique). LOGIN_FORCED_DOMAINS (login.microsoftonline.com toujours détecté). Portrait : overlay "Personnalisation en cours" sur onglet paramètres. Système de debug --dev (logger.js, preload-dev.js, F12, Ctrl+F12). |

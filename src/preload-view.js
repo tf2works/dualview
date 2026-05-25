@@ -1,8 +1,8 @@
 /**
  * DualView - Preload View Windows (portrait)
- * Version: 0.3.0
+ * Version: 0.3.1
  *
- * Changements v0.3.0 :
+ * Changements v0.3.1 :
  * - Canaux : sync-state-changed, show-login-popup, sync-resume-state
  */
 const { contextBridge, ipcRenderer } = require('electron');

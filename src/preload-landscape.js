@@ -1,8 +1,8 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.3.0
+ * Version: 0.3.1
  *
- * Changements v0.3.0 :
+ * Changements v0.3.1 :
  * - syncControl(action)           : pause / resume / restart
  * - getSyncState()                : état courant de la sync
  * - getConnectedServicesStatus()  : statuts cookies services
@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld('dualview', {
     cancelCustomAuth: () => ipcRenderer.send('auth-custom-cancelled'),
 
     // ── Store / persistance ────────────────────────────────────
+    getIsDev: () => ipcRenderer.invoke('get-is-dev'),
+    toggleDevTools: () => ipcRenderer.send('toggle-dev-tools'),
     getStore: () => ipcRenderer.invoke('get-store'),
     saveTabs: (data) => ipcRenderer.send('save-tabs', data),
     saveSettings: (settings) => ipcRenderer.send('save-settings', settings),

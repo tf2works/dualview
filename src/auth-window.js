@@ -1,6 +1,6 @@
 /**
  * DualView - Auth Window
- * Version: 0.3.0
+ * Version: 0.3.1
  *
  * Gestion des fenêtres d'authentification pour les services connectés.
  * Chaque service ouvre une BrowserWindow modale indépendante avec la
@@ -13,6 +13,12 @@
 
 const { BrowserWindow, session, ipcMain } = require('electron');
 const path = require('path');
+const { EventEmitter } = require('events');
+const logger = require('./logger');
+
+// Émetteur d'événements pour notifier main.js de la fin d'auth
+// (évite un import circulaire)
+const authWindowEvents = new EventEmitter();
 
 // ── Définitions des services connus ──────────────────────────────────────────
 const KNOWN_SERVICES = {
@@ -28,9 +34,25 @@ const KNOWN_SERVICES = {
         label: 'Microsoft',
         url: 'https://login.microsoftonline.com/',
         ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        authDomains: ['login.microsoftonline.com', 'login.live.com'],
-        cookieNames: ['ESTSAUTH', 'ESTSAUTHPERSISTENT', 'MSISAuth', 'MSISAuthenticated'],
-        cookieDomains: ['.microsoft.com', '.microsoftonline.com', '.live.com'],
+        // authDomains : uniquement les pages intermédiaires du flux auth.
+        // login.microsoftonline.com/common/oauth2/* reste dans ce domaine
+        // mais on tolère la fin de flux via détection cookies (stratégie A).
+        authDomains: ['login.microsoftonline.com', 'login.live.com', 'account.live.com'],
+        // ESTSAUTH + ESTSAUTHPERSISTENT créés sur login.microsoftonline.com
+        cookieNames: ['ESTSAUTH', 'ESTSAUTHPERSISTENT', 'MSISAuth', 'MSISAuthenticated',
+            'MUID', 'MicrosoftApplicationsTelemetryDeviceId'],
+        // Domaines exacts où chercher les cookies (sans le point initial pour cookies.get)
+        cookieDomains: ['login.microsoftonline.com', '.live.com', '.microsoft.com'],
+        // URL de destination après login réussi (pour stratégie C)
+        postAuthUrls: ['account.microsoft.com', 'office.com', 'outlook.live.com',
+            'microsoft.com', 'live.com'],
+        // Patterns dans l'URL qui indiquent que le flux auth est encore en cours
+        // (utilisés pour ne pas déclencher le bouton "Je suis connecté" trop tôt)
+        interimUrlPatterns: [
+            'flowEntry', 'flowName', 'oauth2/authorize', 'oauth2/v2.0/authorize',
+            '/kmsi', '/GetCredentialType', '/GetOneTimeCode',
+            'login_hint', 'prompt=login',
+        ],
     },
     instagram: {
         label: 'Instagram',
@@ -124,15 +146,25 @@ async function checkKnownServiceCookies(serviceKey) {
         const ses = session.fromPartition('persist:dualview');
         for (const domain of svc.cookieDomains) {
             const cookies = await ses.cookies.get({ domain: domain.replace(/^\./, '') });
+            logger.log('auth', 'LOG', [
+                `checkCookies [${serviceKey}] domain=${domain}`,
+                `found=${cookies.length}`,
+                `names=[${cookies.map(c => c.name).join(',')}]`
+            ]);
             for (const cookie of cookies) {
                 if (svc.cookieNames.some(name =>
                     cookie.name.toLowerCase() === name.toLowerCase()
                 )) {
+                    logger.log('auth', 'LOG', [`checkCookies [${serviceKey}] MATCH: ${cookie.name}`]);
                     return true;
                 }
             }
         }
-    } catch (e) { console.warn('checkKnownServiceCookies error:', e.message); }
+    } catch (e) {
+        console.warn('checkKnownServiceCookies error:', e.message);
+        logger.log('auth', 'ERROR', ['checkKnownServiceCookies:', e.message]);
+    }
+    logger.log('auth', 'LOG', [`checkCookies [${serviceKey}] → NO MATCH`]);
     return false;
 }
 
@@ -167,8 +199,25 @@ async function checkAllServicesStatus() {
     return result;
 }
 
+// Domaines supplémentaires à purger pour chaque service
+// (au-delà des cookieDomains principaux)
+const DISCONNECT_EXTRA_DOMAINS = {
+    microsoft: [
+        'login.microsoftonline.com', 'login.live.com', 'account.live.com',
+        'account.microsoft.com', 'outlook.live.com', 'office.com',
+        'microsoftonline.com', 'microsoft.com', 'live.com',
+    ],
+    google: [
+        'accounts.google.com', 'google.com', 'youtube.com',
+        'googleapis.com', 'gstatic.com',
+    ],
+};
+
 /**
- * Supprime les cookies d'un service (déconnexion).
+ * Supprime TOUS les cookies d'un service (déconnexion complète).
+ * Pour Microsoft : purge étendue sur tous les domaines du flux OAuth
+ * pour éviter que les cookies résiduels déclenchent une reconnexion
+ * automatique au prochain openAuthWindow.
  */
 async function disconnectService(serviceKey, customUrl) {
     try {
@@ -183,13 +232,29 @@ async function disconnectService(serviceKey, customUrl) {
         }
         const svc = KNOWN_SERVICES[serviceKey];
         if (!svc) return false;
-        for (const domain of svc.cookieDomains) {
-            const cleanDomain = domain.replace(/^\./, '');
-            const cookies = await ses.cookies.get({ domain: cleanDomain });
+
+        // Collecter tous les domaines à purger
+        const allDomains = new Set([
+            ...svc.cookieDomains.map(d => d.replace(/^\./, '')),
+            ...(DISCONNECT_EXTRA_DOMAINS[serviceKey] || []),
+        ]);
+
+        logger.log('auth', 'LOG', [`disconnectService [${serviceKey}] domains: ${[...allDomains].join(', ')}`]);
+
+        for (const domain of allDomains) {
+            const cookies = await ses.cookies.get({ domain }).catch(() => []);
             for (const c of cookies) {
-                await ses.cookies.remove(`https://${cleanDomain}`, c.name).catch(() => { });
+                // Essayer http et https pour être sûr
+                await ses.cookies.remove(`https://${domain}`, c.name).catch(() => { });
+                await ses.cookies.remove(`http://${domain}`, c.name).catch(() => { });
             }
         }
+
+        // Pour Microsoft : vider aussi le storage de session Chromium
+        // (tokens MSAL stockés dans localStorage/sessionStorage)
+        // en forçant un flush des cookies de session
+        await ses.cookies.flushStore().catch(() => { });
+        logger.log('auth', 'LOG', [`disconnectService [${serviceKey}] → terminé`]);
         return true;
     } catch (e) { console.warn('disconnectService error:', e.message); return false; }
 }
@@ -214,6 +279,7 @@ function openAuthWindow(opts) {
             width: 520,
             height: 700,
             title: `DualView — Connexion ${serviceLabel}`,
+            icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
             parent: parentWin || null,
             modal: false,
             resizable: true,
@@ -234,57 +300,194 @@ function openAuthWindow(opts) {
         // UA desktop identique aux webviews landscape/portrait
         authWin.webContents.setUserAgent(ua);
 
-        // Couche 4 : corriger les headers HTTP sec-ch-ua qui contiennent
-        // "Electron" par défaut — vérifiés par Google côté serveur
-        const authSes = session.fromPartition('persist:dualview');
-        const headerHandler = (details, callback) => {
-            const h = details.requestHeaders;
-            // Supprimer le header Electron et reconstruire proprement
-            delete h['sec-ch-ua'];
-            const v = process.versions.chrome.split('.')[0];
-            h['sec-ch-ua'] = `"Google Chrome";v="${v}", "Chromium";v="${v}", "Not=A?Brand";v="99"`;
-            h['sec-ch-ua-mobile'] = '?0';
-            h['sec-ch-ua-platform'] = '"Windows"';
-            callback({ requestHeaders: h });
-        };
-        authSes.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, headerHandler);
-        authWin.once('closed', () => {
-            // Retirer le handler HTTP quand la fenêtre se ferme
-            // (la session persist:dualview est partagée — éviter les fuites)
-            try { authSes.webRequest.onBeforeSendHeaders(null); } catch (_) { }
+        authWin.once('ready-to-show', () => {
+            authWin.show();
+            logger.log('auth', 'LOG', [`authWin ouvert: ${serviceLabel} → ${startUrl}`]);
+            // Mode dev : ouvrir DevTools de la fenêtre auth
+            logger.openAuthDevTools(authWin);
         });
-
-        authWin.once('ready-to-show', () => authWin.show());
-        authWin.on('closed', () => resolve(false));
+        authWin.on('closed', () => {
+            logger.log('auth', 'LOG', [`authWin fermé: ${serviceLabel} resolved=${resolved}`]);
+            resolve(false);
+        });
 
         let resolved = false;
         function finish(success) {
             if (resolved) return;
             resolved = true;
             if (!authWin.isDestroyed()) authWin.close();
+            // BUG-1 fix : notifier main pour recharger portrait après auth réussie
+            if (success) {
+                // Émettre via ipcMain pour que main.js recharge portrait
+                authWindowEvents.emit('auth-success', { serviceKey, serviceLabel });
+            }
             resolve(success);
         }
 
-        // ── Détection automatique fin d'auth (services connus) ────────────────
+        // ── Détection automatique fin d'auth + bouton fallback (services connus) ──
         if (!isCustom) {
-            authWin.webContents.on('did-navigate', async (event, url) => {
-                // Stratégie C : l'URL ne contient plus de marqueur d'auth
-                const onAuthDomain = svc.authDomains.some(d => url.includes(d));
-                if (!onAuthDomain && !isAuthUrl(url)) {
-                    // Vérifier les cookies (stratégie A)
-                    const hasCookies = await checkKnownServiceCookies(serviceKey);
-                    if (hasCookies) { finish(true); return; }
+            let stabilityTimer = null;   // Timer de stabilité réseau (2s sans navigation)
+            let fallbackBtnShown = false;  // Bouton "Je suis connecté" déjà affiché ?
+            let lastUrl = '';     // Dernière URL observée
+
+            // ── Bouton "Je suis connecté" (filet de sécurité) ─────────────────
+            // Affiché quand la navigation est stable mais la détection auto échoue
+            function injectFallbackBtn() {
+                if (fallbackBtnShown || resolved || authWin.isDestroyed()) return;
+                fallbackBtnShown = true;
+                logger.log('auth', 'LOG', [`[${serviceKey}] Injection bouton fallback`]);
+                authWin.webContents.executeJavaScript(`
+(function() {
+    if (document.getElementById('__dv_connected_btn')) return;
+    const btn = document.createElement('div');
+    btn.id = '__dv_connected_btn';
+    btn.style.cssText = [
+        'position:fixed', 'bottom:16px', 'right:16px', 'z-index:2147483647',
+        'background:#107c10', 'color:white', 'padding:10px 20px',
+        'border-radius:8px', 'font-family:system-ui,sans-serif',
+        'font-size:14px', 'font-weight:600', 'cursor:pointer',
+        'box-shadow:0 2px 12px rgba(0,0,0,0.35)', 'user-select:none',
+        'display:flex', 'align-items:center', 'gap:8px',
+    ].join(';');
+    btn.innerHTML = '<span style="font-size:18px">✓</span><span>Je suis connecté</span>';
+    btn.addEventListener('click', function() {
+        window.__dvManualConnected = true;
+    });
+    document.body.appendChild(btn);
+})(); true;
+                `).catch(() => { });
+            }
+
+            // ── Vérification stabilité → confirmation obligatoire ──────────
+            // Appelée après chaque navigation. Déclenche un timer de 2s.
+            // Si navigation stable : demander confirmation à l'utilisateur
+            // (jamais de fermeture silencieuse — évite de couper le 2FA).
+            // Si l'utilisateur confirme → finish(true).
+            // Si l'utilisateur refuse → afficher le bouton "Je suis connecté".
+            let confirmPending = false;  // Dialog de confirmation déjà affichée ?
+
+            function askConfirmation() {
+                if (confirmPending || resolved || authWin.isDestroyed()) return;
+                confirmPending = true;
+                logger.log('auth', 'LOG', [`[${serviceKey}] Demande confirmation utilisateur`]);
+                checkKnownServiceCookies(serviceKey).then(hasCookies => {
+                    if (parentWin && !parentWin.isDestroyed()) {
+                        parentWin.webContents.send('auth-custom-confirm', {
+                            serviceLabel,
+                            hasCookies,
+                            cookieCount: hasCookies ? 1 : 0,
+                        });
+                    }
+                    ipcMain.once('auth-custom-confirmed', (_, confirmed) => {
+                        confirmPending = false;
+                        if (confirmed) {
+                            finish(true);
+                        } else {
+                            // L'utilisateur n'a pas encore fini (ex: 2FA en attente)
+                            // → afficher le bouton pour qu'il valide manuellement
+                            logger.log('auth', 'LOG', [`[${serviceKey}] Refus → bouton fallback`]);
+                            injectFallbackBtn();
+                        }
+                    });
+                    ipcMain.once('auth-custom-cancelled', () => {
+                        confirmPending = false;
+                        // Annulation = même chose que refus
+                        injectFallbackBtn();
+                    });
+                });
+            }
+
+            function onNavigationSettled(url) {
+                clearTimeout(stabilityTimer);
+                lastUrl = url;
+
+                // Ne pas démarrer le timer si on est clairement en cours de flux
+                const isInterim = svc.interimUrlPatterns &&
+                    svc.interimUrlPatterns.some(p => url.includes(p));
+                if (isInterim) {
+                    logger.log('auth', 'LOG', [`[${serviceKey}] URL intermédiaire, timer ignoré: ${url}`]);
+                    return;
                 }
-                // Vérification par cookies même sur la page auth (ex: Google One-Tap)
-                const hasCookies = await checkKnownServiceCookies(serviceKey);
-                if (hasCookies) { finish(true); }
+
+                stabilityTimer = setTimeout(() => {
+                    if (resolved || authWin.isDestroyed()) return;
+                    logger.log('auth', 'LOG', [`[${serviceKey}] Navigation stable 2s: ${url}`]);
+                    // Demander confirmation — jamais de fermeture silencieuse
+                    askConfirmation();
+                }, 2000);
+            }
+
+            // ── Poller : bouton fallback + cookies ────────────────────────────
+            const pollInterval = setInterval(async () => {
+                if (resolved || authWin.isDestroyed()) {
+                    clearInterval(pollInterval);
+                    return;
+                }
+
+                // 1. Vérifier si l'utilisateur a cliqué "Je suis connecté"
+                if (fallbackBtnShown) {
+                    try {
+                        const clicked = await authWin.webContents.executeJavaScript(
+                            'window.__dvManualConnected === true'
+                        );
+                        if (clicked) {
+                            clearInterval(pollInterval);
+                            clearTimeout(stabilityTimer);
+                            // Demander confirmation à la fenêtre parente
+                            const hasCookies = await checkKnownServiceCookies(serviceKey);
+                            if (parentWin && !parentWin.isDestroyed()) {
+                                parentWin.webContents.send('auth-custom-confirm', {
+                                    serviceLabel,
+                                    hasCookies,
+                                    cookieCount: hasCookies ? 1 : 0,
+                                });
+                            }
+                            ipcMain.once('auth-custom-confirmed', (_, confirmed) => {
+                                finish(confirmed);
+                            });
+                            ipcMain.once('auth-custom-cancelled', () => {
+                                // Remettre le flag + réafficher le bouton
+                                authWin.webContents.executeJavaScript(
+                                    'window.__dvManualConnected = false; true;'
+                                ).catch(() => { });
+                            });
+                            return;
+                        }
+                    } catch (_) { }
+                }
+
+                // Note : plus de fermeture automatique sur postAuthUrls
+                // → toujours passer par askConfirmation() via onNavigationSettled
+            }, 600);
+
+            // ── Événements de navigation ───────────────────────────────────────
+            authWin.webContents.on('did-navigate', (event, url) => {
+                logger.log('auth', 'LOG', [`authWin did-navigate [${serviceKey}]: ${url}`]);
+                // Réinitialiser le bouton si l'utilisateur navigue (ex: retour arrière)
+                if (fallbackBtnShown) {
+                    fallbackBtnShown = false;
+                    authWin.webContents.executeJavaScript(
+                        'const b=document.getElementById("__dv_connected_btn");if(b)b.remove();' +
+                        'window.__dvManualConnected=false;true;'
+                    ).catch(() => { });
+                }
+                onNavigationSettled(url);
             });
 
-            authWin.webContents.on('did-navigate-in-page', async (_, url) => {
-                if (!isAuthUrl(url)) {
-                    const hasCookies = await checkKnownServiceCookies(serviceKey);
-                    if (hasCookies) { finish(true); }
-                }
+            authWin.webContents.on('did-navigate-in-page', (_, url) => {
+                logger.log('auth', 'LOG', [`authWin did-navigate-in-page [${serviceKey}]: ${url}`]);
+                onNavigationSettled(url);
+            });
+
+            authWin.webContents.on('did-stop-loading', () => {
+                // did-stop-loading = réseau calme ; relancer le timer de stabilité
+                // si une URL est déjà connue (évite le déclenchement au chargement initial)
+                if (lastUrl && !resolved) onNavigationSettled(lastUrl);
+            });
+
+            authWin.once('closed', () => {
+                clearInterval(pollInterval);
+                clearTimeout(stabilityTimer);
             });
         }
 
@@ -356,6 +559,7 @@ module.exports = {
     KNOWN_SERVICES,
     AUTH_URL_MARKERS,
     isAuthUrl,
+    authWindowEvents,
     checkKnownServiceCookies,
     checkGenericCookies,
     checkAllServicesStatus,

@@ -1,4 +1,4 @@
-# DualView v0.3.0
+# DualView v0.3.1
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS.
@@ -12,7 +12,7 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.3.0.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.3.1.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -146,7 +146,7 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.3.0.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.3.1.exe` (~150 Mo).
 
 ---
 
@@ -174,3 +174,4 @@ Produit `dist/DualView-Setup-0.3.0.exe` (~150 Mo).
 | 0.2.5 | Sécurité. Paramètres. Menu ⚙️. i18n FR/EN. |
 | 0.2.6 | Pool de webviews. Switch onglet sans rechargement. |
 | 0.3.0 | Sync différée. Bouton sync. Services connectés. Anti-détection Electron. Détection login. YouTube Shorts. |
+| 0.3.1 | Fix cookies portrait. Fix ERR_ABORTED. Fix sync vidéo YouTube. Fix pub 1re vidéo. Auth Microsoft robuste. Overlay paramètres portrait. Mode debug --dev. |

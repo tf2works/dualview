@@ -1,41 +1,45 @@
 {
-  "name": "dualview",
-  "version": "0.3.0",
-  "description": "Affichage dual paysage/portrait synchronise pour OBS",
-  "main": "src/main.js",
-  "author": "DualView",
-  "license": "MIT",
-  "scripts": {
-    "start": "electron .",
-    "build": "electron-builder --win --x64"
-  },
-  "devDependencies": {
-    "electron": "^42.1.0",
-    "electron-builder": "^26.8.1"
-  },
-  "build": {
-    "appId": "com.dualview.app",
-    "productName": "DualView",
-    "copyright": "Copyright 2026 DualView",
-    "directories": { "output": "dist" },
-    "files": [ "src/**/*", "assets/**/*", "package.json" ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [ "x64" ]
-        }
-      ]
+    "name": "dualview",
+    "version": "0.3.1",
+    "description": "Affichage dual paysage/portrait synchronise pour OBS",
+    "main": "src/main.js",
+    "author": "DualView",
+    "license": "MIT",
+    "scripts": {
+        "start": "electron .",
+        "build": "electron-builder --win --x64",
+        "start-dev": "electron . --dev"
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "allowElevation": true,
-      "createDesktopShortcut": false,
-      "createStartMenuShortcut": true,
-      "shortcutName": "DualView",
-      "installerLanguages": [ "fr_FR", "en_US" ],
-      "language": "1036"
+    "devDependencies": {
+        "electron": "^42.1.0",
+        "electron-builder": "^26.8.1"
+    },
+    "build": {
+        "appId": "com.dualview.app",
+        "productName": "DualView",
+        "copyright": "Copyright 2026 DualView",
+        "directories": { "output": "dist" },
+        "files": [ "src/**/*", "assets/**/*", "package.json" ],
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [ "x64" ]
+                }
+            ],
+            "icon": "assets/icon.ico"
+        },
+        "nsis": {
+            "installerIcon": "assets/icon.ico",
+            "uninstallerIcon": "assets/icon.ico",
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "allowElevation": true,
+            "createDesktopShortcut": false,
+            "createStartMenuShortcut": true,
+            "shortcutName": "DualView",
+            "installerLanguages": [ "fr_FR", "en_US" ],
+            "language": "1036"
+        }
     }
-  }
 }

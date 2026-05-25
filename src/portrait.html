@@ -93,6 +93,46 @@
                 background: rgba(230,126,0,0.85);
             }
 
+        /* Overlay mode paramètres */
+        #settings-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 7000;
+            background: var(--bg);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            pointer-events: none;
+        }
+
+            #settings-overlay.show {
+                display: flex;
+            }
+
+        #settings-overlay-icon {
+            font-size: 48px;
+            opacity: 0.6;
+        }
+
+        #settings-overlay-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--fg);
+            opacity: 0.7;
+            text-align: center;
+        }
+
+        #settings-overlay-sub {
+            font-size: 12px;
+            color: var(--fg);
+            opacity: 0.45;
+            text-align: center;
+            padding: 0 32px;
+            line-height: 1.6;
+        }
+
         #webview-container {
             flex: 1;
             position: relative;
@@ -196,6 +236,13 @@
         </div>
     </div>
 
+    <!-- Overlay mode paramètres -->
+    <div id="settings-overlay">
+        <div id="settings-overlay-icon">⚙️</div>
+        <div id="settings-overlay-title">Personnalisation en cours</div>
+        <div id="settings-overlay-sub">L'utilisateur configure l'application<br>dans la fenêtre Paysage.</div>
+    </div>
+
     <!-- Overlay login portrait — plein écran, non ignorable, disparaît à la navigation -->
     <div id="login-overlay">
         <div id="login-overlay-icon">🔐</div>
@@ -264,9 +311,32 @@
         window.__dualviewApplyCmd = function(cmd) {
             const video = findBestVideo(selectors);
             if (!video) { window.__dualviewPendingCmd=cmd; return false; }
-            if (cmd.action==='pause') { video.pause(); if (Math.abs(video.currentTime-cmd.currentTime)>3) video.currentTime=cmd.currentTime; }
-            else if (cmd.action==='play') { if (Math.abs(video.currentTime-cmd.currentTime)>3) video.currentTime=cmd.currentTime; const p=video.play(); if(p&&p.catch)p.catch(()=>{}); }
-            else if (cmd.action==='seek') { if (Math.abs(video.currentTime-cmd.currentTime)>5) { video.currentTime=cmd.currentTime; if(!video.paused){const p=video.play();if(p&&p.catch)p.catch(()=>{});} } }
+
+            const drift = Math.abs(video.currentTime - cmd.currentTime);
+
+            if (cmd.action === 'pause') {
+                // Réaligner d'abord la position si décalage > 1s, puis pauser
+                if (drift > 1) video.currentTime = cmd.currentTime;
+                video.pause();
+            }
+            else if (cmd.action === 'play') {
+                // Réaligner d'abord la position si décalage > 1s, puis lancer
+                if (drift > 1) video.currentTime = cmd.currentTime;
+                const p = video.play();
+                if (p && p.catch) p.catch(() => {});
+            }
+            else if (cmd.action === 'seek') {
+                // Repositionner uniquement si décalage > 2s
+                // Ne PAS relancer la lecture si la vidéo était en pause
+                if (drift > 2) {
+                    video.currentTime = cmd.currentTime;
+                    // Relancer seulement si elle était déjà en lecture
+                    if (!video.paused) {
+                        const p = video.play();
+                        if (p && p.catch) p.catch(() => {});
+                    }
+                }
+            }
             return true;
         };
         const observer = new MutationObserver(function() {
@@ -280,14 +350,22 @@
         function createWebview(tabId, url) {
             if (webviewPool.has(tabId)) return webviewPool.get(tabId);
             const wv = document.createElement('webview');
+            wv.setAttribute('partition', 'persist:dualview');
             wv.setAttribute('useragent', UA_MOBILE);
             wv.setAttribute('allowpopups', '');
             wv.className = 'wv-portrait';
             wv.dataset.tabId = tabId;
-            wv.src = url || 'about:blank';
             attachWebviewListeners(wv, tabId);
             webviewCont.appendChild(wv);
+            wv.src = url || 'about:blank';
             webviewPool.set(tabId, wv);
+
+            // Capturer les erreurs de chargement pour éviter les exceptions non gérées
+            wv.addEventListener('did-fail-load', (e) => {
+                if (e.errorCode === -3) return; // ERR_ABORTED = navigation annulée normalement
+                console.warn('[portrait] did-fail-load', e.errorCode, e.errorDescription, e.validatedURL);
+            });
+
             return wv;
         }
 
@@ -323,7 +401,9 @@
             });
             wv.addEventListener('dom-ready', () => {
                 injectExecutor(wv);
-                setTimeout(() => injectExecutor(wv), 2000);
+                setTimeout(() => {
+                    if (webviewPool.has(tabId)) injectExecutor(wv);
+                }, 2000);
             });
         }
 
@@ -335,10 +415,22 @@
         window.dualview.on('tab-created', ({ tabId, url }) => {
             if (!webviewPool.has(tabId)) createWebview(tabId, url || '');
         });
+        const settingsOverlay = document.getElementById('settings-overlay');
+        const SETTINGS_TAB_ID = '__settings__';
+
         window.dualview.on('tab-switched', tabId => {
             activeTabId = tabId;
-            if (!webviewPool.has(tabId)) createWebview(tabId, '');
-            showWebview(tabId);
+            if (tabId === SETTINGS_TAB_ID) {
+                // Landscape est sur l'onglet paramètres → afficher overlay
+                settingsOverlay.classList.add('show');
+                // Cacher toutes les webviews
+                webviewPool.forEach(wv => wv.classList.remove('active'));
+                emptyState.style.display = 'none';
+            } else {
+                settingsOverlay.classList.remove('show');
+                if (!webviewPool.has(tabId)) createWebview(tabId, '');
+                showWebview(tabId);
+            }
         });
         window.dualview.on('tab-closed', tabId => { destroyWebview(tabId); });
 
@@ -350,7 +442,9 @@
             if (!url || url === 'about:blank') return;
             if (!webviewPool.has(tabId)) { createWebview(tabId, url); if (tabId === activeTabId) showWebview(tabId); return; }
             const wv = webviewPool.get(tabId);
-            wv.src = url;
+            try { wv.src = url; } catch (e) {
+                wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
+            }
             if (tabId === activeTabId) { emptyState.style.display = 'none'; wv.classList.add('active'); }
         });
 
