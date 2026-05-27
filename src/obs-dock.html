@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DualView — Contrôle OBS</title>
+<style>
+    :root {
+        --bg: #1e1e1e; --panel: #2a2a2d; --panel2: #2f2f33; --field: #1a1a1c;
+        --border: #3a3a3e; --text: #e8e8ea; --text2: #d8d8da; --muted: #9a9aa0;
+        --hint: #6a6a70; --accent: #4a9eff; --accent-bg: #2a3340;
+        --ok: #3ec46d; --warn: #f0a020; --danger: #e35353;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+        font: 13px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .dock { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+    /* Barre d'état */
+    .status-bar { display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+        background: var(--panel); border: .5px solid var(--border); border-radius: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+    .dot.active { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+    .dot.paused { background: var(--warn); }
+    .dot.offline { background: var(--danger); }
+    .status-text { font-weight: 500; }
+    .status-sub { color: var(--muted); margin-left: auto; font-size: 11px;
+        max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Rangée de boutons d'action (sync + nav) */
+    .actions { display: flex; gap: 5px; }
+    .actions .sep { width: .5px; background: var(--border); margin: 3px 2px; flex: none; }
+    button { cursor: pointer; background: #333338; color: var(--text);
+        border: .5px solid var(--border); border-radius: 7px; font-size: 13px;
+        transition: background .12s, border-color .12s, opacity .12s; }
+    button:hover:not(:disabled) { background: #3d3d44; border-color: #555; }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { opacity: .35; cursor: default; }
+    .actions button { flex: 1; padding: 8px 0; display: flex; align-items: center; justify-content: center; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button.primary:hover:not(:disabled) { background: #3b8be8; }
+    .icon { width: 15px; height: 15px; display: block; }
+
+    /* Barre d'URL */
+    .url-row { display: flex; gap: 5px; }
+    .url-row input { flex: 1; min-width: 0; padding: 7px 10px; background: var(--field);
+        color: var(--text); border: .5px solid var(--border); border-radius: 7px; font-size: 12px; }
+    .url-row input:focus { outline: none; border-color: var(--accent); }
+    .url-row .go { flex: none; width: 38px; }
+
+    /* Zone onglets : [◀] [piste défilante] [▶] [+] */
+    .tabs-zone { display: flex; align-items: stretch; gap: 6px; }
+    .scroll-btn { flex: none; width: 26px; padding: 0; display: none;
+        align-items: center; justify-content: center; }
+    .scroll-btn.visible { display: flex; }
+    .tabs-viewport { flex: 1; min-width: 0; overflow: hidden; }
+    .tabs-track { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 6px;
+        scrollbar-width: thin; scrollbar-color: #4a4a50 transparent; scroll-behavior: smooth; }
+    .tabs-track::-webkit-scrollbar { height: 6px; }
+    .tabs-track::-webkit-scrollbar-track { background: transparent; }
+    .tabs-track::-webkit-scrollbar-thumb { background: #4a4a50; border-radius: 3px; }
+    .add-btn { flex: none; width: 32px; height: 32px; padding: 0;
+        display: flex; align-items: center; justify-content: center; }
+
+    .tab-item { flex: none; display: flex; align-items: center; gap: 5px; max-width: 130px;
+        height: 32px; padding: 0 9px; background: var(--panel2); border: .5px solid var(--border);
+        border-radius: 7px; cursor: pointer; }
+    .tab-item.active { background: var(--accent-bg); border-color: var(--accent); }
+    .tab-item .fav { width: 14px; height: 14px; flex: none; border-radius: 3px; object-fit: contain; }
+    .tab-item .fav-fallback { color: var(--muted); font-size: 13px; }
+    .tab-item .ttl { color: var(--text2); font-size: 12px; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; }
+    .tab-item.active .ttl { color: var(--text); }
+    .tab-item .x { color: var(--muted); flex: none; border: none; background: none;
+        padding: 0; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+    .tab-item .x:hover { color: var(--danger); background: none; }
+    .tab-empty { color: var(--muted); font-style: italic; font-size: 12px; padding: 8px 2px; }
+
+    .offline-note { text-align: center; color: var(--hint); font-size: 10px; display: none; }
+    .offline-note.show { display: block; }
+</style>
+</head>
+<body>
+<div class="dock">
+    <div class="status-bar">
+        <span class="dot offline" id="dot"></span>
+        <span class="status-text" id="status-text">Connexion…</span>
+        <span class="status-sub" id="status-sub"></span>
+    </div>
+
+    <div class="actions">
+        <button id="btn-pause"   title="Pause synchronisation"></button>
+        <button id="btn-resume"  class="primary" title="Reprendre synchronisation"></button>
+        <button id="btn-restart" title="Redémarrer synchronisation"></button>
+        <span class="sep"></span>
+        <button id="btn-back"    title="Précédent"></button>
+        <button id="btn-forward" title="Suivant"></button>
+        <button id="btn-home"    title="Accueil"></button>
+    </div>
+
+    <div class="url-row">
+        <input id="url" type="text" placeholder="Saisir une URL…" />
+        <button id="btn-go" class="primary go" title="Aller"></button>
+    </div>
+
+    <div class="tabs-zone">
+        <button class="scroll-btn" id="scroll-left" title="Défiler à gauche"></button>
+        <div class="tabs-viewport">
+            <div class="tabs-track" id="tabs"><div class="tab-empty">En attente…</div></div>
+        </div>
+        <button class="scroll-btn" id="scroll-right" title="Défiler à droite"></button>
+        <button class="add-btn primary" id="btn-newtab" title="Nouvel onglet"></button>
+    </div>
+
+    <div class="offline-note" id="offline-note">DualView hors ligne — reconnexion…</div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var TOKEN = '__DUALVIEW_TOKEN__';
+    var PORT  = '__DUALVIEW_PORT__';
+    var BASE  = 'http://127.0.0.1:' + PORT;
+
+    /* Icônes SVG inline (pas de dépendance externe pour l'UI) */
+    var ICONS = {
+        pause:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>',
+        play:    '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4v16l13-8z"/></svg>',
+        restart: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8 8 0 1 0 4 12"/><path d="M20 4v7h-7"/></svg>',
+        back:    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>',
+        forward: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>',
+        home:    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
+        go:      '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>',
+        plus:    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
+        chevL:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+        chevR:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+        x:       '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>',
+        globe:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>'
+    };
+
+    var $ = function (id) { return document.getElementById(id); };
+    var dot = $('dot'), statusText = $('status-text'), statusSub = $('status-sub');
+    var tabsEl = $('tabs'), urlInput = $('url'), offlineNote = $('offline-note');
+    var scrollLeft = $('scroll-left'), scrollRight = $('scroll-right');
+
+    var ws = null, reconnectTimer = null;
+
+    /* Injection des icônes dans les boutons */
+    $('btn-pause').innerHTML   = ICONS.pause;
+    $('btn-resume').innerHTML  = ICONS.play;
+    $('btn-restart').innerHTML = ICONS.restart;
+    $('btn-back').innerHTML    = ICONS.back;
+    $('btn-forward').innerHTML = ICONS.forward;
+    $('btn-home').innerHTML    = ICONS.home;
+    $('btn-go').innerHTML      = ICONS.go;
+    $('btn-newtab').innerHTML  = ICONS.plus;
+    scrollLeft.innerHTML       = ICONS.chevL;
+    scrollRight.innerHTML      = ICONS.chevR;
+
+    function send(action, payload) {
+        var msg = JSON.stringify({ action: action, payload: payload || {} });
+        if (ws && ws.readyState === 1) {
+            ws.send(msg);
+        } else {
+            fetch(BASE + '/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-DualView-Token': TOKEN },
+                body: msg
+            }).catch(function () {});
+        }
+    }
+
+    function faviconUrl(url) {
+        try {
+            var host = new URL(url).hostname;
+            if (!host) return null;
+            return 'https://www.google.com/s2/favicons?sz=32&domain=' + encodeURIComponent(host);
+        } catch (e) { return null; }
+    }
+
+    function setStatus(status) {
+        var sync = status.sync || 'paused';
+        dot.className = 'dot ' + (sync === 'active' ? 'active' : 'paused');
+        statusText.textContent = sync === 'active' ? 'Sync active' : 'Sync en pause';
+        statusSub.textContent = status.url || '';
+        renderTabs(status.tabs || [], status.activeTabId);
+        offlineNote.classList.remove('show');
+    }
+
+    function renderTabs(tabs, activeId) {
+        tabsEl.innerHTML = '';
+        if (!tabs.length) {
+            var e = document.createElement('div');
+            e.className = 'tab-empty'; e.textContent = 'Aucun onglet';
+            tabsEl.appendChild(e);
+            updateScrollButtons();
+            return;
+        }
+        tabs.forEach(function (t) {
+            var item = document.createElement('div');
+            item.className = 'tab-item' + (t.id === activeId ? ' active' : '');
+            item.title = t.title || t.url || 'Onglet';
+
+            var fav = faviconUrl(t.url);
+            if (fav) {
+                var img = document.createElement('img');
+                img.className = 'fav'; img.src = fav; img.alt = '';
+                img.onerror = function () {
+                    var span = document.createElement('span');
+                    span.className = 'fav fav-fallback';
+                    span.innerHTML = ICONS.globe;
+                    if (img.parentNode) img.parentNode.replaceChild(span, img);
+                };
+                item.appendChild(img);
+            } else {
+                var span = document.createElement('span');
+                span.className = 'fav fav-fallback';
+                span.innerHTML = ICONS.globe;
+                item.appendChild(span);
+            }
+
+            var ttl = document.createElement('span');
+            ttl.className = 'ttl';
+            ttl.textContent = t.title || t.url || 'Onglet';
+            item.appendChild(ttl);
+
+            var x = document.createElement('button');
+            x.className = 'x'; x.innerHTML = ICONS.x; x.title = 'Fermer';
+            x.onclick = function (ev) { ev.stopPropagation(); send('tab-close', { tabId: t.id }); };
+            item.appendChild(x);
+
+            item.onclick = function () { send('tab-switch', { tabId: t.id }); };
+            tabsEl.appendChild(item);
+        });
+        updateScrollButtons();
+    }
+
+    /* ── Défilement horizontal : visibilité + activation des boutons ─────────── */
+    function updateScrollButtons() {
+        var overflow = tabsEl.scrollWidth - tabsEl.clientWidth;
+        if (overflow > 2) {
+            scrollLeft.classList.add('visible');
+            scrollRight.classList.add('visible');
+            scrollLeft.disabled = tabsEl.scrollLeft <= 1;
+            scrollRight.disabled = tabsEl.scrollLeft >= overflow - 1;
+        } else {
+            scrollLeft.classList.remove('visible');
+            scrollRight.classList.remove('visible');
+        }
+    }
+
+    function scrollByStep(dir) {
+        var step = Math.max(80, Math.round(tabsEl.clientWidth * 0.7));
+        tabsEl.scrollBy({ left: dir * step, behavior: 'smooth' });
+    }
+    scrollLeft.onclick  = function () { scrollByStep(-1); };
+    scrollRight.onclick = function () { scrollByStep(1); };
+
+    tabsEl.addEventListener('scroll', updateScrollButtons);
+    /* Molette verticale -> défilement horizontal de la piste */
+    tabsEl.addEventListener('wheel', function (ev) {
+        if (ev.deltaY !== 0 && tabsEl.scrollWidth > tabsEl.clientWidth) {
+            ev.preventDefault();
+            tabsEl.scrollLeft += ev.deltaY;
+        }
+    }, { passive: false });
+
+    /* Suivi du redimensionnement du dock dans OBS */
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(updateScrollButtons).observe(tabsEl);
+    }
+    window.addEventListener('resize', updateScrollButtons);
+
+    function setOffline() {
+        dot.className = 'dot offline';
+        statusText.textContent = 'DualView hors ligne';
+        statusSub.textContent = '';
+        offlineNote.classList.add('show');
+    }
+
+    function connect() {
+        try {
+            ws = new WebSocket('ws://127.0.0.1:' + PORT + '/?token=' + TOKEN);
+        } catch (e) { scheduleReconnect(); return; }
+
+        ws.onopen = function () { send('get-status'); };
+        ws.onmessage = function (ev) {
+            var data;
+            try { data = JSON.parse(ev.data); } catch (e) { return; }
+            if (data.type === 'status' && data.status) setStatus(data.status);
+            if (data.type === 'ack' && data.status) setStatus(data.status);
+        };
+        ws.onclose = function () { setOffline(); scheduleReconnect(); };
+        ws.onerror = function () { try { ws.close(); } catch (e) {} };
+    }
+
+    function scheduleReconnect() {
+        if (reconnectTimer) return;
+        reconnectTimer = setTimeout(function () { reconnectTimer = null; connect(); }, 2000);
+    }
+
+    /* ── Liaisons UI ─────────────────────────────────────────── */
+    $('btn-pause').onclick   = function () { send('sync-pause'); };
+    $('btn-resume').onclick  = function () { send('sync-resume'); };
+    $('btn-restart').onclick = function () { send('sync-restart'); };
+    $('btn-back').onclick     = function () { send('nav-back'); };
+    $('btn-forward').onclick  = function () { send('nav-forward'); };
+    $('btn-home').onclick      = function () { send('nav-home'); };
+    $('btn-newtab').onclick    = function () { send('tab-new'); };
+
+    function go() {
+        var v = urlInput.value.trim();
+        if (!v) return;
+        send('navigate', { url: v });
+        urlInput.value = '';
+    }
+    $('btn-go').onclick = go;
+    urlInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+
+    connect();
+})();
+</script>
+</body>
+</html>

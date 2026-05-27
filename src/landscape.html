@@ -1356,6 +1356,7 @@
             <div class="s-nav" data-section="language"><span class="s-nav-icon">&#127760;</span><span data-i18n="settingsLanguage">Langue</span></div>
             <div class="s-nav" data-section="services"><span class="s-nav-icon">&#128279;</span><span data-i18n="settingsServices">Services connectés</span></div>
             <div class="s-nav" data-section="privacy"><span class="s-nav-icon">&#128274;</span><span data-i18n="settingsPrivacy">Confidentialité</span></div>
+            <div class="s-nav" data-section="obs"><span class="s-nav-icon">&#128250;</span><span data-i18n="settingsObs">OBS</span></div>
         </div>
         <div class="s-content">
             <!-- Général -->
@@ -1475,6 +1476,62 @@
                     <div class="s-badge warn">&#9432; Exemption active</div>
                 </div>
             </div>
+
+            <!-- OBS -->
+            <div id="section-obs" class="s-section">
+                <div class="s-heading" data-i18n="settingsObs">Contrôle depuis OBS</div>
+                <div class="s-row">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-obs-enabled" checked>
+                        <div>
+                            <label for="s-obs-enabled" class="s-check-label" data-i18n="obsEnabledLabel">Activer le contrôle depuis OBS</label>
+                            <div class="s-check-desc" data-i18n="obsEnabledDesc">Démarre un serveur local (127.0.0.1) permettant le dock OBS et les raccourcis clavier. Aucune donnée n'est exposée au réseau.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsPortLabel">Port du serveur</label>
+                    <div class="s-desc" data-i18n="obsPortDesc">0 = port choisi automatiquement. Fixez une valeur (ex. 49231) pour un port stable.</div>
+                    <div class="s-url-row">
+                        <input type="number" id="s-obs-port" class="s-url-input" min="0" max="65535" placeholder="0" style="max-width:140px;" />
+                        <button id="s-obs-port-apply" class="s-validate-btn" data-i18n="obsPortApply">Appliquer</button>
+                    </div>
+                    <div id="s-obs-port-msg" class="s-msg"></div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsStatusLabel">État du serveur</label>
+                    <div id="s-obs-status" class="s-info-desc">—</div>
+                </div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsDockUrlLabel">URL du dock OBS</label>
+                    <div class="s-desc" data-i18n="obsDockUrlDesc">À coller dans OBS : Affichage → Docks → Dock de navigateur personnalisé.</div>
+                    <div class="s-url-row">
+                        <input type="text" id="s-obs-dock-url" class="s-url-input" readonly />
+                        <button id="s-obs-dock-copy" class="s-validate-btn" data-i18n="copyBtn">Copier</button>
+                    </div>
+                </div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsPortValueLabel">Port (pour le script de hotkeys)</label>
+                    <div class="s-url-row">
+                        <input type="text" id="s-obs-port-value" class="s-url-input" readonly style="max-width:140px;" />
+                        <button id="s-obs-port-copy" class="s-validate-btn" data-i18n="copyBtn">Copier</button>
+                    </div>
+                </div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsTokenLabel">Token (pour le script de hotkeys)</label>
+                    <div class="s-desc" data-i18n="obsTokenDesc">Sécurise les commandes OBS. Ne le partagez pas.</div>
+                    <div class="s-url-row">
+                        <input type="text" id="s-obs-token" class="s-url-input" readonly />
+                        <button id="s-obs-token-copy" class="s-validate-btn" data-i18n="copyBtn">Copier</button>
+                    </div>
+                </div>
+                <div class="s-info-block">
+                    <div class="s-info-title" data-i18n="obsGuideTitle">Guide complet</div>
+                    <div class="s-info-desc" data-i18n="obsGuideDesc">Voir obs-integration/OBS_INTEGRATION.md pour la mise en place du dock et des raccourcis clavier.</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1523,6 +1580,19 @@
                 ignoreCancel: 'Annuler', ignoreOk: 'Ignorer quand même',
                 authConfirmCancel: 'Pas encore', authConfirmOk: 'Confirmer',
                 syncResumeVideoHint: 'Synchronisation vidéo reprise.', syncResumeScrollHint: 'Synchronisation scroll reprise.',
+                settingsObs: 'OBS',
+                obsEnabledLabel: 'Activer le contrôle depuis OBS',
+                obsEnabledDesc: "Démarre un serveur local (127.0.0.1) permettant le dock OBS et les raccourcis clavier. Aucune donnée n'est exposée au réseau.",
+                obsPortLabel: 'Port du serveur',
+                obsPortDesc: '0 = port choisi automatiquement. Fixez une valeur (ex. 49231) pour un port stable.',
+                obsPortApply: 'Appliquer', obsPortApplied: 'Port appliqué.', obsPortInvalid: 'Port invalide (0–65535).',
+                obsStatusLabel: 'État du serveur', obsStatusRunning: 'Actif sur', obsStatusStopped: 'Arrêté', obsStatusDisabled: 'Désactivé',
+                obsDockUrlLabel: 'URL du dock OBS',
+                obsDockUrlDesc: 'À coller dans OBS : Affichage → Docks → Dock de navigateur personnalisé.',
+                obsPortValueLabel: 'Port (pour le script de hotkeys)',
+                obsTokenLabel: 'Token (pour le script de hotkeys)', obsTokenDesc: 'Sécurise les commandes OBS. Ne le partagez pas.',
+                obsGuideTitle: 'Guide complet', obsGuideDesc: 'Voir obs-integration/OBS_INTEGRATION.md pour la mise en place du dock et des raccourcis clavier.',
+                copyBtn: 'Copier', copiedBtn: 'Copié !',
             },
             en: {
                 syncActive: 'Sync active', syncPaused: 'Sync paused', syncStarting: 'Sync…',
@@ -1566,6 +1636,19 @@
                 ignoreCancel: 'Cancel', ignoreOk: 'Ignore anyway',
                 authConfirmCancel: 'Not yet', authConfirmOk: 'Confirm',
                 syncResumeVideoHint: 'Video sync resumed.', syncResumeScrollHint: 'Scroll sync resumed.',
+                settingsObs: 'OBS',
+                obsEnabledLabel: 'Enable control from OBS',
+                obsEnabledDesc: 'Starts a local server (127.0.0.1) enabling the OBS dock and keyboard shortcuts. No data is exposed to the network.',
+                obsPortLabel: 'Server port',
+                obsPortDesc: '0 = automatically chosen port. Set a value (e.g. 49231) for a stable port.',
+                obsPortApply: 'Apply', obsPortApplied: 'Port applied.', obsPortInvalid: 'Invalid port (0–65535).',
+                obsStatusLabel: 'Server status', obsStatusRunning: 'Running on', obsStatusStopped: 'Stopped', obsStatusDisabled: 'Disabled',
+                obsDockUrlLabel: 'OBS dock URL',
+                obsDockUrlDesc: 'Paste into OBS: Docks → Custom Browser Docks.',
+                obsPortValueLabel: 'Port (for the hotkeys script)',
+                obsTokenLabel: 'Token (for the hotkeys script)', obsTokenDesc: 'Secures OBS commands. Do not share it.',
+                obsGuideTitle: 'Full guide', obsGuideDesc: 'See obs-integration/OBS_INTEGRATION.md to set up the dock and keyboard shortcuts.',
+                copyBtn: 'Copy', copiedBtn: 'Copied!',
             }
         };
         let currentLang = 'fr';
@@ -2054,6 +2137,9 @@
                 document.getElementById('url-input').classList.add('settings-url');
                 document.getElementById('go-btn').disabled = true;
                 updateNavButtons({ canGoBack: false, canGoForward: false });
+                // Notifier main.js → portrait reçoit 'tab-switched' avec SETTINGS_TAB_ID
+                // et affiche l'overlay "Personnalisation en cours / stream reprendra"
+                window.dualview.switchTab(SETTINGS_TAB_ID);
             } else {
                 webviewCont.style.display = 'flex';
                 settingsPanel.classList.remove('show');
@@ -2092,6 +2178,7 @@
             const sec = document.getElementById(`section-${section}`);
             if (sec) sec.classList.add('active');
             if (section === 'services') loadServicesStatus();
+            if (section === 'obs') loadObsInfo();
         }
 
         function addTab() {
@@ -2126,6 +2213,44 @@
         }
 
         document.getElementById('add-tab-btn').addEventListener('click', addTab);
+
+        // ── Commandes OBS (v0.3.2) ───────────────────────────────────────────────────
+        // Reçues depuis le dock OBS / les hotkeys via le serveur de contrôle local.
+        // Chaque commande appelle la MÊME fonction que l'UI native → comportement
+        // strictement identique, aucune logique dupliquée.
+        window.dualview.on('obs-command', ({ action, payload }) => {
+            payload = payload || {};
+            switch (action) {
+                case 'nav-back':
+                    if (!backBtn.disabled) window.dualview.navBack();
+                    break;
+                case 'nav-forward':
+                    if (!forwardBtn.disabled) window.dualview.navForward();
+                    break;
+                case 'nav-reload':
+                    document.getElementById('reload-btn').click();
+                    break;
+                case 'nav-home':
+                    document.getElementById('home-btn').click();
+                    break;
+                case 'navigate':
+                    if (payload.url && activeTabId !== SETTINGS_TAB_ID) navigate(payload.url);
+                    break;
+                case 'tab-new':
+                    addTab();
+                    break;
+                case 'tab-close':
+                    // tabId fourni par le dock, sinon onglet actif
+                    closeTab(payload.tabId || activeTabId);
+                    break;
+                case 'tab-switch':
+                    if (payload.tabId && tabs.some(t => t.id === payload.tabId)) switchTab(payload.tabId);
+                    break;
+                default:
+                    break;
+            }
+        });
+
 
         // ── Navigation URL ─────────────────────────────────────────────────────────────
         function navigate(rawUrl) {
@@ -2195,9 +2320,68 @@
             document.getElementById('s-appearance').value = s.appearance || 'auto';
             document.getElementById('s-language').value = s.language || 'fr';
             if (s.customHomepageUrl) document.getElementById('s-custom-url-input').value = s.customHomepageUrl;
+            document.getElementById('s-obs-enabled').checked = s.obsEnabled !== false;
+            document.getElementById('s-obs-port').value = (s.obsPort != null ? s.obsPort : 0);
             toggleCustomUrl(s.homepageMode === 'custom');
             applyTranslations();
         }
+
+        // ── Intégration OBS (paramètres) ─────────────────────────────────────────────
+        async function loadObsInfo() {
+            let info = null;
+            try { info = await window.dualview.getObsInfo(); } catch { /* ignore */ }
+            const statusEl = document.getElementById('s-obs-status');
+            const dockEl = document.getElementById('s-obs-dock-url');
+            const portValEl = document.getElementById('s-obs-port-value');
+            const tokenEl = document.getElementById('s-obs-token');
+            if (!info || !info.enabled) {
+                statusEl.textContent = t('obsStatusDisabled');
+                dockEl.value = ''; portValEl.value = ''; tokenEl.value = '';
+                return;
+            }
+            if (info.running) {
+                statusEl.textContent = t('obsStatusRunning') + ' 127.0.0.1:' + info.port;
+                dockEl.value = info.dockUrl || '';
+                portValEl.value = String(info.port);
+                tokenEl.value = info.token || '';
+            } else {
+                statusEl.textContent = t('obsStatusStopped');
+                dockEl.value = ''; portValEl.value = ''; tokenEl.value = '';
+            }
+        }
+
+        function copyToClipboard(text, btn) {
+            if (!text) return;
+            try { navigator.clipboard.writeText(text); } catch { /* ignore */ }
+            const orig = btn.textContent;
+            btn.textContent = t('copiedBtn');
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        }
+
+        document.getElementById('s-obs-enabled').addEventListener('change', e => {
+            currentSettings.obsEnabled = e.target.checked;
+            saveCurrentSettings();
+            setTimeout(loadObsInfo, 400);
+        });
+        document.getElementById('s-obs-port-apply').addEventListener('click', () => {
+            const raw = parseInt(document.getElementById('s-obs-port').value, 10);
+            const msg = document.getElementById('s-obs-port-msg');
+            const port = Number.isInteger(raw) ? raw : 0;
+            if (port < 0 || port > 65535) {
+                msg.textContent = t('obsPortInvalid'); msg.className = 's-msg show err'; return;
+            }
+            currentSettings.obsPort = port;
+            saveCurrentSettings();
+            msg.textContent = t('obsPortApplied'); msg.className = 's-msg show ok';
+            setTimeout(() => msg.classList.remove('show'), 3000);
+            setTimeout(loadObsInfo, 400);
+        });
+        document.getElementById('s-obs-dock-copy').addEventListener('click', e =>
+            copyToClipboard(document.getElementById('s-obs-dock-url').value, e.target));
+        document.getElementById('s-obs-port-copy').addEventListener('click', e =>
+            copyToClipboard(document.getElementById('s-obs-port-value').value, e.target));
+        document.getElementById('s-obs-token-copy').addEventListener('click', e =>
+            copyToClipboard(document.getElementById('s-obs-token').value, e.target));
 
         function toggleCustomUrl(show) { document.getElementById('s-custom-url').classList.toggle('show', show); }
         function saveCurrentSettings() { window.dualview.saveSettings(currentSettings); }

@@ -1,4 +1,4 @@
-# DualView - Architecture v0.3.1
+# DualView - Architecture v0.3.2
 
 ## Vue d'ensemble
 
@@ -309,18 +309,18 @@ main → landscapeWin :
 
 ---
 
-## Structure des fichiers v0.3.0
+## Structure des fichiers v0.3.2
 
 ```
 dualview/
 |
-|-- package.json              Version 0.3.0
-|-- HOW_TO_INSTALL.md
+|-- package.json              Version 0.3.2
+|-- HOW_TO_INSTALL.md         Procédure d'installation + config OBS
 |-- ARCHITECTURE.md           Ce fichier
 |-- README.md
 |
 |-- src/
-|   |-- main.js               Processus principal v0.3.0
+|   |-- main.js               Processus principal v0.3.2
 |   |                         + syncState, scheduleSyncStart
 |   |                         + IPC sync-control, login-page-detected/left
 |   |                         + IPC services connectés
@@ -328,40 +328,69 @@ dualview/
 |   |                         + isAuthUrl / AUTH_DOMAINS (guard portrait)
 |   |                         + detectServiceKeyFromUrl
 |   |                         + app.commandLine AutomationControlled
+|   |                         + OBS : require obs-control, applySyncAction,
+|   |                           handleObsCommand, pushObsStatus, get-obs-info
+|   |
+|   |-- obs-control.js        NOUVEAU v0.3.2 — Serveur de contrôle OBS
+|   |                         HTTP + WebSocket sur 127.0.0.1, token
+|   |                         start/stop/updateStatus/getInfo
+|   |                         Liste blanche ALLOWED_ACTIONS
+|   |                         Sert obs-dock.html (injection token/port)
+|   |
+|   |-- obs-dock.html         NOUVEAU v0.3.2 — Page du dock OBS
+|   |                         UI compacte (icônes), onglets sur 1 ligne
+|   |                         défilable (boutons ◀ ▶, ResizeObserver)
+|   |                         Favicons via google.com/s2/favicons
+|   |                         WebSocket temps réel + repli HTTP
 |   |
 |   |-- auth-window.js        Fenêtres authentification services
 |   |                         KNOWN_SERVICES, openAuthWindow
 |   |                         checkKnownServiceCookies, disconnectService
 |   |                         preload-auth.js via webPreferences.preload
 |   |
-|   |-- preload-auth.js       NOUVEAU — Anti-détection Electron (authWin)
+|   |-- logger.js             Logger (mode --dev) : fichier + console
+|   |                         Niveaux LOG/WARN/ERROR, source taggée
+|   |
+|   |-- preload-auth.js       Anti-détection Electron (authWin)
 |   |                         webFrame.executeJavaScript (main world) :
 |   |                         navigator.webdriver, userAgentData,
 |   |                         window.chrome, plugins, permissions
 |   |
-|   |-- preload-landscape.js  Bridge sécurisé v0.3.0
+|   |-- preload-dev.js        Bridge mode debug (--dev)
+|   |                         Raccourcis F12 / Ctrl+F12 (DevTools)
+|   |
+|   |-- preload-landscape.js  Bridge sécurisé v0.3.2
 |   |                         + syncControl, getSyncState
 |   |                         + notifyLoginPage, notifyLoginPageLeft
 |   |                         + getConnectedServicesStatus, openAuthWindow
 |   |                         + disconnectService, deleteCustomService
 |   |                         + confirmCustomAuth, cancelCustomAuth
+|   |                         + getObsInfo, canal entrant obs-command
 |   |
-|   |-- preload-view.js       Bridge sécurisé v0.3.0
+|   |-- preload-view.js       Bridge sécurisé (webviews)
 |   |                         + sync-state-changed, show-login-popup
 |   |                         + login-page-cleared, sync-resume-state
 |   |
-|   |-- landscape.html        Fenêtre paysage v0.3.0
+|   |-- landscape.html        Fenêtre paysage v0.3.2
 |   |                         + Bouton sync (toolbar) + menu dropdown
 |   |                         + Section "Services connectés" dans Paramètres
+|   |                         + Section "OBS" dans Paramètres (port, token,
+|   |                           URL dock, activation)
+|   |                         + Listener obs-command (réutilise addTab/
+|   |                           closeTab/switchTab/navigate)
 |   |                         + Popup page de connexion + bouton Se connecter
-|   |                         + Dialog ignorance + dialog auth personnalisée
 |   |                         + Pollers guards (syncState !== 'active')
-|   |                         + Détection isLoginPage() sur did-navigate
 |   |
-|   |-- portrait.html         Fenêtre portrait v0.3.0
+|   |-- portrait.html         Fenêtre portrait v0.3.2
 |   |                         + Indicateur sync (badge discret)
 |   |                         + Overlay login plein écran (non ignorable)
 |   |                         + sync-resume-state → réinjection scripts
+|   |
+|-- obs-integration/          NOUVEAU v0.3.2 — Ressources OBS (hors binaire)
+|   |-- dualview-obs-hotkeys.lua   Script hotkeys natives OBS → /command
+|   |-- OBS_INTEGRATION.md         Guide d'utilisation (dock + hotkeys)
+|   |   NOTE : dossier NON embarqué dans l'installeur (destiné à OBS,
+|   |          pas à Electron). package.json.files ne couvre que src/**/*
 |   |
 |-- assets/
 |   |-- icon.ico
@@ -420,3 +449,78 @@ customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 | 0.2.6 | Pool de webviews. Switch onglet sans rechargement. IPC tab-switched/closed/created. |
 | 0.3.0 | Démarrage sync différé 3 s. Bouton sync. Services connectés (9 + URL perso). Détection pages login + popup/overlay. Bouton "Se connecter" direct. YouTube Shorts bypass. Anti-détection Electron (preload-auth.js, 4 couches). |
 | 0.3.1 | Fix portrait partition persist:dualview (connexion cookies). Fix ERR_ABORTED (isAuthUrl hostname-only, AUTH_DOMAINS login-only). Fix sync vidéo (seek préserve état pause, executor réaligné). Fix injection scripts SPA (did-navigate-in-page). Fix session pre-init (pub 1re vidéo YouTube). Fix ordre fenêtres (portrait attend landscape). Fix déconnexion Microsoft (flush complet cookies). Auth Microsoft : confirmation obligatoire + bouton fallback (plus de fermeture automatique). LOGIN_FORCED_DOMAINS (login.microsoftonline.com toujours détecté). Portrait : overlay "Personnalisation en cours" sur onglet paramètres. Système de debug --dev (logger.js, preload-dev.js, F12, Ctrl+F12). |
+| 0.3.2 | Intégration OBS (Méthode 1 + 3). Serveur de contrôle local (obs-control.js) : HTTP + WebSocket sur 127.0.0.1, token d'authentification. Dock OBS (obs-dock.html) : sync, navigation, URL, onglets pilotables depuis l'interface OBS. Script Lua de hotkeys natives (obs-integration/dualview-obs-hotkeys.lua → /command). Paramètres → OBS (activation, port, dock URL, token). Refactor applySyncAction (partagé UI native / OBS). Canal IPC obs-command (renderer landscape réutilise addTab/closeTab/switchTab/navigate). Zéro régression. |
+
+---
+
+## Intégration OBS v0.3.2
+
+### Principe de communication
+
+OBS est **toujours serveur** (son propre obs-websocket) et **ne se connecte
+jamais** à une app externe. L'intégration DualView ne s'appuie donc PAS sur
+le WebSocket d'OBS : c'est DualView qui héberge son propre serveur local, et
+OBS s'y connecte (dock) ou y envoie des requêtes (hotkeys via script Lua).
+
+```
+Méthode 1 — Dock visuel
+  OBS (Browser Dock) ──charge──> http://127.0.0.1:PORT/dock?token=...
+        │  (page obs-dock.html servie par DualView)
+        │  WebSocket bidirectionnel
+        ▼
+  obs-control.js ──onCommand──> main.js (handleObsCommand)
+        ▲                              │
+        └──updateStatus(sync,tabs)─────┘  (état temps réel poussé au dock)
+
+Méthode 3 — Hotkeys natives
+  Touche OBS ──> script Lua (obs_hotkey_register_frontend)
+        │  curl POST /command  (X-DualView-Token)
+        ▼
+  obs-control.js ──onCommand──> main.js (handleObsCommand)
+```
+
+### Module obs-control.js
+```
+start({port, dockHtmlPath, onCommand, logFn})  → {port, token} | null (non bloquant)
+updateStatus(partial)   diffuse {sync, activeTabId, url, tabs} aux clients WS
+stop()                  ferme sockets + serveur (à l'extinction)
+getInfo()               {port, token} ou null
+
+Sécurité :
+  - écoute UNIQUEMENT sur 127.0.0.1 (loopback)
+  - token aléatoire (24 octets hex) requis sur /command, /status et upgrade WS
+  - liste blanche ALLOWED_ACTIONS (toute autre action rejetée)
+  - WebSocket maison minimal (RFC 6455 texte), aucune dépendance npm ajoutée
+```
+
+### Dispatch des commandes (main.js)
+```
+handleObsCommand(action, payload) :
+  sync-pause | sync-resume | sync-restart
+        → applySyncAction()   (même code que l'IPC 'sync-control')
+  nav-back | nav-forward | nav-reload | nav-home
+  navigate | tab-new | tab-close | tab-switch
+        → landscapeWin.send('obs-command', {action, payload})
+          → le renderer appelle navBack/addTab/closeTab/switchTab/navigate
+            (fonctions UI existantes → comportement identique au clic)
+```
+
+### Paramètres OBS (config)
+```
+Clé        | Valeurs              | Effet
+-----------|----------------------|-------------------------------------
+obsEnabled | true / false         | Démarre/arrête le serveur (immédiat)
+obsPort    | 0–65535 (0 = auto)   | Redémarre le serveur sur le nouveau port
+```
+
+### Fichiers ajoutés v0.3.2
+```
+src/obs-control.js                      Serveur HTTP + WebSocket local
+src/obs-dock.html                       Page du dock OBS (token/port injectés)
+obs-integration/
+  dualview-obs-hotkeys.lua              Script hotkeys natives OBS
+  OBS_INTEGRATION.md                    Guide d'utilisation OBS
+```
+Note : `obs-integration/` n'est PAS embarqué dans le binaire (fichiers destinés
+à OBS, pas à Electron). `package.json.files` couvre `src/**/*` → obs-control.js
+et obs-dock.html sont bien inclus dans l'installeur.

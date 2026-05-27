@@ -1,6 +1,15 @@
 /**
  * DualView - Main Process
- * Version: 0.3.1
+ * Version: 0.3.2
+ *
+ * Changements v0.3.2 :
+ * - Intégration OBS (Méthode 1 + Méthode 3) :
+ *   - Serveur de contrôle local (obs-control.js) servant le dock OBS + une API.
+ *   - Dock OBS : pilotage sync / navigation / onglets depuis l'interface OBS.
+ *   - Hotkeys OBS : script Lua natif (obs-integration/) → API /command.
+ *   - Toutes les commandes OBS réutilisent les chemins IPC existants
+ *     (sync-control, navigate, nav-*, obs-tab-command) → zéro régression.
+ *   - Activable/désactivable + port configurable (Paramètres → OBS).
  *
  * Changements v0.3.1 :
  * - Délai de démarrage sync (3 s) pour éviter les interruptions au lancement
@@ -14,6 +23,7 @@ const { app, BrowserWindow, ipcMain, nativeTheme, screen, session } = require('e
 const logger = require('./logger');
 const path = require('path');
 const fs = require('fs');
+const obsControl = require('./obs-control');
 const {
     KNOWN_SERVICES,
     authWindowEvents,
@@ -41,6 +51,9 @@ const SETTINGS_DEFAULTS = {
     language: 'fr',
     // Services connectés (custom uniquement ; connus = cookies)
     customServices: [],  // [{ id, label, url, connected }]
+    // Intégration OBS (v0.3.2)
+    obsEnabled: true,    // serveur de contrôle OBS actif au démarrage
+    obsPort: 0,          // 0 = port libre choisi automatiquement
 };
 
 const KNACK3_URL = 'https://marketplace.atlassian.com/vendors/920480808/';
@@ -354,6 +367,117 @@ function scheduleSyncStart() {
     }, 3000);
 }
 
+// ── Intégration OBS (v0.3.2) ──────────────────────────────────────────────────
+// Liste des onglets connue du main, alimentée par 'save-tabs' (flux existant).
+// Sert uniquement à afficher l'état dans le dock OBS — n'altère rien d'autre.
+let obsTabs = [];   // [{ id, title, url }]
+
+/**
+ * Pousse l'état courant vers le dock OBS (sync, onglet actif, URL, onglets).
+ * Sans effet si le serveur OBS n'est pas démarré.
+ */
+function pushObsStatus() {
+    try {
+        obsControl.updateStatus({
+            sync: syncState,
+            activeTabId: activeTabId,
+            url: activeTabId ? (tabUrls.get(activeTabId) || '') : '',
+            tabs: obsTabs,
+        });
+    } catch { /* serveur OBS inactif : ignoré */ }
+}
+
+/**
+ * Traduit une commande OBS (dock ou hotkey) en action DualView.
+ * IMPORTANT : on réutilise EXACTEMENT les mêmes chemins que l'UI native.
+ * - sync : modifie syncState comme le ferait l'IPC 'sync-control'.
+ * - navigation/onglets : délégués au renderer landscape via 'obs-command'
+ *   pour exécuter les fonctions UI testées (addTab/closeTab/switchTab/navigate),
+ *   ce qui garantit l'absence de divergence de comportement.
+ */
+function handleObsCommand(action, payload) {
+    const ls = landscapeWin && !landscapeWin.isDestroyed() ? landscapeWin : null;
+
+    switch (action) {
+        case 'sync-pause':
+            applySyncAction('pause');
+            break;
+        case 'sync-resume':
+            applySyncAction('resume');
+            break;
+        case 'sync-restart':
+            applySyncAction('restart');
+            break;
+        // Navigation et onglets : exécutés par le renderer landscape,
+        // qui possède la logique UI (webviews, barre d'onglets, adresse).
+        case 'nav-back':
+        case 'nav-forward':
+        case 'nav-reload':
+        case 'nav-home':
+        case 'tab-new':
+        case 'tab-close':
+        case 'tab-switch':
+        case 'navigate':
+            if (ls) ls.webContents.send('obs-command', { action, payload: payload || {} });
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * Logique de contrôle sync partagée entre l'IPC 'sync-control' (UI native)
+ * et les commandes OBS. Extraite pour éviter toute duplication.
+ */
+function applySyncAction(action) {
+    if (!['pause', 'resume', 'restart'].includes(action)) return;
+    if (action === 'pause') {
+        syncState = 'paused';
+        broadcastSyncState();
+    } else if (action === 'resume') {
+        syncState = 'active';
+        broadcastSyncState();
+        if (activeTabId && portraitWin && !portraitWin.isDestroyed()) {
+            const url = tabUrls.get(activeTabId) || '';
+            if (url && !isAuthUrl(url)) portraitWin.webContents.send('sync-resume-state', { tabId: activeTabId, url });
+        }
+    } else if (action === 'restart') {
+        syncState = 'paused';
+        broadcastSyncState();
+        setTimeout(() => {
+            syncState = 'active';
+            broadcastSyncState();
+            if (activeTabId && portraitWin && !portraitWin.isDestroyed()) {
+                const url = tabUrls.get(activeTabId) || '';
+                if (url && !isAuthUrl(url)) portraitWin.webContents.send('sync-resume-state', { tabId: activeTabId, url });
+            }
+        }, 500);
+    }
+}
+
+/**
+ * Démarre le serveur de contrôle OBS si activé dans les paramètres.
+ * Non bloquant : un échec n'empêche jamais DualView de fonctionner.
+ */
+async function startObsServerIfEnabled() {
+    const enabled = configGet('settings.obsEnabled');
+    if (enabled === false) {
+        logger.log('obs', 'LOG', ['Intégration OBS désactivée (paramètres).']);
+        return;
+    }
+    const port = configGet('settings.obsPort') || 0;
+    const info = await obsControl.start({
+        port,
+        dockHtmlPath: path.join(__dirname, 'obs-dock.html'),
+        onCommand: handleObsCommand,
+        logFn: (src, lvl, args) => logger.log(src, lvl, args),
+    });
+    if (info) {
+        logger.log('obs', 'LOG', [`Dock OBS : http://127.0.0.1:${info.port}/dock`]);
+        pushObsStatus();
+    }
+}
+
 // ── Fenêtres ──────────────────────────────────────────────────────────────────
 function createLandscapeWindow() {
     const saved = configGet('landscapeWindow');
@@ -459,31 +583,10 @@ function tryScheduleSyncStart() {
 // ── IPC : Contrôle synchronisation ───────────────────────────────────────────
 ipcMain.on('sync-control', (event, action) => {
     // action : 'pause' | 'resume' | 'restart'
-    if (!['pause', 'resume', 'restart'].includes(action)) return;
-
-    if (action === 'pause') {
-        syncState = 'paused';
-        broadcastSyncState();
-    } else if (action === 'resume') {
-        syncState = 'active';
-        broadcastSyncState();
-        // Rejouer l'état courant dans portrait (sauf pages d'auth)
-        if (activeTabId && portraitWin && !portraitWin.isDestroyed()) {
-            const url = tabUrls.get(activeTabId) || '';
-            if (url && !isAuthUrl(url)) portraitWin.webContents.send('sync-resume-state', { tabId: activeTabId, url });
-        }
-    } else if (action === 'restart') {
-        syncState = 'paused';
-        broadcastSyncState();
-        setTimeout(() => {
-            syncState = 'active';
-            broadcastSyncState();
-            if (activeTabId && portraitWin && !portraitWin.isDestroyed()) {
-                const url = tabUrls.get(activeTabId) || '';
-                if (url && !isAuthUrl(url)) portraitWin.webContents.send('sync-resume-state', { tabId: activeTabId, url });
-            }
-        }, 500);
-    }
+    // Logique déléguée à applySyncAction (partagée avec les commandes OBS),
+    // comportement identique à v0.3.1.
+    applySyncAction(action);
+    pushObsStatus();
 });
 
 // ── IPC : Navigation ──────────────────────────────────────────────────────────
@@ -496,6 +599,7 @@ ipcMain.on('navigate', (event, url) => {
     // Ne pas synchroniser les pages d'authentification vers portrait
     if (syncState === 'active' && !isAuthUrl(safe) && portraitWin && !portraitWin.isDestroyed())
         portraitWin.webContents.send('load-url', { tabId: activeTabId, url: safe });
+    pushObsStatus();
 });
 
 ipcMain.on('sync-scroll', (event, pct) => {
@@ -513,16 +617,27 @@ ipcMain.on('sync-navigate', (event, url) => {
     // Ne pas synchroniser les pages d'authentification vers portrait
     if (syncState === 'active' && !isAuthUrl(safe) && portraitWin && !portraitWin.isDestroyed())
         portraitWin.webContents.send('load-url', { tabId: activeTabId, url: safe });
+    pushObsStatus();
 });
 
 // ── IPC : Onglets ─────────────────────────────────────────────────────────────
 ipcMain.on('tab-switched', (event, tabId) => {
     if (typeof tabId !== 'string') return;
-    activeTabId = tabId;
+    const SETTINGS_TAB_ID = '__settings__';
+    // Ne pas écraser activeTabId avec l'ID de l'onglet paramètres :
+    // cela casserait la sync (tabUrls.get(activeTabId) retournerait undefined
+    // au retour des paramètres). On met à jour activeTabId seulement pour
+    // les vrais onglets de navigation.
+    if (tabId !== SETTINGS_TAB_ID) {
+        activeTabId = tabId;
+    }
     // Si l'overlay login était actif sur un autre onglet, l'effacer
     if (loginPageTabId && loginPageTabId !== tabId) broadcastLoginPageCleared();
+    // Relayer l'événement à portrait dans tous les cas (y compris __settings__)
+    // pour que portrait affiche l'overlay "Personnalisation en cours"
     if (portraitWin && !portraitWin.isDestroyed())
         portraitWin.webContents.send('tab-switched', tabId);
+    pushObsStatus();
 });
 
 ipcMain.on('tab-closed', (event, tabId) => {
@@ -713,6 +828,9 @@ ipcMain.on('save-tabs', (event, data) => {
         if (tab.url) tabUrls.set(tab.id, tab.url);
     }
     if (data.activeTabId) activeTabId = data.activeTabId;
+    // Tenir la liste d'onglets du dock OBS à jour (flux existant réutilisé).
+    obsTabs = data.tabs.map(t => ({ id: t.id, title: t.title || '', url: t.url || '' }));
+    pushObsStatus();
 });
 
 ipcMain.on('save-settings', (event, settings) => {
@@ -724,8 +842,12 @@ ipcMain.on('save-settings', (event, settings) => {
         newTabMode: v => ['homepage', 'empty'].includes(v),
         appearance: v => ['auto', 'light', 'dark'].includes(v),
         language: v => ['fr', 'en'].includes(v),
+        obsEnabled: v => typeof v === 'boolean',
+        obsPort: v => Number.isInteger(v) && v >= 0 && v <= 65535,
     };
     const current = configGet('settings') || Object.assign({}, SETTINGS_DEFAULTS);
+    const prevObsEnabled = current.obsEnabled;
+    const prevObsPort = current.obsPort;
     for (const key of Object.keys(allowed)) {
         if (settings[key] !== undefined && allowed[key](settings[key])) {
             current[key] = settings[key];
@@ -734,6 +856,23 @@ ipcMain.on('save-settings', (event, settings) => {
     configSet('settings', current);
     applyAppearance();
     broadcastTheme();
+    // Redémarrer le serveur OBS si son activation ou son port a changé.
+    if (current.obsEnabled !== prevObsEnabled || current.obsPort !== prevObsPort) {
+        obsControl.stop();
+        if (current.obsEnabled !== false) startObsServerIfEnabled();
+    }
+});
+
+// ── IPC : Infos serveur OBS (pour Paramètres → OBS) ───────────────────────────
+ipcMain.handle('get-obs-info', () => {
+    const info = obsControl.getInfo();
+    return {
+        enabled: configGet('settings.obsEnabled') !== false,
+        running: !!info,
+        port: info ? info.port : (configGet('settings.obsPort') || 0),
+        token: info ? info.token : '',
+        dockUrl: info ? `http://127.0.0.1:${info.port}/dock?token=${info.token}` : '',
+    };
 });
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
@@ -756,6 +895,9 @@ app.whenReady().then(() => {
     createPortraitWindow();
     nativeTheme.on('updated', broadcastTheme);
 
+    // Démarrer le serveur de contrôle OBS (non bloquant, additif).
+    startObsServerIfEnabled();
+
     // Activer DevTools et raccourcis clavier en mode dev
     // (après création des fenêtres)
     if (logger.IS_DEV) {
@@ -763,7 +905,7 @@ app.whenReady().then(() => {
     }
 });
 
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => { obsControl.stop(); app.quit(); });
 app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createLandscapeWindow();

@@ -133,6 +133,30 @@
             line-height: 1.6;
         }
 
+        /* Toast reprise stream après fermeture paramètres */
+        #resume-toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(0, 120, 60, 0.92);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 8px 18px;
+            border-radius: 20px;
+            z-index: 9995;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            white-space: nowrap;
+        }
+
+            #resume-toast.show {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+
         #webview-container {
             flex: 1;
             position: relative;
@@ -240,8 +264,11 @@
     <div id="settings-overlay">
         <div id="settings-overlay-icon">⚙️</div>
         <div id="settings-overlay-title">Personnalisation en cours</div>
-        <div id="settings-overlay-sub">L'utilisateur configure l'application<br>dans la fenêtre Paysage.</div>
+        <div id="settings-overlay-sub">L'utilisateur configure l'application<br>dans la fenêtre Paysage.<br><br>Le stream reprendra automatiquement<br>dès la fermeture des paramètres.</div>
     </div>
+
+    <!-- Toast reprise stream -->
+    <div id="resume-toast">▶ Stream en cours de reprise…</div>
 
     <!-- Overlay login portrait — plein écran, non ignorable, disparaît à la navigation -->
     <div id="login-overlay">
@@ -416,9 +443,21 @@
             if (!webviewPool.has(tabId)) createWebview(tabId, url || '');
         });
         const settingsOverlay = document.getElementById('settings-overlay');
+        const resumeToast = document.getElementById('resume-toast');
         const SETTINGS_TAB_ID = '__settings__';
+        let _resumeToastTimer = null;
+
+        function showResumeToast() {
+            if (_resumeToastTimer) clearTimeout(_resumeToastTimer);
+            resumeToast.classList.add('show');
+            _resumeToastTimer = setTimeout(() => {
+                resumeToast.classList.remove('show');
+                _resumeToastTimer = null;
+            }, 2500);
+        }
 
         window.dualview.on('tab-switched', tabId => {
+            const wasOnSettings = activeTabId === SETTINGS_TAB_ID;
             activeTabId = tabId;
             if (tabId === SETTINGS_TAB_ID) {
                 // Landscape est sur l'onglet paramètres → afficher overlay
@@ -430,6 +469,8 @@
                 settingsOverlay.classList.remove('show');
                 if (!webviewPool.has(tabId)) createWebview(tabId, '');
                 showWebview(tabId);
+                // Si on revenait des paramètres, afficher le toast de reprise
+                if (wasOnSettings) showResumeToast();
             }
         });
         window.dualview.on('tab-closed', tabId => { destroyWebview(tabId); });

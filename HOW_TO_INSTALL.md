@@ -1,4 +1,12 @@
-# DualView v0.3.1 - Instructions d'installation
+# DualView v0.3.2 - Instructions d'installation
+
+## Nouveautés v0.3.2
+
+- **Contrôle depuis OBS** : pilotez DualView sans quitter OBS
+  - **Dock OBS** : panneau intégré (sync, URL, onglets) avec état en temps réel
+  - **Hotkeys OBS natives** : script Lua pour pause/reprise/redémarrage, navigation, recharge, onglets
+  - Réglages dans **⚙️ → Paramètres → OBS** (activation, port, URL du dock, token)
+  - Guide détaillé : **obs-integration/OBS_INTEGRATION.md**
 
 ## Nouveautés v0.3.1
 
@@ -145,11 +153,19 @@ Les Shorts (`youtube.com/shorts/...`) sont exemptés du bloqueur de publicités.
 
 ## Configuration OBS
 
+### Capture des fenêtres
 Deux sources "Capture de fenêtre" :
 - `DualView - Paysage` : vue Desktop
 - `DualView - Portrait` : vue Mobile
 
 Les titres sont stables entre les changements d'onglets.
+
+### Contrôle depuis OBS (dock + hotkeys)
+1. Ouvrez **⚙️ → Paramètres → OBS** dans DualView : notez le **port**, le **token** et l'**URL du dock**.
+2. **Dock** : dans OBS → *Affichage → Docks → Dock de navigateur personnalisé*, collez l'URL du dock.
+3. **Hotkeys** : dans OBS → *Outils → Scripts*, ajoutez `obs-integration/dualview-obs-hotkeys.lua`, renseignez port + token, puis attribuez les touches dans *Paramètres → Raccourcis clavier* (entrées « DualView : … »).
+
+Guide complet pas à pas : **obs-integration/OBS_INTEGRATION.md**.
 
 ---
 
@@ -158,4 +174,4 @@ Les titres sont stables entre les changements d'onglets.
 **Prérequis** : Node.js >= 22 (https://nodejs.org)
 
 Lancez **installer/build-installer.bat** depuis le dossier racine.
-Produit **dist/DualView-Setup-0.3.1.exe** (~150 Mo).
+Produit **dist/DualView-Setup-0.3.2.exe** (~150 Mo).

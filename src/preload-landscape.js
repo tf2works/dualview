@@ -1,6 +1,10 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.3.1
+ * Version: 0.3.2
+ *
+ * Changements v0.3.2 :
+ * - getObsInfo()                  : infos serveur de contrôle OBS
+ * - Canal entrant 'obs-command'   : commandes provenant du dock/hotkeys OBS
  *
  * Changements v0.3.1 :
  * - syncControl(action)           : pause / resume / restart
@@ -64,6 +68,9 @@ contextBridge.exposeInMainWorld('dualview', {
     getVersion: () => ipcRenderer.invoke('get-version'),
     getHomepageUrl: () => ipcRenderer.invoke('get-homepage-url'),
 
+    // ── Intégration OBS (v0.3.2) ───────────────────────────────
+    getObsInfo: () => ipcRenderer.invoke('get-obs-info'),
+
     // ── Listeners ──────────────────────────────────────────────
     on: (channel, callback) => {
         const valid = [
@@ -73,6 +80,8 @@ contextBridge.exposeInMainWorld('dualview', {
             // v0.3.0
             'sync-state-changed', 'show-login-popup', 'login-page-cleared',
             'auth-custom-confirm', 'sync-resume-state',
+            // v0.3.2
+            'obs-command',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

@@ -1,7 +1,8 @@
-# DualView v0.3.1
+# DualView v0.3.2
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
-avec synchronisation en temps réel — optimisé pour la capture OBS.
+avec synchronisation en temps réel — optimisé pour la capture OBS,
+et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 ---
 
@@ -12,7 +13,7 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.3.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.3.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -44,6 +45,27 @@ avec synchronisation en temps réel — optimisé pour la capture OBS.
 | ✅ | Valider le redimensionnement Portrait |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Nouveautés v0.3.2
+
+### 🔄 Contrôle depuis OBS
+Pilotez DualView **sans quitter OBS**, de deux façons complémentaires :
+
+- **Panneau de dock OBS** — un panneau intégré à l'interface OBS pour contrôler
+  la synchronisation, l'URL et les onglets à la souris, avec affichage de l'état
+  en temps réel (sync, URL, onglet actif).
+- **Hotkeys OBS natives** — un script Lua ajoute de vrais raccourcis clavier OBS
+  pour pause/reprise/redémarrage sync, navigation, recharge, nouvel/fermer onglet.
+
+Le tout via un petit serveur local hébergé par DualView (sur `127.0.0.1`,
+protégé par token). Aucune configuration du WebSocket d'OBS n'est nécessaire.
+
+👉 Voir le guide détaillé : **`obs-integration/OBS_INTEGRATION.md`**
+
+Activation et réglages : **⚙️ → Paramètres → OBS** (activer/désactiver, port,
+URL du dock, token).
 
 ---
 
@@ -112,10 +134,17 @@ play/pause/seek détectés dans Paysage → appliqués à Portrait (±3s / ±5s)
 
 ## Configuration OBS
 
+### Capture des fenêtres
 1. Source **Capture de fenêtre** → `DualView - Paysage` ou `DualView - Portrait`
 2. Décochez "Capturer le curseur" si désiré
 
 Les titres sont stables entre les changements d'onglets.
+
+### Contrôle depuis OBS (dock + hotkeys)
+Voir le guide complet **`obs-integration/OBS_INTEGRATION.md`**.
+En bref : récupérez l'URL du dock et le token dans **⚙️ → Paramètres → OBS**,
+ajoutez un dock de navigateur personnalisé dans OBS, et chargez le script Lua
+`obs-integration/dualview-obs-hotkeys.lua` pour les raccourcis natifs.
 
 ---
 
@@ -146,7 +175,7 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.3.1.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.3.2.exe` (~150 Mo).
 
 ---
 
@@ -155,6 +184,7 @@ Produit `dist/DualView-Setup-0.3.1.exe` (~150 Mo).
 - **Electron 42** (Chromium 130+, Node.js 22)
 - **IPC sécurisé** : `contextIsolation` + preload scripts
 - **Anti-détection** : `preload-auth.js` (5 couches) + `AutomationControlled` flag
+- **Contrôle OBS** : serveur local HTTP+WebSocket (`obs-control.js`, 127.0.0.1 + token), dock `obs-dock.html`, script Lua hotkeys
 - **Cookies** : `persist:dualview` partagé entre webviews et fenêtres auth
 - **Persistance** : `fs` + JSON natif
 - **Installeur** : electron-builder NSIS
