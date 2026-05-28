@@ -1,4 +1,4 @@
-# DualView - Architecture v0.3.2
+# DualView - Architecture v0.3.3
 
 ## Vue d'ensemble
 
@@ -105,8 +105,8 @@ URLs bloquées vers portrait si isAuthUrl(url) :
 ```
 auth-window.js
   |
-  |-- KNOWN_SERVICES : 9 services (Google, Microsoft, Instagram, Facebook,
-  |                    Twitch, TikTok, X/Twitter, Discord, Steam)
+  |-- KNOWN_SERVICES : 11 services (Google, Microsoft, Instagram, Facebook,
+  |                    Twitch, TikTok, X/Twitter, Discord, Steam, GitHub, GitLab)
   |
   |-- checkKnownServiceCookies(serviceKey)
   |     → session.cookies.get({ domain })
@@ -524,3 +524,13 @@ obs-integration/
 Note : `obs-integration/` n'est PAS embarqué dans le binaire (fichiers destinés
 à OBS, pas à Electron). `package.json.files` couvre `src/**/*` → obs-control.js
 et obs-dock.html sont bien inclus dans l'installeur.
+
+### Modifications v0.3.3
+```
+auth-window.js   Ajout GitHub (🐙) et GitLab (🦊) dans KNOWN_SERVICES
+                 Ajout github / gitlab dans DISCONNECT_EXTRA_DOMAINS
+main.js          Ajout github.com et gitlab.com dans AUTH_DOMAINS
+                 Ajout des cas github / gitlab dans detectServiceKeyFromUrl()
+landscape.html   Mise à jour SERVICE_ICONS (nouvelles icônes + github/gitlab)
+                 Mise à jour SERVICE_LABELS (GitHub, GitLab)
+```

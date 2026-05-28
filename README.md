@@ -1,4 +1,4 @@
-# DualView v0.3.2
+# DualView v0.3.3
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.3.2.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.3.3.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -45,6 +45,18 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | ✅ | Valider le redimensionnement Portrait |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Nouveautés v0.3.3
+
+### 🐙🦊 GitHub et GitLab dans les services connectés
+Deux nouveaux services pré-configurés dans **Paramètres → Services connectés** :
+- **GitHub** 🐙 — connexion via github.com (cookies `user_session` / `logged_in`)
+- **GitLab** 🦊 — connexion via gitlab.com (cookie `_gitlab_session`)
+
+Les icônes de tous les services existants ont également été mises à jour pour
+mieux les identifier d'un coup d'œil.
 
 ---
 
@@ -175,7 +187,7 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.3.2.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.3.3.exe` (~150 Mo).
 
 ---
 
@@ -205,3 +217,5 @@ Produit `dist/DualView-Setup-0.3.2.exe` (~150 Mo).
 | 0.2.6 | Pool de webviews. Switch onglet sans rechargement. |
 | 0.3.0 | Sync différée. Bouton sync. Services connectés. Anti-détection Electron. Détection login. YouTube Shorts. |
 | 0.3.1 | Fix cookies portrait. Fix ERR_ABORTED. Fix sync vidéo YouTube. Fix pub 1re vidéo. Auth Microsoft robuste. Overlay paramètres portrait. Mode debug --dev. |
+| 0.3.2 | Contrôle depuis OBS : dock OBS + hotkeys Lua natives. Serveur HTTP/WS local sécurisé par token. |
+| 0.3.3 | Services connectés : ajout GitHub 🐙 et GitLab 🦊. Mise à jour icônes services. |

@@ -219,6 +219,8 @@ const AUTH_DOMAINS = [
     'discord.com',
     'store.steampowered.com', 'login.steampowered.com',
     'passport.twitch.tv',
+    'github.com',
+    'gitlab.com',
 ];
 
 /**
@@ -257,6 +259,8 @@ function detectServiceKeyFromUrl(url) {
         if (h.includes('twitter.com') || h.includes('x.com')) return 'twitter';
         if (h.includes('discord.com')) return 'discord';
         if (h.includes('steampowered.com')) return 'steam';
+        if (h.includes('github.com')) return 'github';
+        if (h.includes('gitlab.com')) return 'gitlab';
     } catch { }
     return null;
 }

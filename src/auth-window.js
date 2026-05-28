@@ -1,6 +1,6 @@
 /**
  * DualView - Auth Window
- * Version: 0.3.1
+ * Version: 0.3.3
  *
  * Gestion des fenêtres d'authentification pour les services connectés.
  * Chaque service ouvre une BrowserWindow modale indépendante avec la
@@ -110,6 +110,22 @@ const KNOWN_SERVICES = {
         cookieNames: ['steamLoginSecure', 'steamRememberLogin', 'sessionid'],
         cookieDomains: ['.steampowered.com'],
     },
+    github: {
+        label: 'GitHub',
+        url: 'https://github.com/login',
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        authDomains: ['github.com'],
+        cookieNames: ['user_session', '__Host-user_session_same_site', 'dotcom_user', 'logged_in'],
+        cookieDomains: ['.github.com'],
+    },
+    gitlab: {
+        label: 'GitLab',
+        url: 'https://gitlab.com/users/sign_in',
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        authDomains: ['gitlab.com'],
+        cookieNames: ['_gitlab_session', 'known_sign_in', 'event_filter'],
+        cookieDomains: ['.gitlab.com'],
+    },
 };
 
 // Marqueurs d'URL indiquant une page d'authentification
@@ -210,6 +226,12 @@ const DISCONNECT_EXTRA_DOMAINS = {
     google: [
         'accounts.google.com', 'google.com', 'youtube.com',
         'googleapis.com', 'gstatic.com',
+    ],
+    github: [
+        'github.com', 'api.github.com', 'avatars.githubusercontent.com',
+    ],
+    gitlab: [
+        'gitlab.com', 'auth.gitlab.com',
     ],
 };
 
