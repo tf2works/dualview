@@ -1,6 +1,12 @@
 /**
  * DualView - Main Process
- * Version: 0.3.2
+ * Version: 0.4.1
+ *
+ * Changements v0.4.1 :
+ * - Menu contextuel natif sur clic droit dans les webviews (paysage)
+ *   Actions selon le contexte : lien, image, texte sélectionné, page.
+ *   "Ouvrir dans une nouvelle fenêtre" retiré ; ouverture en onglet DualView.
+ * - Boutons souris 3/4 (Retour/Avance) capturés via before-input-event.
  *
  * Changements v0.3.2 :
  * - Intégration OBS (Méthode 1 + Méthode 3) :
@@ -19,11 +25,12 @@
  * - YouTube Shorts : désactivation du bloqueur pub sur les URLs /shorts/
  */
 
-const { app, BrowserWindow, ipcMain, nativeTheme, screen, session } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, screen, session, dialog, Menu, MenuItem, clipboard } = require('electron');
 const logger = require('./logger');
 const path = require('path');
 const fs = require('fs');
 const obsControl = require('./obs-control');
+const HistoryManager = require('./history-manager');
 const {
     KNOWN_SERVICES,
     authWindowEvents,
@@ -54,9 +61,24 @@ const SETTINGS_DEFAULTS = {
     // Intégration OBS (v0.3.2)
     obsEnabled: true,    // serveur de contrôle OBS actif au démarrage
     obsPort: 0,          // 0 = port libre choisi automatiquement
+    // Moteur de recherche (v0.4.0)
+    searchEngineId: 'duckduckgo',
+    searchEngineUrl: 'https://duckduckgo.com/?q=',
+    // Screenshot (v0.4.0)
+    screenshotDir: '',   // '' = dossier Images utilisateur par défaut
+    // Portrait preset (v0.4.0)
+    portraitPreset: 'iphone15', // id du preset sélectionné
 };
 
 const KNACK3_URL = 'https://marketplace.atlassian.com/vendors/920480808/';
+
+// ── Préréglages portrait (v0.4.0) ─────────────────────────────────────────────
+const PORTRAIT_PRESETS = [
+    { id: 'iphone15',  label: 'iPhone 15',  width: 390,  height: 844 },
+    { id: 'pixel8',    label: 'Pixel 8',    width: 412,  height: 915 },
+    { id: 'galaxys24', label: 'Galaxy S24', width: 360,  height: 780 },
+    { id: 'ipad',      label: 'iPad',       width: 768,  height: 1024 },
+];
 
 const DEFAULTS = {
     landscapeWindow: { width: 1280, height: 720, x: null, y: null },
@@ -90,6 +112,14 @@ function saveConfig(data) {
 }
 
 let config = loadConfig();
+
+// ── Historique de navigation (v0.4.0) ─────────────────────────────────────────
+// Instancié après loadConfig car on a besoin de app.getPath('userData').
+// app.getPath est disponible avant app.whenReady() sur Electron moderne.
+let history = null;
+app.whenReady().then(() => {}).catch(() => {});
+// Initialisation synchrone — HistoryManager gère lui-même l'absence de fichier.
+history = new HistoryManager(app.getPath('userData'));
 
 function configSet(keyPath, value) {
     const keys = keyPath.split('.');
@@ -219,8 +249,6 @@ const AUTH_DOMAINS = [
     'discord.com',
     'store.steampowered.com', 'login.steampowered.com',
     'passport.twitch.tv',
-    'github.com',
-    'gitlab.com',
 ];
 
 /**
@@ -259,8 +287,6 @@ function detectServiceKeyFromUrl(url) {
         if (h.includes('twitter.com') || h.includes('x.com')) return 'twitter';
         if (h.includes('discord.com')) return 'discord';
         if (h.includes('steampowered.com')) return 'steam';
-        if (h.includes('github.com')) return 'github';
-        if (h.includes('gitlab.com')) return 'gitlab';
     } catch { }
     return null;
 }
@@ -292,8 +318,16 @@ function setupSessionSecurity() {
     });
 
     ses.on('will-download', (event, item) => {
-        item.cancel();
         const filename = item.getFilename() || '';
+        // "Enregistrer l'image sous…" positionne _pendingImageSavePath avant
+        // d'appeler downloadURL(). Ce handler le détecte et laisse passer
+        // ce seul téléchargement. Tout le reste reste bloqué.
+        if (_pendingImageSavePath) {
+            item.setSavePath(_pendingImageSavePath);
+            _pendingImageSavePath = null;
+            return;
+        }
+        item.cancel();
         if (landscapeWin && !landscapeWin.isDestroyed()) {
             landscapeWin.webContents.send('download-blocked', filename);
         }
@@ -315,6 +349,9 @@ authWindowEvents.on('auth-success', ({ serviceKey, serviceLabel }) => {
 // ── État global ───────────────────────────────────────────────────────────────
 let tabUrls = new Map();
 let activeTabId = null;
+// Flag : chemin de sauvegarde positionné par "Enregistrer l'image sous…"
+// avant downloadURL() pour que will-download laisse passer ce seul téléchargement.
+let _pendingImageSavePath = null;
 
 // État synchronisation
 // 'active' | 'paused'
@@ -526,6 +563,51 @@ function createLandscapeWindow() {
     landscapeWin.on('moved', () => { const [x, y] = landscapeWin.getPosition(); configSet('landscapeWindow.x', x); configSet('landscapeWindow.y', y); });
     landscapeWin.on('resize', () => { const [w, h] = landscapeWin.getSize(); configSet('landscapeWindow.width', w); configSet('landscapeWindow.height', h); });
     landscapeWin.on('closed', () => app.quit());
+
+    // ── Boutons souris Retour/Avance (v0.4.1) ─────────────────────────────────
+    // before-input-event capture les boutons souris 3/4 même dans une webview.
+    landscapeWin.webContents.on('before-input-event', (event, input) => {
+        if (input.type !== 'mouseDown') return;
+        if (input.button === 'back') {
+            event.preventDefault();
+            landscapeWin.webContents.send('mouse-nav', 'back');
+        } else if (input.button === 'forward') {
+            event.preventDefault();
+            landscapeWin.webContents.send('mouse-nav', 'forward');
+        }
+    });
+
+    // ── Interception ouvertures de fenêtre (v0.4.1) ──────────────────────────
+    // did-attach-webview donne accès aux webContents de chaque <webview> créée
+    // dans le renderer. On y installe deux interceptions complémentaires :
+    //
+    // 1. setWindowOpenHandler — bloque window.open() et tout JS qui tente
+    //    d'ouvrir une nouvelle BrowserWindow. Retourner { action: 'deny' }
+    //    empêche Electron de créer la fenêtre ; on ouvre un onglet DualView
+    //    à la place via IPC → renderer → addTabWithUrl().
+    //    C'est le chemin principal depuis Electron 12+.
+    //
+    // 2. context-menu — menu natif clic droit avec les vrais params Electron
+    //    (seul endroit où linkURL, mediaType, selectionText sont disponibles).
+    landscapeWin.webContents.on('did-attach-webview', (_event, wvContents) => {
+
+        // Bloquer TOUTE ouverture de nouvelle fenêtre — ouvrir en onglet à la place
+        wvContents.setWindowOpenHandler(({ url }) => {
+            if (!url || url === 'about:blank') return { action: 'deny' };
+            try {
+                const parsed = new URL(url);
+                if (!['http:', 'https:'].includes(parsed.protocol)) return { action: 'deny' };
+            } catch { return { action: 'deny' }; }
+            // Envoyer l'URL au renderer pour ouvrir un onglet DualView
+            landscapeWin.webContents.send('context-menu-action', { action: 'open-link-new-tab', url });
+            return { action: 'deny' };
+        });
+
+        // Menu contextuel natif clic droit
+        wvContents.on('context-menu', (_e, params) => {
+            buildAndShowContextMenu(params, wvContents);
+        });
+    });
 }
 
 function createPortraitWindow() {
@@ -622,6 +704,37 @@ ipcMain.on('sync-navigate', (event, url) => {
     if (syncState === 'active' && !isAuthUrl(safe) && portraitWin && !portraitWin.isDestroyed())
         portraitWin.webContents.send('load-url', { tabId: activeTabId, url: safe });
     pushObsStatus();
+});
+
+// ── IPC : Historique (v0.4.0) ─────────────────────────────────────────────────
+// L'alimentation de l'historique se fait depuis le renderer via 'history-add'
+// car c'est lui qui connaît le titre de la page (tab.title mis à jour après did-navigate).
+ipcMain.on('history-add', (event, { url, title, tabId }) => {
+    if (history) history.add({ url, title, tabId });
+});
+
+ipcMain.handle('history-get-all', () => {
+    return history ? history.getAll() : [];
+});
+
+ipcMain.handle('history-get-by-tab', (event, { tabId, limit }) => {
+    return history ? history.getByTab(tabId, limit || 10) : [];
+});
+
+ipcMain.handle('history-search', (event, { query, limit }) => {
+    return history ? history.search(query, limit || 100) : [];
+});
+
+ipcMain.on('history-delete-url', (event, { url }) => {
+    if (history) history.deleteUrl(url);
+});
+
+ipcMain.on('history-clear-all', () => {
+    if (history) history.clearAll();
+});
+
+ipcMain.on('history-clear-tab', (event, { tabId }) => {
+    if (history) history.clearTab(tabId);
 });
 
 // ── IPC : Onglets ─────────────────────────────────────────────────────────────
@@ -818,6 +931,208 @@ ipcMain.handle('get-version', () => app.getVersion());
 ipcMain.handle('get-homepage-url', () => getHomepageUrl());
 ipcMain.handle('get-sync-state', () => syncState);
 
+// ── IPC : Redimensionnement Portrait v0.4.0 ───────────────────────────────────
+let resizeMode = false;
+
+ipcMain.handle('get-portrait-presets', () => PORTRAIT_PRESETS);
+
+ipcMain.on('start-portrait-resize', () => {
+    if (!portraitWin || portraitWin.isDestroyed()) return;
+    resizeMode = true;
+    portraitWin.setResizable(true);
+    portraitWin.webContents.send('resize-mode', true);
+    applySyncAction('pause');
+});
+
+ipcMain.on('apply-portrait-preset', (event, { presetId }) => {
+    if (!portraitWin || portraitWin.isDestroyed()) return;
+    const preset = PORTRAIT_PRESETS.find(p => p.id === presetId);
+    if (!preset) return;
+    configSet('settings.portraitPreset', presetId);
+    portraitWin.setResizable(true);
+    portraitWin.setSize(preset.width, preset.height);
+    configSet('portraitWindow.width', preset.width);
+    configSet('portraitWindow.height', preset.height);
+});
+
+ipcMain.on('finish-portrait-resize', () => {
+    if (!portraitWin || portraitWin.isDestroyed()) return;
+    resizeMode = false;
+    const [w, h] = portraitWin.getSize();
+    configSet('portraitWindow.width', w);
+    configSet('portraitWindow.height', h);
+    portraitWin.setResizable(false);
+    portraitWin.webContents.send('resize-mode', false);
+    applySyncAction('resume');
+});
+
+ipcMain.on('cancel-portrait-resize', () => {
+    if (!portraitWin || portraitWin.isDestroyed()) return;
+    resizeMode = false;
+    // Restaurer taille sauvegardée avant la session
+    const savedW = configGet('portraitWindow.width') || 390;
+    const savedH = configGet('portraitWindow.height') || 844;
+    portraitWin.setResizable(true);
+    portraitWin.setSize(savedW, savedH);
+    portraitWin.setResizable(false);
+    portraitWin.webContents.send('resize-mode', false);
+});
+
+// ── IPC : Screenshot v0.4.0 ───────────────────────────────────────────────────
+ipcMain.handle('take-screenshot', async () => {
+    try {
+        let dir = configGet('settings.screenshotDir') || '';
+        if (!dir) dir = path.join(app.getPath('pictures'), 'DualView');
+        fs.mkdirSync(dir, { recursive: true });
+        const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const results = [];
+        if (landscapeWin && !landscapeWin.isDestroyed()) {
+            const img = await landscapeWin.webContents.capturePage();
+            const filePath = path.join(dir, `dualview_${ts}_paysage.png`);
+            fs.writeFileSync(filePath, img.toPNG());
+            results.push(filePath);
+        }
+        if (portraitWin && !portraitWin.isDestroyed()) {
+            const img = await portraitWin.webContents.capturePage();
+            const filePath = path.join(dir, `dualview_${ts}_portrait.png`);
+            fs.writeFileSync(filePath, img.toPNG());
+            results.push(filePath);
+        }
+        return { success: true, dir, files: results };
+    } catch (e) {
+        console.warn('Screenshot error:', e.message);
+        return { success: false, error: e.message };
+    }
+});
+
+// ── IPC : Menu contextuel clic droit (v0.4.1) ────────────────────────────────
+// Le renderer envoie les paramètres de contexte (lien, image, sélection…)
+// et main construit le menu natif pour garantir l'intégration OS.
+// ── Menu contextuel natif (v0.4.1) ──────────────────────────────────────────
+// Construit et affiche le menu natif OS en fonction du contexte du clic droit.
+// Appelé directement depuis did-attach-webview → wvContents.on('context-menu').
+// Les params Electron sont complets ici (linkURL, mediaType, selectionText…)
+// contrairement à l'événement 'context-menu' d'une <webview> côté renderer.
+function buildAndShowContextMenu(params, wvContents) {
+    if (!landscapeWin || landscapeWin.isDestroyed()) return;
+    const menu = new Menu();
+    const lang = configGet('settings.language') || 'fr';
+    const isFr = lang === 'fr';
+
+    // ── Lien ──────────────────────────────────────────────────────────────────
+    if (params.linkURL && params.linkURL.startsWith('http')) {
+        menu.append(new MenuItem({
+            label: isFr ? 'Ouvrir dans un nouvel onglet' : 'Open in new tab',
+            click() {
+                landscapeWin.webContents.send('context-menu-action', { action: 'open-link-new-tab', url: params.linkURL });
+            }
+        }));
+        menu.append(new MenuItem({
+            label: isFr ? "Copier l'adresse du lien" : 'Copy link address',
+            click() { clipboard.writeText(params.linkURL); }
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // ── Image ─────────────────────────────────────────────────────────────────
+    if (params.mediaType === 'image' && params.srcURL) {
+        menu.append(new MenuItem({
+            label: isFr ? "Enregistrer l'image sous…" : 'Save image as…',
+            async click() {
+                let ext = 'png';
+                try { ext = params.srcURL.split('?')[0].split('.').pop().toLowerCase() || 'png'; } catch { }
+                if (!['png','jpg','jpeg','gif','webp','svg','avif','bmp','ico'].includes(ext)) ext = 'png';
+                const defaultName = params.srcURL.split('/').pop().split('?')[0] || ('image.' + ext);
+                const { canceled, filePath } = await dialog.showSaveDialog(landscapeWin, {
+                    title: isFr ? "Enregistrer l'image" : 'Save image',
+                    defaultPath: path.join(app.getPath('pictures'), defaultName),
+                    filters: [{ name: 'Images', extensions: [ext, 'png', 'jpg', 'webp'] }],
+                });
+                if (canceled || !filePath) return;
+                // Positionner le flag AVANT downloadURL : le handler will-download
+                // global lira _pendingImageSavePath et laissera passer ce téléchargement.
+                _pendingImageSavePath = filePath;
+                wvContents.downloadURL(params.srcURL);
+            }
+        }));
+        menu.append(new MenuItem({
+            label: isFr ? "Copier l'adresse de l'image" : 'Copy image address',
+            click() { clipboard.writeText(params.srcURL); }
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // ── Texte sélectionné ─────────────────────────────────────────────────────
+    if (params.selectionText && params.selectionText.trim()) {
+        const sel = params.selectionText.trim();
+        const displaySel = sel.length > 20 ? sel.slice(0, 20) + '…' : sel;
+        if (params.isEditable) {
+            menu.append(new MenuItem({
+                label: isFr ? 'Couper' : 'Cut',
+                click() { wvContents.cut(); }
+            }));
+        }
+        menu.append(new MenuItem({
+            label: isFr ? 'Copier' : 'Copy',
+            click() { wvContents.copy(); }
+        }));
+        if (params.isEditable) {
+            menu.append(new MenuItem({
+                label: isFr ? 'Coller' : 'Paste',
+                click() { wvContents.paste(); }
+            }));
+        }
+        menu.append(new MenuItem({
+            label: isFr ? `Rechercher "${displaySel}"` : `Search "${displaySel}"`,
+            click() {
+                landscapeWin.webContents.send('context-menu-action', { action: 'search-selection', text: sel });
+            }
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // ── Champ de saisie sans sélection ───────────────────────────────────────
+    if (params.isEditable && !(params.selectionText && params.selectionText.trim())) {
+        menu.append(new MenuItem({
+            label: isFr ? 'Coller' : 'Paste',
+            click() { wvContents.paste(); }
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // ── Page (toujours présent) ───────────────────────────────────────────────
+    menu.append(new MenuItem({
+        label: isFr ? 'Recharger' : 'Reload',
+        click() { landscapeWin.webContents.send('context-menu-action', { action: 'reload' }); }
+    }));
+    menu.append(new MenuItem({
+        label: isFr ? "Copier l'URL de la page" : 'Copy page URL',
+        click() { landscapeWin.webContents.send('context-menu-action', { action: 'copy-page-url' }); }
+    }));
+
+    // Mode dev uniquement : Inspecter l'élément
+    if (logger.IS_DEV) {
+        menu.append(new MenuItem({ type: 'separator' }));
+        menu.append(new MenuItem({
+            label: isFr ? 'Inspecter' : 'Inspect element',
+            click() { wvContents.inspectElement(params.x, params.y); }
+        }));
+    }
+
+    menu.popup({ window: landscapeWin });
+}
+
+ipcMain.handle('choose-screenshot-dir', async () => {
+    const result = await dialog.showOpenDialog(landscapeWin, {
+        title: 'Dossier de capture',
+        properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    const dir = result.filePaths[0];
+    configSet('settings.screenshotDir', dir);
+    return dir;
+});
+
 ipcMain.handle('get-store', () => ({
     tabs: configGet('tabs') || DEFAULTS.tabs,
     activeTabId: configGet('activeTabId') || DEFAULTS.activeTabId,
@@ -848,6 +1163,13 @@ ipcMain.on('save-settings', (event, settings) => {
         language: v => ['fr', 'en'].includes(v),
         obsEnabled: v => typeof v === 'boolean',
         obsPort: v => Number.isInteger(v) && v >= 0 && v <= 65535,
+        // v0.4.0
+        searchEngineId: v => typeof v === 'string' && v.length > 0,
+        searchEngineUrl: v => typeof v === 'string' && v.startsWith('http'),
+        searchEngineName: v => typeof v === 'string',
+        customSearchEngines: v => Array.isArray(v),
+        screenshotDir: v => typeof v === 'string',
+        portraitPreset: v => typeof v === 'string',
     };
     const current = configGet('settings') || Object.assign({}, SETTINGS_DEFAULTS);
     const prevObsEnabled = current.obsEnabled;
@@ -909,7 +1231,11 @@ app.whenReady().then(() => {
     }
 });
 
-app.on('window-all-closed', () => { obsControl.stop(); app.quit(); });
+app.on('window-all-closed', () => {
+    if (history) history.saveNow();
+    obsControl.stop();
+    app.quit();
+});
 app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createLandscapeWindow();

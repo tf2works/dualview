@@ -1,20 +1,23 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.3.2
+ * Version: 0.4.1
+ *
+ * Changements v0.4.1 :
+ * - Canaux entrants 'mouse-nav', 'context-menu-action'
+ *
+ * Changements v0.4.0 :
+ * - getPortraitPresets()            : liste des préréglages portrait
+ * - startPortraitResize()           : démarre le mode redimensionnement
+ * - applyPortraitPreset(presetId)   : applique un preset via IPC
+ * - finishPortraitResize()          : valide et verrouille la taille
+ * - cancelPortraitResize()          : annule sans modifier la taille
+ * - takeScreenshot()                : capture les deux vues en PNG
+ * - chooseScreenshotDir()           : sélectionne un dossier de capture
+ * - historyAdd/GetAll/GetByTab/Search/DeleteUrl/ClearAll/ClearTab
  *
  * Changements v0.3.2 :
  * - getObsInfo()                  : infos serveur de contrôle OBS
  * - Canal entrant 'obs-command'   : commandes provenant du dock/hotkeys OBS
- *
- * Changements v0.3.1 :
- * - syncControl(action)           : pause / resume / restart
- * - getSyncState()                : état courant de la sync
- * - getConnectedServicesStatus()  : statuts cookies services
- * - openAuthWindow(opts)          : ouvre fenêtre auth service
- * - disconnectService(opts)       : supprime cookies service
- * - deleteCustomService(opts)     : supprime service perso
- * - Canaux entrants : sync-state-changed, show-login-popup,
- *                     auth-custom-confirm, sync-resume-state
  */
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -55,7 +58,6 @@ contextBridge.exposeInMainWorld('dualview', {
     openAuthWindow: (opts) => ipcRenderer.invoke('open-auth-window', opts),
     disconnectService: (opts) => ipcRenderer.invoke('disconnect-service', opts),
     deleteCustomService: (opts) => ipcRenderer.invoke('delete-custom-service', opts),
-    // Confirmation auth personnalisée
     confirmCustomAuth: (confirmed) => ipcRenderer.send('auth-custom-confirmed', confirmed),
     cancelCustomAuth: () => ipcRenderer.send('auth-custom-cancelled'),
 
@@ -71,6 +73,26 @@ contextBridge.exposeInMainWorld('dualview', {
     // ── Intégration OBS (v0.3.2) ───────────────────────────────
     getObsInfo: () => ipcRenderer.invoke('get-obs-info'),
 
+    // ── Portrait resize (v0.4.0) ───────────────────────────────
+    getPortraitPresets: () => ipcRenderer.invoke('get-portrait-presets'),
+    startPortraitResize: () => ipcRenderer.send('start-portrait-resize'),
+    applyPortraitPreset: (presetId) => ipcRenderer.send('apply-portrait-preset', { presetId }),
+    finishPortraitResize: () => ipcRenderer.send('finish-portrait-resize'),
+    cancelPortraitResize: () => ipcRenderer.send('cancel-portrait-resize'),
+
+    // ── Screenshot (v0.4.0) ────────────────────────────────────
+    takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
+    chooseScreenshotDir: () => ipcRenderer.invoke('choose-screenshot-dir'),
+
+    // ── Historique (v0.4.0) ────────────────────────────────────
+    historyAdd: (url, title, tabId) => ipcRenderer.send('history-add', { url, title, tabId }),
+    historyGetAll: () => ipcRenderer.invoke('history-get-all'),
+    historyGetByTab: (tabId, limit) => ipcRenderer.invoke('history-get-by-tab', { tabId, limit }),
+    historySearch: (query, limit) => ipcRenderer.invoke('history-search', { query, limit }),
+    historyDeleteUrl: (url) => ipcRenderer.send('history-delete-url', { url }),
+    historyClearAll: () => ipcRenderer.send('history-clear-all'),
+    historyClearTab: (tabId) => ipcRenderer.send('history-clear-tab', { tabId }),
+
     // ── Listeners ──────────────────────────────────────────────
     on: (channel, callback) => {
         const valid = [
@@ -82,6 +104,8 @@ contextBridge.exposeInMainWorld('dualview', {
             'auth-custom-confirm', 'sync-resume-state',
             // v0.3.2
             'obs-command',
+            // v0.4.1
+            'mouse-nav', 'context-menu-action',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

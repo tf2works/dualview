@@ -1,4 +1,4 @@
-# DualView - Architecture v0.3.3
+# DualView - Architecture v0.4.1
 
 ## Vue d'ensemble
 
@@ -17,6 +17,8 @@ main.js
   |                                -> BYPASS si YouTube Shorts (/shorts/)
   |     setPermissionRequestHandler -> bloque toutes les permissions
   |     will-download -> bloque les téléchargements (toast dans landscapeWin)
+|                      EXCEPTION : images enregistrées via clic droit
+|                      → flag _pendingImageSavePath + downloadURL()
   |     NOTE : un seul handler onBeforeSendHeaders autorisé par session
   |            → toute correction sec-ch-ua doit être faite ici uniquement
   |
@@ -105,8 +107,8 @@ URLs bloquées vers portrait si isAuthUrl(url) :
 ```
 auth-window.js
   |
-  |-- KNOWN_SERVICES : 11 services (Google, Microsoft, Instagram, Facebook,
-  |                    Twitch, TikTok, X/Twitter, Discord, Steam, GitHub, GitLab)
+  |-- KNOWN_SERVICES : 9 services (Google, Microsoft, Instagram, Facebook,
+  |                    Twitch, TikTok, X/Twitter, Discord, Steam)
   |
   |-- checkKnownServiceCookies(serviceKey)
   |     → session.cookies.get({ domain })
@@ -309,18 +311,18 @@ main → landscapeWin :
 
 ---
 
-## Structure des fichiers v0.3.2
+## Structure des fichiers v0.4.0
 
 ```
 dualview/
 |
-|-- package.json              Version 0.3.2
+|-- package.json              Version 0.4.0
 |-- HOW_TO_INSTALL.md         Procédure d'installation + config OBS
 |-- ARCHITECTURE.md           Ce fichier
 |-- README.md
 |
 |-- src/
-|   |-- main.js               Processus principal v0.3.2
+|   |-- main.js               Processus principal v0.4.0
 |   |                         + syncState, scheduleSyncStart
 |   |                         + IPC sync-control, login-page-detected/left
 |   |                         + IPC services connectés
@@ -330,6 +332,26 @@ dualview/
 |   |                         + app.commandLine AutomationControlled
 |   |                         + OBS : require obs-control, applySyncAction,
 |   |                           handleObsCommand, pushObsStatus, get-obs-info
+|   |                         + v0.4.0 : PORTRAIT_PRESETS, IPC resize portrait
+|   |                           (start/apply/finish/cancel-portrait-resize)
+|   |                         + v0.4.0 : IPC screenshot (take-screenshot,
+|   |                           choose-screenshot-dir) via dialog natif
+|   |                         + v0.4.0 : IPC historique (history-add,
+|   |                           history-get-all, history-get-by-tab,
+|   |                           history-search, history-delete-url,
+|   |                           history-clear-all, history-clear-tab)
+|   |                         + v0.4.0 : require history-manager,
+|   |                           history.saveNow() à la fermeture
+|   |
+|   |-- history-manager.js    NOUVEAU v0.4.0 — Historique de navigation
+|   |                         Fichier : %AppData%/DualView/history.json
+|   |                         Entrée : { url, title, visitedAt, tabId }
+|   |                         Max 5000 entrées (FIFO), déduplication
+|   |                         URL+tabId par heure, sauvegarde différée 2 s
+|   |                         Méthodes : add, getAll, getByTab, search,
+|   |                           deleteUrl, deleteByIndex, clearAll, clearTab,
+|   |                           saveNow
+|   |                         Filtre : URLs d'auth jamais enregistrées
 |   |
 |   |-- obs-control.js        NOUVEAU v0.3.2 — Serveur de contrôle OBS
 |   |                         HTTP + WebSocket sur 127.0.0.1, token
@@ -359,27 +381,47 @@ dualview/
 |   |-- preload-dev.js        Bridge mode debug (--dev)
 |   |                         Raccourcis F12 / Ctrl+F12 (DevTools)
 |   |
-|   |-- preload-landscape.js  Bridge sécurisé v0.3.2
+|   |-- preload-landscape.js  Bridge sécurisé v0.4.0
 |   |                         + syncControl, getSyncState
 |   |                         + notifyLoginPage, notifyLoginPageLeft
 |   |                         + getConnectedServicesStatus, openAuthWindow
 |   |                         + disconnectService, deleteCustomService
 |   |                         + confirmCustomAuth, cancelCustomAuth
 |   |                         + getObsInfo, canal entrant obs-command
+|   |                         + v0.4.0 : getPortraitPresets,
+|   |                           startPortraitResize, applyPortraitPreset,
+|   |                           finishPortraitResize, cancelPortraitResize
+|   |                         + v0.4.0 : takeScreenshot, chooseScreenshotDir
+|   |                         + v0.4.0 : historyAdd, historyGetAll,
+|   |                           historyGetByTab, historySearch,
+|   |                           historyDeleteUrl, historyClearAll,
+|   |                           historyClearTab
 |   |
 |   |-- preload-view.js       Bridge sécurisé (webviews)
 |   |                         + sync-state-changed, show-login-popup
 |   |                         + login-page-cleared, sync-resume-state
 |   |
-|   |-- landscape.html        Fenêtre paysage v0.3.2
+|   |-- landscape.html        Fenêtre paysage v0.4.0
 |   |                         + Bouton sync (toolbar) + menu dropdown
 |   |                         + Section "Services connectés" dans Paramètres
-|   |                         + Section "OBS" dans Paramètres (port, token,
-|   |                           URL dock, activation)
-|   |                         + Listener obs-command (réutilise addTab/
-|   |                           closeTab/switchTab/navigate)
+|   |                         + Section "OBS" dans Paramètres
+|   |                         + Listener obs-command
 |   |                         + Popup page de connexion + bouton Se connecter
-|   |                         + Pollers guards (syncState !== 'active')
+|   |                         + v0.4.0 : Modale redimensionnement Portrait
+|   |                           (préréglages + taille libre, Valider/Annuler)
+|   |                         + v0.4.0 : Bouton 📷 capture instantanée PNG
+|   |                         + v0.4.0 : Omnibar (sélection auto au focus,
+|   |                           Échap, suggestions historique+domaine+recherche,
+|   |                           navigation clavier ↑↓)
+|   |                         + v0.4.0 : resolveInput() — détection URL/recherche
+|   |                         + v0.4.0 : Panneau latéral Historique (⚙️ →
+|   |                           Historique), groupé par date, recherche,
+|   |                           suppression unitaire et globale
+|   |                         + v0.4.0 : Dropdown historique sur ← →
+|   |                           (survol 500 ms ou clic maintenu 400 ms)
+|   |                         + v0.4.0 : Section moteur de recherche dans
+|   |                           Paramètres → Général (DuckDuckGo par défaut)
+|   |                         + v0.4.0 : Section captures dans Paramètres
 |   |
 |   |-- portrait.html         Fenêtre portrait v0.3.2
 |   |                         + Indicateur sync (badge discret)
@@ -399,6 +441,18 @@ dualview/
 |-- installer/
     |-- build-installer.bat
     |-- build-installer.ps1
+```
+
+### Fichiers de données utilisateur (runtime, non versionnés)
+
+```
+%AppData%/DualView/
+|-- dualview-config.json      Configuration (fenêtres, onglets, paramètres)
+|-- history.json              NOUVEAU v0.4.0 — Historique de navigation
+|                             [{url, title, visitedAt, tabId}, ...]
+|                             Max 5000 entrées, géré par history-manager.js
+|-- Partitions/
+    |-- persist_dualview/     Cookies et sessions (partition Electron)
 ```
 
 ---
@@ -450,6 +504,8 @@ customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 | 0.3.0 | Démarrage sync différé 3 s. Bouton sync. Services connectés (9 + URL perso). Détection pages login + popup/overlay. Bouton "Se connecter" direct. YouTube Shorts bypass. Anti-détection Electron (preload-auth.js, 4 couches). |
 | 0.3.1 | Fix portrait partition persist:dualview (connexion cookies). Fix ERR_ABORTED (isAuthUrl hostname-only, AUTH_DOMAINS login-only). Fix sync vidéo (seek préserve état pause, executor réaligné). Fix injection scripts SPA (did-navigate-in-page). Fix session pre-init (pub 1re vidéo YouTube). Fix ordre fenêtres (portrait attend landscape). Fix déconnexion Microsoft (flush complet cookies). Auth Microsoft : confirmation obligatoire + bouton fallback (plus de fermeture automatique). LOGIN_FORCED_DOMAINS (login.microsoftonline.com toujours détecté). Portrait : overlay "Personnalisation en cours" sur onglet paramètres. Système de debug --dev (logger.js, preload-dev.js, F12, Ctrl+F12). |
 | 0.3.2 | Intégration OBS (Méthode 1 + 3). Serveur de contrôle local (obs-control.js) : HTTP + WebSocket sur 127.0.0.1, token d'authentification. Dock OBS (obs-dock.html) : sync, navigation, URL, onglets pilotables depuis l'interface OBS. Script Lua de hotkeys natives (obs-integration/dualview-obs-hotkeys.lua → /command). Paramètres → OBS (activation, port, dock URL, token). Refactor applySyncAction (partagé UI native / OBS). Canal IPC obs-command (renderer landscape réutilise addTab/closeTab/switchTab/navigate). Zéro régression. |
+| 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris retour/avance (boutons 3 et 4, via before-input-event). Toute ouverture de nouvelle fenêtre redirigée en onglet DualView (new-window + setWindowOpenHandler). Menu contextuel natif clic droit (did-attach-webview → wvContents.on context-menu → buildAndShowContextMenu) : lien, image, texte sélectionné, page — sans "Ouvrir dans une nouvelle fenêtre". Enregistrement d'image (clic droit → "Enregistrer l'image sous…") : dialogue natif + downloadURL via flag _pendingImageSavePath — seule exception au blocage des téléchargements. |
+| 0.4.0 | Expérience utilisateur : Redimensionnement Portrait via modale (⚙️ → Redimensionner) avec préréglages iPhone 15/Pixel 8/Galaxy S24/iPad + taille libre — suppression du bouton ✅ de la toolbar. Capture instantanée (bouton 📷 toolbar) : PNG horodatés des deux vues via capturePage(), dossier configurable (Paramètres → Général). Omnibar : sélection automatique de l'URL au focus, Échap annule, suggestions locales (historique + domaine) + recherche, navigation clavier ↑↓. Détection URL vs recherche (resolveInput) : TLDs reconnus = URL directe, tout le reste = moteur de recherche. Moteur de recherche dans Paramètres → Général : DuckDuckGo par défaut, Google/Bing/Brave/Qwant prédéfinis, ajout de moteurs personnalisés. Historique de navigation persistant (history-manager.js → history.json, max 5000 entrées, déduplication, filtre auth) : panneau latéral groupé par date (⚙️ → Historique), recherche fulltext, suppression unitaire et globale ; dropdown sur ← → (survol 500 ms / clic maintenu 400 ms) affichant les 10 dernières URLs de l'onglet actif. |
 
 ---
 
@@ -524,13 +580,3 @@ obs-integration/
 Note : `obs-integration/` n'est PAS embarqué dans le binaire (fichiers destinés
 à OBS, pas à Electron). `package.json.files` couvre `src/**/*` → obs-control.js
 et obs-dock.html sont bien inclus dans l'installeur.
-
-### Modifications v0.3.3
-```
-auth-window.js   Ajout GitHub (🐙) et GitLab (🦊) dans KNOWN_SERVICES
-                 Ajout github / gitlab dans DISCONNECT_EXTRA_DOMAINS
-main.js          Ajout github.com et gitlab.com dans AUTH_DOMAINS
-                 Ajout des cas github / gitlab dans detectServiceKeyFromUrl()
-landscape.html   Mise à jour SERVICE_ICONS (nouvelles icônes + github/gitlab)
-                 Mise à jour SERVICE_LABELS (GitHub, GitLab)
-```

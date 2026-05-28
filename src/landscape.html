@@ -203,7 +203,7 @@
             }
 
         #url-input {
-            flex: 1;
+            width: 100%;
             padding: 5px 12px;
             border: 1px solid var(--border);
             border-radius: 18px;
@@ -212,7 +212,8 @@
             font-size: 13px;
             outline: none;
             transition: border-color 0.15s,box-shadow 0.15s;
-            min-width: 0
+            min-width: 0;
+            box-sizing: border-box
         }
 
             #url-input:focus {
@@ -1147,7 +1148,562 @@
             animation: spin 0.7s linear infinite
         }
 
-        /* ── Dialog redémarrage ── */
+        /* ── Panneau Historique (v0.4.0) ── */
+        #history-panel {
+            position: fixed;
+            top: 0; right: 0; bottom: 0;
+            width: 360px;
+            background: var(--bg);
+            border-left: 1px solid var(--border);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.12);
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.22s ease
+        }
+
+            #history-panel.open {
+                transform: translateX(0)
+            }
+
+        #history-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0
+        }
+
+        #history-panel-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--fg)
+        }
+
+        #history-panel-close {
+            width: 26px; height: 26px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--fg-muted);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.1s, color 0.1s
+        }
+            #history-panel-close:hover { background: var(--bg-alt); color: var(--danger) }
+
+        #history-search-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0
+        }
+
+        #history-search-input {
+            flex: 1;
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--fg);
+            font-size: 12px;
+            outline: none
+        }
+            #history-search-input:focus { border-color: var(--accent) }
+
+        #history-clear-all-btn {
+            padding: 5px 10px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--danger);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.1s
+        }
+            #history-clear-all-btn:hover { background: rgba(220,53,69,0.08) }
+
+        #history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+            scrollbar-width: thin
+        }
+
+        .hist-group-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 10px 14px 4px;
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .hist-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px 6px 14px;
+            cursor: pointer;
+            transition: background 0.1s
+        }
+            .hist-item:hover { background: var(--bg-alt) }
+
+        .hist-favicon {
+            font-size: 13px;
+            flex-shrink: 0;
+            width: 16px;
+            text-align: center;
+            color: var(--fg-muted)
+        }
+
+        .hist-text {
+            flex: 1;
+            min-width: 0
+        }
+
+        .hist-title {
+            font-size: 12px;
+            color: var(--fg);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .hist-url {
+            font-size: 10px;
+            color: var(--fg-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .hist-time {
+            font-size: 10px;
+            color: var(--fg-muted);
+            flex-shrink: 0;
+            white-space: nowrap
+        }
+
+        .hist-delete-btn {
+            width: 20px; height: 20px;
+            background: none;
+            border: none;
+            color: var(--fg-muted);
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: color 0.1s, background 0.1s
+        }
+            .hist-item:hover .hist-delete-btn { display: flex }
+            .hist-delete-btn:hover { color: var(--danger); background: rgba(220,53,69,0.1) }
+
+        #history-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 40px 20px;
+            color: var(--fg-muted);
+            font-size: 13px;
+            text-align: center
+        }
+
+        /* ── Dropdown historique sur ← → (v0.4.0) ── */
+        #nav-history-dropdown {
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 0;
+            min-width: 280px;
+            max-width: 380px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+            z-index: 2500;
+            display: none;
+            overflow: hidden;
+            padding: 4px 0
+        }
+            #nav-history-dropdown.open { display: block }
+
+        .nav-hist-section {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 6px 12px 3px
+        }
+
+        .nav-hist-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--fg);
+            cursor: pointer;
+            transition: background 0.1s
+        }
+            .nav-hist-item:hover { background: var(--bg-alt) }
+            .nav-hist-item.current { background: rgba(0,102,204,0.07); font-weight: 500 }
+
+        .nav-hist-icon { font-size: 11px; color: var(--fg-muted); flex-shrink: 0 }
+
+        .nav-hist-url {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        .nav-hist-footer {
+            border-top: 1px solid var(--border);
+            padding: 5px 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px
+        }
+
+        .nav-hist-footer-btn {
+            flex: 1;
+            padding: 5px 8px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 11px;
+            color: var(--fg-muted);
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.1s, color 0.1s, border-color 0.1s
+        }
+            .nav-hist-footer-btn:hover {
+                background: var(--bg-alt);
+                color: var(--accent);
+                border-color: var(--accent)
+            }
+            .nav-hist-footer-btn.hide-btn:hover {
+                color: var(--fg);
+                border-color: var(--border)
+            }
+
+
+        #screenshot-btn {
+            width: 28px;
+            height: 28px;
+            background: rgba(40,167,69,0.12);
+            border: 1px solid #28a745;
+            border-radius: 6px;
+            color: #28a745;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s
+        }
+
+            #screenshot-btn:hover {
+                background: rgba(40,167,69,0.25)
+            }
+
+        /* ── Omnibar dropdown (v0.4.0) ── */
+        #omnibar-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 2px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+            z-index: 2000;
+            display: none;
+            overflow: hidden
+        }
+
+            #omnibar-dropdown.open {
+                display: block
+            }
+
+        .omni-section-lbl {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 6px 12px 3px
+        }
+
+        .omni-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--fg);
+            cursor: pointer;
+            transition: background 0.1s
+        }
+
+            .omni-item:hover, .omni-item.selected {
+                background: var(--bg-alt)
+            }
+
+            .omni-item.selected {
+                border-left: 2px solid var(--accent)
+            }
+
+        .omni-icon {
+            font-size: 12px;
+            width: 16px;
+            text-align: center;
+            flex-shrink: 0
+        }
+
+        .omni-url {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        .omni-sub {
+            font-size: 10px;
+            color: var(--fg-muted);
+            flex-shrink: 0
+        }
+
+        .omni-search-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            font-size: 12px;
+            color: var(--fg);
+            cursor: pointer;
+            border-top: 1px solid var(--border);
+            transition: background 0.1s
+        }
+
+            .omni-search-row:hover, .omni-search-row.selected {
+                background: var(--bg-alt)
+            }
+
+        .omni-engine-pill {
+            background: rgba(230,126,0,0.15);
+            color: var(--orange);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 10px;
+            font-weight: 600
+        }
+
+        .omni-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 2px 0
+        }
+
+        /* ── Modale redimensionnement Portrait (v0.4.0) ── */
+        #resize-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 8500;
+            background: rgba(0,0,0,0.4);
+            align-items: center;
+            justify-content: center
+        }
+
+            #resize-modal-overlay.show {
+                display: flex
+            }
+
+        #resize-modal-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            width: 320px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.22)
+        }
+
+        #resize-modal-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--fg);
+            margin-bottom: 4px
+        }
+
+        #resize-modal-sub {
+            font-size: 11px;
+            color: var(--fg-muted);
+            margin-bottom: 14px;
+            line-height: 1.5
+        }
+
+        .resize-preset-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 10px
+        }
+
+        .resize-preset-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--fg);
+            background: var(--bg);
+            transition: border-color 0.15s, background 0.15s
+        }
+
+            .resize-preset-item:hover {
+                background: var(--bg-alt)
+            }
+
+            .resize-preset-item.active {
+                border-color: var(--accent);
+                background: rgba(0,102,204,0.07)
+            }
+
+        [data-theme="dark"] .resize-preset-item.active {
+            background: rgba(77,166,255,0.1)
+        }
+
+        .resize-preset-dim {
+            font-size: 11px;
+            color: var(--fg-muted)
+        }
+
+        .resize-preset-item.free-size {
+            border-style: dashed;
+            color: var(--fg-muted)
+        }
+
+        .resize-modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 12px
+        }
+
+        /* ── Moteur de recherche (settings, v0.4.0) ── */
+        .search-engine-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 8px
+        }
+
+        .search-engine-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--fg);
+            background: var(--bg);
+            transition: border-color 0.15s, background 0.15s
+        }
+
+            .search-engine-item:hover {
+                background: var(--bg-alt)
+            }
+
+            .search-engine-item.active {
+                border-color: var(--accent);
+                background: rgba(0,102,204,0.07)
+            }
+
+        [data-theme="dark"] .search-engine-item.active {
+            background: rgba(77,166,255,0.1)
+        }
+
+        .search-engine-radio {
+            width: 14px;
+            height: 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center
+        }
+
+            .search-engine-radio.checked {
+                border-color: var(--accent)
+            }
+
+            .search-engine-radio.checked::after {
+                content: '';
+                width: 6px;
+                height: 6px;
+                background: var(--accent);
+                border-radius: 50%
+            }
+
+        .search-engine-url {
+            font-size: 10px;
+            color: var(--fg-muted);
+            margin-left: auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 160px
+        }
+
+        .search-engine-add-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px
+        }
+
+        /* ── Screenshot settings (v0.4.0) ── */
+        .screenshot-dir-row {
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .screenshot-dir-path {
+            flex: 1;
+            font-size: 11px;
+            color: var(--fg-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+
         #restart-dialog {
             display: none;
             position: absolute;
@@ -1233,9 +1789,13 @@
         <button id="forward-btn" class="nav-btn" title="→" disabled>&#8594;</button>
         <button id="reload-btn" class="nav-btn" title="⟳">&#8635;</button>
         <button id="home-btn" class="nav-btn" title="🏠">&#8962;</button>
-        <input type="text" id="url-input" autocomplete="off" spellcheck="false" />
+        <div id="omnibar-wrapper" style="flex:1;position:relative;min-width:0">
+            <input type="text" id="url-input" autocomplete="off" spellcheck="false" />
+            <div id="omnibar-dropdown"></div>
+        </div>
         <button id="go-btn" title="▶">&#9654;</button>
-        <button id="resume-btn" title="✅">&#9989;</button>
+        <button id="resume-btn" title="✅" style="display:none">&#9989;</button>
+        <button id="screenshot-btn" title="📷 Capturer les deux vues">&#128247;</button>
 
         <!-- Bouton sync -->
         <button id="sync-btn" class="paused" title="Synchronisation">
@@ -1244,6 +1804,9 @@
         </button>
 
         <button id="gear-btn" title="⚙️">&#9881;&#65039;</button>
+
+        <!-- Dropdown nav-history (v0.4.0) — dans toolbar pour position:absolute -->
+        <div id="nav-history-dropdown"></div>
 
         <!-- Menu sync -->
         <div id="sync-menu">
@@ -1269,6 +1832,11 @@
                 <span data-i18n="resize">Redimensionner</span>
             </div>
             <div class="gear-separator"></div>
+            <div class="gear-item" id="menu-history">
+                <span>&#128336;</span>
+                <span data-i18n="history">Historique</span>
+            </div>
+            <div class="gear-separator"></div>
             <div class="gear-item" id="menu-settings">
                 <span>&#9881;</span>
                 <span data-i18n="settings">Paramètres</span>
@@ -1278,7 +1846,7 @@
 
     <div id="status-bar">
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
-        <span id="version-label">v0.3.1</span>
+        <span id="version-label">v0.4.0</span>
         <button id="dev-btn" title="Inspecter webview active (Ctrl+F12)">🔧 DEV</button>
     </div>
 
@@ -1321,6 +1889,21 @@
             <div class="auth-confirm-actions">
                 <button class="restart-cancel" id="auth-confirm-cancel" data-i18n="authConfirmCancel">Pas encore</button>
                 <button class="restart-confirm" id="auth-confirm-ok" data-i18n="authConfirmOk">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale redimensionnement Portrait (v0.4.0) -->
+    <div id="resize-modal-overlay">
+        <div id="resize-modal-box">
+            <div id="resize-modal-title">Redimensionner la fenêtre Portrait</div>
+            <div id="resize-modal-sub">Choisissez un préréglage ou redimensionnez manuellement la fenêtre Portrait (contour orange).</div>
+            <div class="resize-preset-list" id="resize-preset-list">
+                <!-- généré par JS -->
+            </div>
+            <div class="resize-modal-actions">
+                <button class="restart-cancel" id="resize-modal-cancel">Annuler</button>
+                <button class="restart-confirm" id="resize-modal-validate">✓ Valider</button>
             </div>
         </div>
     </div>
@@ -1396,6 +1979,31 @@
                         <option value="empty" data-i18n="newTabEmpty">Page vide</option>
                     </select>
                 </div>
+                <div class="s-divider"></div>
+                <!-- Moteur de recherche (v0.4.0) -->
+                <div class="s-row">
+                    <label class="s-label" data-i18n="searchEngineLabel">Moteur de recherche</label>
+                    <div class="s-desc" data-i18n="searchEngineDesc">Utilisé quand le texte saisi n'est pas une adresse web.</div>
+                    <div class="search-engine-list" id="s-engine-list">
+                        <!-- généré par JS -->
+                    </div>
+                    <div class="search-engine-add-row">
+                        <input type="text" id="s-engine-name" class="s-url-input" style="max-width:110px" data-i18n-placeholder="searchEngineNamePlaceholder" placeholder="Nom" />
+                        <input type="text" id="s-engine-url" class="s-url-input" data-i18n-placeholder="searchEngineUrlPlaceholder" placeholder="https://moteur.com/search?q=" />
+                        <button id="s-engine-add-btn" class="s-validate-btn" data-i18n="searchEngineAdd">+ Ajouter</button>
+                    </div>
+                    <div id="s-engine-msg" class="s-msg"></div>
+                </div>
+                <div class="s-divider"></div>
+                <!-- Captures d'écran (v0.4.0) -->
+                <div class="s-row">
+                    <label class="s-label" data-i18n="screenshotLabel">Captures d'écran</label>
+                    <div class="s-desc" data-i18n="screenshotDesc">Dossier de sauvegarde des captures.</div>
+                    <div class="screenshot-dir-row">
+                        <span class="screenshot-dir-path" id="s-screenshot-dir">—</span>
+                        <button id="s-screenshot-browse" class="s-validate-btn" data-i18n="screenshotBrowse">Parcourir…</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Apparence -->
@@ -1457,7 +2065,7 @@
                 <div class="s-heading" data-i18n="settingsPrivacy">Confidentialité</div>
                 <div class="s-info-block">
                     <div class="s-info-title" data-i18n="privacyDownloads">Téléchargements</div>
-                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. DualView est un outil de streaming.</div>
+                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. Exception : enregistrement d'image via clic droit.</div>
                     <div class="s-badge">&#10003; Bloqué</div>
                 </div>
                 <div class="s-info-block">
@@ -1535,6 +2143,25 @@
         </div>
     </div>
 
+    <!-- Panneau Historique (v0.4.0) -->
+    <div id="history-panel">
+        <div id="history-panel-header">
+            <span id="history-panel-title">🕐 Historique</span>
+            <button id="history-panel-close" title="Fermer">✕</button>
+        </div>
+        <div id="history-search-row">
+            <input type="text" id="history-search-input" placeholder="Rechercher dans l'historique…" autocomplete="off" spellcheck="false" />
+            <button id="history-clear-all-btn">Tout effacer</button>
+        </div>
+        <div id="history-list">
+            <div id="history-empty" style="display:none">
+                <span style="font-size:32px">🕐</span>
+                <span>Aucun historique</span>
+                <span style="font-size:11px;color:var(--fg-muted)">Les pages que vous visitez apparaîtront ici.</span>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ── Traductions ────────────────────────────────────────────────────────────────
         const I18N = {
@@ -1545,6 +2172,7 @@
                 landscapeView: 'Vue Paysage (Desktop)', enterUrl: "Entrez une URL dans la barre d'adresse",
                 downloadBlocked: 'Téléchargement non autorisé', addressPlaceholder: 'https://exemple.com',
                 resize: 'Redimensionner', settings: 'Paramètres',
+                history: 'Historique',
                 settingsGeneral: 'Général', settingsAppearance: 'Apparence', settingsLanguage: 'Langue',
                 settingsServices: 'Services connectés', settingsPrivacy: 'Confidentialité',
                 restoreTabs: 'Ouvrir les fenêtres et onglets précédents',
@@ -1565,7 +2193,7 @@
                 servicesReconnect: 'Se reconnecter', servicesDisconnect: 'Déconnecter',
                 servicesConnecting: 'Connexion en cours…', servicesSuccess: 'Connecté avec succès.',
                 servicesFailed: 'Connexion non confirmée.', servicesDeleted: 'Service supprimé.',
-                privacyDownloads: 'Téléchargements', privacyDownloadsDesc: "Les téléchargements sont désactivés. DualView est un outil de streaming.",
+                privacyDownloads: 'Téléchargements', privacyDownloadsDesc: "Les téléchargements sont désactivés. Exception : enregistrement d'image via clic droit (→ Enregistrer l'image sous…).",
                 privacyPermissions: 'Permissions', privacyPermissionsDesc: 'Caméra, microphone, géolocalisation et notifications sont bloqués.',
                 privacySchemes: 'Navigation sécurisée', privacySchemesDesc: 'Seuls les protocoles http://, https:// et file:// sont autorisés.',
                 privacyShorts: 'YouTube Shorts', privacyShortsDesc: 'Le bloqueur de publicités est désactivé sur YouTube Shorts (pas de pré-roll).',
@@ -1593,6 +2221,19 @@
                 obsTokenLabel: 'Token (pour le script de hotkeys)', obsTokenDesc: 'Sécurise les commandes OBS. Ne le partagez pas.',
                 obsGuideTitle: 'Guide complet', obsGuideDesc: 'Voir obs-integration/OBS_INTEGRATION.md pour la mise en place du dock et des raccourcis clavier.',
                 copyBtn: 'Copier', copiedBtn: 'Copié !',
+                // v0.4.0
+                searchEngineLabel: 'Moteur de recherche',
+                searchEngineDesc: "Utilisé quand le texte saisi n'est pas une adresse web.",
+                searchEngineAdd: '+ Ajouter',
+                searchEngineNamePlaceholder: 'Nom',
+                searchEngineUrlPlaceholder: 'https://moteur.com/search?q=',
+                searchEngineExists: 'Ce moteur existe déjà.',
+                searchEngineInvalid: 'URL invalide (doit commencer par http).',
+                screenshotLabel: "Captures d'écran",
+                screenshotDesc: 'Dossier de sauvegarde des captures.',
+                screenshotBrowse: 'Parcourir…',
+                screenshotOk: '✓ Captures sauvegardées',
+                screenshotErr: 'Erreur lors de la capture.',
             },
             en: {
                 syncActive: 'Sync active', syncPaused: 'Sync paused', syncStarting: 'Sync…',
@@ -1601,6 +2242,7 @@
                 landscapeView: 'Landscape view (Desktop)', enterUrl: 'Enter a URL in the address bar',
                 downloadBlocked: 'Download not allowed', addressPlaceholder: 'https://example.com',
                 resize: 'Resize', settings: 'Settings',
+                history: 'History',
                 settingsGeneral: 'General', settingsAppearance: 'Appearance', settingsLanguage: 'Language',
                 settingsServices: 'Connected services', settingsPrivacy: 'Privacy',
                 restoreTabs: 'Restore windows and tabs from previous session',
@@ -1621,7 +2263,7 @@
                 servicesReconnect: 'Reconnect', servicesDisconnect: 'Disconnect',
                 servicesConnecting: 'Connecting…', servicesSuccess: 'Successfully connected.',
                 servicesFailed: 'Connection not confirmed.', servicesDeleted: 'Service removed.',
-                privacyDownloads: 'Downloads', privacyDownloadsDesc: 'Downloads are disabled. DualView is a streaming tool.',
+                privacyDownloads: 'Downloads', privacyDownloadsDesc: 'Downloads are disabled. Exception: images can be saved via right-click (→ Save image as…).',
                 privacyPermissions: 'Permissions', privacyPermissionsDesc: 'Camera, microphone, geolocation and notifications are blocked.',
                 privacySchemes: 'Secure browsing', privacySchemesDesc: 'Only http://, https:// and file:// protocols are allowed.',
                 privacyShorts: 'YouTube Shorts', privacyShortsDesc: 'Ad blocker is disabled on YouTube Shorts (no pre-roll).',
@@ -1649,6 +2291,19 @@
                 obsTokenLabel: 'Token (for the hotkeys script)', obsTokenDesc: 'Secures OBS commands. Do not share it.',
                 obsGuideTitle: 'Full guide', obsGuideDesc: 'See obs-integration/OBS_INTEGRATION.md to set up the dock and keyboard shortcuts.',
                 copyBtn: 'Copy', copiedBtn: 'Copied!',
+                // v0.4.0
+                searchEngineLabel: 'Search engine',
+                searchEngineDesc: 'Used when the typed text is not a web address.',
+                searchEngineAdd: '+ Add',
+                searchEngineNamePlaceholder: 'Name',
+                searchEngineUrlPlaceholder: 'https://engine.com/search?q=',
+                searchEngineExists: 'This engine already exists.',
+                searchEngineInvalid: 'Invalid URL (must start with http).',
+                screenshotLabel: 'Screenshots',
+                screenshotDesc: 'Save folder for screenshots.',
+                screenshotBrowse: 'Browse…',
+                screenshotOk: '✓ Screenshots saved',
+                screenshotErr: 'Screenshot error.',
             }
         };
         let currentLang = 'fr';
@@ -1658,6 +2313,10 @@
                 const key = el.getAttribute('data-i18n');
                 if (el.tagName === 'OPTION') el.textContent = t(key);
                 else el.textContent = t(key);
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                el.placeholder = t(key);
             });
             document.getElementById('url-input').placeholder = t('addressPlaceholder');
             const cui = document.getElementById('s-custom-url-input');
@@ -1810,17 +2469,63 @@
         gearBtn.addEventListener('click', e => { e.stopPropagation(); gearMenu.classList.toggle('open'); syncMenu.classList.remove('open'); });
         gearMenu.addEventListener('click', e => e.stopPropagation());
         document.getElementById('menu-resize').addEventListener('click', () => { gearMenu.classList.remove('open'); startResizeMode(); });
+        document.getElementById('menu-history').addEventListener('click', () => { gearMenu.classList.remove('open'); openHistoryPanel(); });
         document.getElementById('menu-settings').addEventListener('click', () => { gearMenu.classList.remove('open'); openSettingsTab(); });
 
-        // ── Mode redimensionnement ─────────────────────────────────────────────────────
-        const resumeBtn = document.getElementById('resume-btn');
-        function startResizeMode() {
-            resumeBtn.style.display = 'flex';
-            window.dualview.pauseSync();
+        // ── Mode redimensionnement v0.4.0 ──────────────────────────────────────────────
+        // Le bouton ✅ (resume-btn) est retiré de la toolbar — tout passe par la modale.
+        const resizeModalOverlay = document.getElementById('resize-modal-overlay');
+        const resizePresetList = document.getElementById('resize-preset-list');
+        let currentPresetId = null;  // preset sélectionné dans la modale
+
+        async function startResizeMode() {
+            const presets = await window.dualview.getPortraitPresets();
+            const savedPreset = currentSettings.portraitPreset || 'iphone15';
+            currentPresetId = savedPreset;
+
+            // Construire la liste de préréglages
+            resizePresetList.innerHTML = '';
+            presets.forEach(preset => {
+                const item = document.createElement('div');
+                item.className = 'resize-preset-item' + (preset.id === savedPreset ? ' active' : '');
+                item.dataset.id = preset.id;
+                item.innerHTML = `<span>📱 ${preset.label}</span><span class="resize-preset-dim">${preset.width} × ${preset.height} px</span>`;
+                item.addEventListener('click', () => {
+                    resizePresetList.querySelectorAll('.resize-preset-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                    currentPresetId = preset.id;
+                    window.dualview.applyPortraitPreset(preset.id);
+                });
+                resizePresetList.appendChild(item);
+            });
+            // Option taille libre
+            const freeItem = document.createElement('div');
+            freeItem.className = 'resize-preset-item free-size';
+            freeItem.innerHTML = `<span>↔ Taille libre</span><span class="resize-preset-dim">redimensionnez la fenêtre Portrait</span>`;
+            freeItem.addEventListener('click', () => {
+                resizePresetList.querySelectorAll('.resize-preset-item').forEach(el => el.classList.remove('active'));
+                freeItem.classList.add('active');
+                currentPresetId = null;
+            });
+            resizePresetList.appendChild(freeItem);
+
+            // Ouvrir la modale et activer le redimensionnement portrait
+            resizeModalOverlay.classList.add('show');
+            window.dualview.startPortraitResize();
         }
-        resumeBtn.addEventListener('click', () => {
-            resumeBtn.style.display = 'none';
-            window.dualview.resumeSync();
+
+        document.getElementById('resize-modal-validate').addEventListener('click', () => {
+            resizeModalOverlay.classList.remove('show');
+            if (currentPresetId) {
+                currentSettings.portraitPreset = currentPresetId;
+                saveCurrentSettings();
+            }
+            window.dualview.finishPortraitResize();
+        });
+
+        document.getElementById('resize-modal-cancel').addEventListener('click', () => {
+            resizeModalOverlay.classList.remove('show');
+            window.dualview.cancelPortraitResize();
         });
 
         // ── Scripts webview ────────────────────────────────────────────────────────────
@@ -1936,6 +2641,23 @@
                 if (tabId === activeTabId) sendNavState(wv);
                 applyWebviewTheme(wv);
             });
+
+            // ── Liens target="_blank" → nouvel onglet DualView (v0.4.1) ──────────
+            // Intercepter AVANT que Electron ouvre une BrowserWindow séparée.
+            // Les popups OAuth/lecteurs sont aussi capturés en onglet (sauf Services connectés).
+            wv.addEventListener('new-window', (e) => {
+                e.preventDefault();
+                const url = e.url;
+                if (!url || url === 'about:blank') return;
+                // Valider le protocole (http/https uniquement)
+                try {
+                    const parsed = new URL(url);
+                    if (!['http:', 'https:'].includes(parsed.protocol)) return;
+                } catch { return; }
+                // Ouvrir dans un nouvel onglet DualView
+                addTabWithUrl(url);
+            });
+
             wv.addEventListener('did-navigate', (e) => {
                 resetWatcherFlags(wv);
                 if (e.url && e.url !== 'about:blank') {
@@ -1952,6 +2674,13 @@
                         tab.url = e.url;
                         try { const host = new URL(e.url).hostname.replace('www.', ''); tab.title = host.length > 18 ? host.slice(0, 18) + '…' : host; } catch { tab.title = e.url.slice(0, 20); }
                         if (tabId === activeTabId) { renderTabs(); saveTabs(); document.getElementById('url-input').value = e.url; window.dualview.sendNavigate(e.url); }
+                    }
+                    // Alimenter l'historique omnibar (v0.4.0)
+                    addToHistory(tabId, e.url);
+                    // Alimenter l'historique persistant (v0.4.0)
+                    if (tabId === activeTabId) {
+                        const htab = tabs.find(t => t.id === tabId);
+                        window.dualview.historyAdd(e.url, htab ? htab.title : '', tabId);
                     }
                 }
                 if (tabId === activeTabId) sendNavState(wv);
@@ -2146,12 +2875,22 @@
                 document.getElementById('url-input').classList.remove('settings-url');
                 document.getElementById('go-btn').disabled = false;
                 document.getElementById('url-input').value = tab.url || '';
-                if (!webviewPool.has(id)) createWebview(id, tab.url || '');
+                const isNewWebview = !webviewPool.has(id);
+                if (isNewWebview) createWebview(id, tab.url || '');
                 showWebview(id);
-                updateNavButtons({ canGoBack: false, canGoForward: false });
-                // Ne pas appeler sendNavState ici : la webview peut ne pas encore
-                // être attachée au DOM (dom-ready pas encore émis → exception Electron).
-                // dom-ready appellera sendNavState une fois la webview prête.
+                const wv = getActiveWebview();
+                if (!isNewWebview && wv && wv.canGoBack) {
+                    // Webview déjà dans le pool avec un historique intact :
+                    // lire l'état réel directement plutôt que de tout remettre à false.
+                    // dom-ready ne se déclenche plus pour une webview déjà chargée.
+                    updateNavButtons({
+                        canGoBack: wv.canGoBack(),
+                        canGoForward: wv.canGoForward ? wv.canGoForward() : false
+                    });
+                } else {
+                    // Nouvelle webview — dom-ready appellera sendNavState une fois prête.
+                    updateNavButtons({ canGoBack: false, canGoForward: false });
+                }
                 window.dualview.switchTab(id);
             }
             renderTabs(); saveTabs(); resetVideoCounters();
@@ -2185,6 +2924,16 @@
             const id = 'tab-' + Date.now();
             const url = getNewTabUrl();
             tabs.push({ id, title: url ? '' : t('newTab'), url });
+            createWebview(id, url);
+            switchTab(id);
+        }
+
+        // Ouvre un nouvel onglet avec une URL spécifique (v0.4.1 — new-window redirect)
+        function addTabWithUrl(url) {
+            const id = 'tab-' + Date.now();
+            let title = '';
+            try { title = new URL(url).hostname.replace('www.', ''); } catch { title = url.slice(0, 20); }
+            tabs.push({ id, title, url });
             createWebview(id, url);
             switchTab(id);
         }
@@ -2252,11 +3001,53 @@
         });
 
 
+        // ── Résolution input v0.4.0 ────────────────────────────────────────────────────
+        // TLDs reconnus — si l'input contient un de ces TLDs sans espace, c'est une URL.
+        const KNOWN_TLDS = new Set([
+            'com','net','org','fr','io','co','uk','de','app','dev','ai','eu',
+            'info','biz','me','tv','us','ca','au','jp','it','es','nl','be','ch',
+            'at','pl','ru','br','in','cn','kr','se','no','fi','dk','nz','sg',
+            'gov','edu','mil','int','museum',
+        ]);
+
+        /**
+         * Détermine si la saisie est une URL directe ou un terme de recherche.
+         * Retourne l'URL finale à charger (directe ou URL du moteur de recherche).
+         */
+        function resolveInput(raw) {
+            const text = raw.trim();
+            if (!text) return '';
+            // 1. Protocole explicite → URL directe
+            if (/^https?:\/\//i.test(text) || /^file:\/\//i.test(text)) return text;
+            // 2. localhost / IP → URL directe
+            if (/^localhost(:\d+)?(\/.*)?$/.test(text) || /^\d{1,3}(\.\d{1,3}){3}/.test(text)) return 'http://' + text;
+            // 3. Contient un espace → recherche
+            if (/\s/.test(text)) return buildSearchUrl(text);
+            // 4. Vérifier si c'est un domaine avec TLD reconnu
+            const parts = text.split('.');
+            if (parts.length >= 2) {
+                const tld = parts[parts.length - 1].toLowerCase().split('/')[0].split('?')[0];
+                if (KNOWN_TLDS.has(tld)) return 'https://' + text;
+            }
+            // 5. Sinon → recherche
+            return buildSearchUrl(text);
+        }
+
+        function buildSearchUrl(query) {
+            const engineUrl = currentSettings.searchEngineUrl || 'https://duckduckgo.com/?q=';
+            return engineUrl + encodeURIComponent(query);
+        }
+
+        function getEngineName() {
+            return currentSettings.searchEngineName || 'DuckDuckGo';
+        }
+
         // ── Navigation URL ─────────────────────────────────────────────────────────────
-        function navigate(rawUrl) {
-            if (!rawUrl || activeTabId === SETTINGS_TAB_ID) return;
-            let url = rawUrl.trim();
-            if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://')) url = 'https://' + url;
+        function navigate(rawInput) {
+            if (!rawInput || activeTabId === SETTINGS_TAB_ID) return;
+            closeOmnibar();
+            const url = resolveInput(rawInput);
+            if (!url) return;
             document.getElementById('url-input').value = url;
             const tab = tabs.find(t => t.id === activeTabId);
             if (tab && !isSettingsTab(tab)) {
@@ -2267,8 +3058,6 @@
             updateNavButtons({ canGoBack: false, canGoForward: false });
             const wv = getActiveWebview();
             if (wv) {
-                // Si la webview est déjà attachée et prête, charger directement
-                // Sinon attendre dom-ready (1er chargement après createWebview)
                 if (wv.getURL !== undefined) {
                     try {
                         wv.src = url;
@@ -2283,8 +3072,157 @@
             window.dualview.navigate(url);
         }
 
-        document.getElementById('go-btn').addEventListener('click', () => navigate(document.getElementById('url-input').value));
-        document.getElementById('url-input').addEventListener('keydown', e => { if (e.key === 'Enter') navigate(document.getElementById('url-input').value); });
+        // ── Omnibar ────────────────────────────────────────────────────────────────────
+        const urlInput = document.getElementById('url-input');
+        const omniDropdown = document.getElementById('omnibar-dropdown');
+        let omniItems = [];       // liste des items rendus [{type, url, label, sub}]
+        let omniSelectedIdx = -1; // index sélectionné au clavier
+        // Historique en mémoire par onglet — enrichi lors des navigations
+        const tabHistory = new Map(); // tabId → string[]
+
+        function addToHistory(tabId, url) {
+            if (!url || url === 'about:blank') return;
+            if (!tabHistory.has(tabId)) tabHistory.set(tabId, []);
+            const hist = tabHistory.get(tabId);
+            const existing = hist.indexOf(url);
+            if (existing !== -1) hist.splice(existing, 1);
+            hist.unshift(url);
+            if (hist.length > 10) hist.pop();
+        }
+
+        function buildOmniItems(query) {
+            const q = query.trim().toLowerCase();
+            if (!q) return [];
+            const items = [];
+            // Historique de tous les onglets (dédupliqué)
+            const seen = new Set();
+            for (const [, hist] of tabHistory) {
+                for (const url of hist) {
+                    if (!seen.has(url) && url.toLowerCase().includes(q)) {
+                        seen.add(url);
+                        let label = url;
+                        try { label = new URL(url).hostname.replace('www.', ''); } catch { }
+                        items.push({ type: 'history', url, label, sub: url });
+                        if (items.length >= 4) break;
+                    }
+                }
+                if (items.length >= 4) break;
+            }
+            // Suggestion de domaine simple si l'input ressemble à un début de domaine
+            if (!/\s/.test(q) && q.length > 2 && !q.includes('/')) {
+                const suggestion = q.endsWith('.com') ? q : q + '.com';
+                if (!seen.has('https://' + suggestion)) {
+                    items.push({ type: 'domain', url: 'https://' + suggestion, label: suggestion, sub: '' });
+                }
+            }
+            // Recherche toujours en dernier
+            items.push({ type: 'search', url: buildSearchUrl(query), label: query, sub: getEngineName() });
+            return items;
+        }
+
+        function renderOmnibar(query) {
+            omniItems = buildOmniItems(query);
+            omniSelectedIdx = -1;
+            if (!omniItems.length) { closeOmnibar(); return; }
+            omniDropdown.innerHTML = '';
+            let hasHistory = omniItems.some(i => i.type === 'history');
+            let hasDomain  = omniItems.some(i => i.type === 'domain');
+            omniItems.forEach((item, idx) => {
+                if (item.type === 'search') {
+                    const row = document.createElement('div');
+                    row.className = 'omni-search-row';
+                    row.innerHTML = `<span>🔍</span><span>Rechercher &ldquo;${escHtml(item.label)}&rdquo; avec</span><span class="omni-engine-pill">${escHtml(item.sub)}</span>`;
+                    row.addEventListener('mousedown', e => { e.preventDefault(); navigate(item.label); });
+                    omniDropdown.appendChild(row);
+                } else {
+                    if (item.type === 'history' && idx === 0 && hasHistory) {
+                        const lbl = document.createElement('div');
+                        lbl.className = 'omni-section-lbl';
+                        lbl.textContent = 'Historique';
+                        omniDropdown.appendChild(lbl);
+                    }
+                    if (item.type === 'domain' && hasDomain) {
+                        const div2 = document.createElement('div');
+                        div2.className = 'omni-divider';
+                        omniDropdown.appendChild(div2);
+                        const lbl2 = document.createElement('div');
+                        lbl2.className = 'omni-section-lbl';
+                        lbl2.textContent = 'Suggestion';
+                        omniDropdown.appendChild(lbl2);
+                    }
+                    const row = document.createElement('div');
+                    row.className = 'omni-item';
+                    row.dataset.idx = idx;
+                    const icon = item.type === 'history' ? '🕐' : '🌐';
+                    row.innerHTML = `<span class="omni-icon">${icon}</span><span class="omni-url">${escHtml(item.url)}</span>${item.sub ? `<span class="omni-sub">${escHtml(item.sub)}</span>` : ''}`;
+                    row.addEventListener('mousedown', e => { e.preventDefault(); navigate(item.url); });
+                    omniDropdown.appendChild(row);
+                }
+            });
+            omniDropdown.classList.add('open');
+        }
+
+        function closeOmnibar() {
+            omniDropdown.classList.remove('open');
+            omniItems = [];
+            omniSelectedIdx = -1;
+        }
+
+        function omniSelectIdx(idx) {
+            omniDropdown.querySelectorAll('.omni-item,.omni-search-row').forEach((el, i) => {
+                el.classList.toggle('selected', i === idx);
+            });
+            omniSelectedIdx = idx;
+        }
+
+        // ── Events barre URL ───────────────────────────────────────────────────────────
+        // Sélection automatique au focus (v0.4.0)
+        urlInput.addEventListener('focus', () => {
+            if (activeTabId !== SETTINGS_TAB_ID) urlInput.select();
+        });
+
+        // Échap : annule la saisie, restore l'URL courante, perd le focus
+        urlInput.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (tab && !isSettingsTab(tab)) urlInput.value = tab.url || '';
+                closeOmnibar();
+                urlInput.blur();
+                return;
+            }
+            if (e.key === 'Enter') {
+                const selItems = omniDropdown.querySelectorAll('.omni-item,.omni-search-row');
+                if (omniSelectedIdx >= 0 && omniSelectedIdx < selItems.length) {
+                    const selectedItem = omniItems[omniSelectedIdx] || omniItems[omniItems.length - 1];
+                    if (selectedItem) { navigate(selectedItem.type === 'search' ? selectedItem.label : selectedItem.url); return; }
+                }
+                navigate(urlInput.value);
+                return;
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const total = omniDropdown.querySelectorAll('.omni-item,.omni-search-row').length;
+                omniSelectIdx(Math.min(omniSelectedIdx + 1, total - 1));
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                omniSelectIdx(Math.max(omniSelectedIdx - 1, 0));
+                return;
+            }
+        });
+
+        urlInput.addEventListener('input', () => {
+            const q = urlInput.value;
+            if (q.trim().length < 2) { closeOmnibar(); return; }
+            renderOmnibar(q);
+        });
+
+        urlInput.addEventListener('blur', () => {
+            setTimeout(closeOmnibar, 150);
+        });
+
+        document.getElementById('go-btn').addEventListener('click', () => navigate(urlInput.value));
 
         window.dualview.on('update-addressbar', url => {
             if (activeTabId === SETTINGS_TAB_ID) return;
@@ -2310,7 +3248,90 @@
             wv.classList.add('active');
         });
 
-        // ── Paramètres ─────────────────────────────────────────────────────────────────
+        // ── Screenshot (v0.4.0) ────────────────────────────────────────────────────────
+        document.getElementById('screenshot-btn').addEventListener('click', async () => {
+            const result = await window.dualview.takeScreenshot();
+            if (result && result.success) {
+                showToast(t('screenshotOk') + ' — ' + result.dir, 4000);
+            } else {
+                showToast(t('screenshotErr'));
+            }
+        });
+
+
+        // ── Moteurs de recherche prédéfinis (v0.4.0) ──────────────────────────────────
+        const DEFAULT_SEARCH_ENGINES = [
+            { id: 'duckduckgo', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' },
+            { id: 'google',     name: 'Google',     url: 'https://www.google.com/search?q=' },
+            { id: 'bing',       name: 'Bing',       url: 'https://www.bing.com/search?q=' },
+            { id: 'brave',      name: 'Brave Search', url: 'https://search.brave.com/search?q=' },
+            { id: 'qwant',      name: 'Qwant',      url: 'https://www.qwant.com/?q=' },
+        ];
+
+        function getSearchEngines() {
+            const custom = currentSettings.customSearchEngines || [];
+            return [...DEFAULT_SEARCH_ENGINES, ...custom];
+        }
+
+        function renderSearchEngineList() {
+            const list = document.getElementById('s-engine-list');
+            if (!list) return;
+            list.innerHTML = '';
+            const engines = getSearchEngines();
+            const activeId = currentSettings.searchEngineId || 'duckduckgo';
+            engines.forEach(engine => {
+                const item = document.createElement('div');
+                item.className = 'search-engine-item' + (engine.id === activeId ? ' active' : '');
+                const radio = document.createElement('div');
+                radio.className = 'search-engine-radio' + (engine.id === activeId ? ' checked' : '');
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = engine.name;
+                const urlSpan = document.createElement('span');
+                urlSpan.className = 'search-engine-url';
+                try { urlSpan.textContent = new URL(engine.url).hostname; } catch { urlSpan.textContent = engine.url; }
+                item.appendChild(radio);
+                item.appendChild(nameSpan);
+                item.appendChild(urlSpan);
+                item.addEventListener('click', () => {
+                    currentSettings.searchEngineId = engine.id;
+                    currentSettings.searchEngineUrl = engine.url;
+                    currentSettings.searchEngineName = engine.name;
+                    saveCurrentSettings();
+                    renderSearchEngineList();
+                });
+                list.appendChild(item);
+            });
+        }
+
+        document.getElementById('s-engine-add-btn').addEventListener('click', () => {
+            const nameEl = document.getElementById('s-engine-name');
+            const urlEl = document.getElementById('s-engine-url');
+            const msg = document.getElementById('s-engine-msg');
+            const name = nameEl.value.trim();
+            const url = urlEl.value.trim();
+            if (!name || !url) { msg.textContent = 'Nom et URL requis.'; msg.className = 's-msg show err'; return; }
+            if (!url.startsWith('http')) { msg.textContent = t('searchEngineInvalid'); msg.className = 's-msg show err'; return; }
+            const engines = getSearchEngines();
+            if (engines.some(e => e.url === url || e.name.toLowerCase() === name.toLowerCase())) {
+                msg.textContent = t('searchEngineExists'); msg.className = 's-msg show err'; return;
+            }
+            const custom = currentSettings.customSearchEngines || [];
+            custom.push({ id: 'custom-' + Date.now(), name, url });
+            currentSettings.customSearchEngines = custom;
+            saveCurrentSettings();
+            nameEl.value = ''; urlEl.value = '';
+            msg.className = 's-msg';
+            renderSearchEngineList();
+        });
+
+        document.getElementById('s-screenshot-browse').addEventListener('click', async () => {
+            const dir = await window.dualview.chooseScreenshotDir();
+            if (dir) {
+                currentSettings.screenshotDir = dir;
+                document.getElementById('s-screenshot-dir').textContent = dir;
+            }
+        });
+
         function loadSettingsUI(s) {
             currentSettings = s;
             currentLang = s.language || 'fr';
@@ -2323,8 +3344,15 @@
             document.getElementById('s-obs-enabled').checked = s.obsEnabled !== false;
             document.getElementById('s-obs-port').value = (s.obsPort != null ? s.obsPort : 0);
             toggleCustomUrl(s.homepageMode === 'custom');
+            // v0.4.0
+            renderSearchEngineList();
+            const screenshotDir = s.screenshotDir || '';
+            const dirEl = document.getElementById('s-screenshot-dir');
+            if (dirEl) dirEl.textContent = screenshotDir || '(Dossier Images par défaut)';
             applyTranslations();
         }
+
+
 
         // ── Intégration OBS (paramètres) ─────────────────────────────────────────────
         async function loadObsInfo() {
@@ -2447,14 +3475,12 @@
 
         // ── Services connectés ─────────────────────────────────────────────────────────
         const SERVICE_ICONS = {
-            google: '🔎', microsoft: '🪟', instagram: '📸', facebook: '👤',
-            twitch: '🔫', tiktok: '📹', twitter: '🐦', discord: '🎭', steam: '🎮',
-            github: '🐙', gitlab: '🦊'
+            google: '🔵', microsoft: '🪟', instagram: '📸', facebook: '👤',
+            twitch: '💜', tiktok: '🎵', twitter: '🐦', discord: '🎮', steam: '🎮'
         };
         const SERVICE_LABELS = {
             google: 'Google', microsoft: 'Microsoft', instagram: 'Instagram', facebook: 'Facebook',
-            twitch: 'Twitch', tiktok: 'TikTok', twitter: 'X / Twitter', discord: 'Discord', steam: 'Steam',
-            github: 'GitHub', gitlab: 'GitLab'
+            twitch: 'Twitch', tiktok: 'TikTok', twitter: 'X / Twitter', discord: 'Discord', steam: 'Steam'
         };
 
         async function loadServicesStatus() {
@@ -2619,6 +3645,479 @@
             document.getElementById('svc-custom-url').value = '';
             await connectService('custom', url, label);
             loadServicesStatus();
+        });
+
+        // ── Panneau Historique (v0.4.0) ────────────────────────────────────────────────
+        const historyPanel = document.getElementById('history-panel');
+        const historyList  = document.getElementById('history-list');
+        const historyEmpty = document.getElementById('history-empty');
+        const histSearchInput = document.getElementById('history-search-input');
+        let historyOpen = false;
+        let histSearchTimer = null;
+
+        document.getElementById('history-panel-close').addEventListener('click', closeHistoryPanel);
+        document.getElementById('history-clear-all-btn').addEventListener('click', async () => {
+            if (!confirm('Effacer tout l\'historique ?')) return;
+            window.dualview.historyClearAll();
+            renderHistoryList([]);
+        });
+
+        histSearchInput.addEventListener('input', () => {
+            clearTimeout(histSearchTimer);
+            histSearchTimer = setTimeout(async () => {
+                const q = histSearchInput.value.trim();
+                const results = await window.dualview.historySearch(q, 200);
+                renderHistoryList(results);
+            }, 200);
+        });
+
+        async function openHistoryPanel() {
+            historyOpen = true;
+            historyPanel.classList.add('open');
+            histSearchInput.value = '';
+            const entries = await window.dualview.historyGetAll();
+            renderHistoryList(entries);
+            setTimeout(() => histSearchInput.focus(), 250);
+        }
+
+        function closeHistoryPanel() {
+            historyOpen = false;
+            historyPanel.classList.remove('open');
+        }
+
+        // Fermeture sur clic extérieur au panneau
+        document.addEventListener('click', (e) => {
+            if (historyOpen && !historyPanel.contains(e.target) && e.target.id !== 'menu-history') {
+                closeHistoryPanel();
+            }
+        });
+
+        /**
+         * Groupe les entrées par date et génère le HTML du panneau.
+         */
+        function renderHistoryList(entries) {
+            // Vider sauf l'empty-state
+            historyList.innerHTML = '';
+            historyList.appendChild(historyEmpty);
+
+            if (!entries || entries.length === 0) {
+                historyEmpty.style.display = 'flex';
+                return;
+            }
+            historyEmpty.style.display = 'none';
+
+            // Groupement par date
+            const groups = new Map(); // label → [{entry, originalUrl}]
+            const now = new Date();
+            const todayStr = now.toDateString();
+            const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+            const yesterdayStr = yesterday.toDateString();
+            const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+
+            entries.forEach(entry => {
+                const d = new Date(entry.visitedAt);
+                const ds = d.toDateString();
+                let label;
+                if (ds === todayStr) label = "Aujourd'hui";
+                else if (ds === yesterdayStr) label = 'Hier';
+                else if (d >= weekAgo) label = 'Cette semaine';
+                else {
+                    // Mois + année
+                    label = d.toLocaleDateString(currentLang === 'fr' ? 'fr-FR' : 'en-US', { month: 'long', year: 'numeric' });
+                    label = label.charAt(0).toUpperCase() + label.slice(1);
+                }
+                if (!groups.has(label)) groups.set(label, []);
+                groups.get(label).push(entry);
+            });
+
+            groups.forEach((groupEntries, label) => {
+                // En-tête du groupe
+                const lbl = document.createElement('div');
+                lbl.className = 'hist-group-label';
+                lbl.textContent = label;
+                historyList.appendChild(lbl);
+
+                groupEntries.forEach(entry => {
+                    const item = document.createElement('div');
+                    item.className = 'hist-item';
+
+                    const favicon = document.createElement('span');
+                    favicon.className = 'hist-favicon';
+                    favicon.textContent = '🌐';
+
+                    const text = document.createElement('div');
+                    text.className = 'hist-text';
+
+                    const title = document.createElement('div');
+                    title.className = 'hist-title';
+                    title.textContent = entry.title || entry.url;
+                    title.title = entry.url;
+
+                    const url = document.createElement('div');
+                    url.className = 'hist-url';
+                    url.textContent = entry.url;
+
+                    text.appendChild(title);
+                    text.appendChild(url);
+
+                    const time = document.createElement('span');
+                    time.className = 'hist-time';
+                    const d = new Date(entry.visitedAt);
+                    time.textContent = d.toLocaleTimeString(currentLang === 'fr' ? 'fr-FR' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'hist-delete-btn';
+                    delBtn.title = 'Supprimer';
+                    delBtn.textContent = '✕';
+                    delBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        window.dualview.historyDeleteUrl(entry.url);
+                        item.remove();
+                        // Supprimer le groupe s'il est vide
+                        const parentGroup = lbl;
+                        const siblings = Array.from(historyList.children).filter(el =>
+                            el !== parentGroup && el.previousElementSibling === parentGroup
+                        );
+                        if (siblings.length === 0) {
+                            // Vérifier si plus aucun hist-item après ce label
+                            let next = parentGroup.nextElementSibling;
+                            if (!next || next.classList.contains('hist-group-label')) {
+                                parentGroup.remove();
+                            }
+                        }
+                        // Vérifier si tout est vide
+                        if (!historyList.querySelector('.hist-item')) {
+                            historyEmpty.style.display = 'flex';
+                        }
+                    });
+
+                    item.appendChild(favicon);
+                    item.appendChild(text);
+                    item.appendChild(time);
+                    item.appendChild(delBtn);
+
+                    // Clic sur l'item → naviguer
+                    item.addEventListener('click', () => {
+                        navigate(entry.url);
+                        closeHistoryPanel();
+                    });
+
+                    historyList.appendChild(item);
+                });
+            });
+        }
+
+        // ── Dropdown historique sur ← → (v0.4.0) ─────────────────────────────────────
+        const navHistDropdown = document.getElementById('nav-history-dropdown');
+        let navHistTimer = null;
+        let navHistHoldTimer = null;
+        let navHistActiveBtn = null;
+
+        function positionNavHistDropdown(btn) {
+            // Le dropdown est un enfant direct de #toolbar (position:absolute)
+            // On positionne par rapport au bouton dans la toolbar
+            const toolbarRect = document.getElementById('toolbar').getBoundingClientRect();
+            const btnRect = btn.getBoundingClientRect();
+            navHistDropdown.style.left = (btnRect.left - toolbarRect.left) + 'px';
+        }
+
+        async function showNavHistDropdown(btn) {
+            navHistActiveBtn = btn;
+
+            // ── Source de données : pile de navigation native de la webview ──────────
+            // Comme Chrome/Firefox : on lit directement l'historique de navigation
+            // interne de la webview (wv.navigationHistory), qui contient exactement
+            // les URLs visitées dans cet onglet avec l'index courant.
+            const wv = getActiveWebview();
+            let navEntries = [];   // [{url, title}]
+            let currentIndex = -1;
+
+            if (wv && wv.navigationHistory) {
+                // API Electron >= 22 : navigationHistory
+                try {
+                    const nh = wv.navigationHistory;
+                    currentIndex = nh.getActiveIndex();
+                    const total = nh.length();
+                    for (let i = 0; i < total; i++) {
+                        const entry = nh.getEntryAtIndex(i);
+                        if (entry) navEntries.push({ url: entry.url, title: entry.title || '' });
+                    }
+                } catch { navEntries = []; }
+            }
+
+            // Fallback : tabHistory en mémoire (alimenté par addToHistory dans did-navigate)
+            if (navEntries.length === 0) {
+                const memHist = tabHistory.get(activeTabId) || [];
+                navEntries = memHist.map(url => ({ url, title: '' }));
+                // En mémoire l'ordre est du plus récent au plus ancien → l'index courant est 0
+                currentIndex = 0;
+            }
+
+            navHistDropdown.innerHTML = '';
+
+            if (navEntries.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'nav-hist-item';
+                empty.style.color = 'var(--fg-muted)';
+                empty.style.fontStyle = 'italic';
+                empty.style.padding = '8px 12px';
+                empty.textContent = 'Aucun historique pour cet onglet';
+                navHistDropdown.appendChild(empty);
+            } else {
+                // ── Reproduire le comportement Chrome/Firefox ────────────────────────
+                // Pages SUIVANTES (au-dessus de la courante) — du plus proche au plus loin
+                const afterCurrent = navEntries.slice(currentIndex + 1).reverse();
+                // Page courante
+                const current = navEntries[currentIndex] || null;
+                // Pages PRÉCÉDENTES (sous la courante) — du plus récent au plus ancien
+                const beforeCurrent = navEntries.slice(0, currentIndex).reverse();
+
+                // Section "Pages suivantes" (si applicable — bouton → survolé)
+                if (afterCurrent.length > 0) {
+                    const lbl = document.createElement('div');
+                    lbl.className = 'nav-hist-section';
+                    lbl.textContent = 'Suivant';
+                    navHistDropdown.appendChild(lbl);
+                    afterCurrent.forEach(entry => navHistDropdown.appendChild(makeNavHistItem(entry, false)));
+                    const sep = document.createElement('div');
+                    sep.style.cssText = 'height:1px;background:var(--border);margin:2px 0';
+                    navHistDropdown.appendChild(sep);
+                }
+
+                // Page courante (toujours affichée)
+                if (current) {
+                    if (!afterCurrent.length) {
+                        const lbl = document.createElement('div');
+                        lbl.className = 'nav-hist-section';
+                        lbl.textContent = 'Onglet actif';
+                        navHistDropdown.appendChild(lbl);
+                    }
+                    navHistDropdown.appendChild(makeNavHistItem(current, true));
+                }
+
+                // Section "Pages précédentes"
+                if (beforeCurrent.length > 0) {
+                    const sep = document.createElement('div');
+                    sep.style.cssText = 'height:1px;background:var(--border);margin:2px 0';
+                    navHistDropdown.appendChild(sep);
+                    const lbl = document.createElement('div');
+                    lbl.className = 'nav-hist-section';
+                    lbl.textContent = 'Précédent';
+                    navHistDropdown.appendChild(lbl);
+                    // Limiter à 8 entrées précédentes
+                    beforeCurrent.slice(0, 8).forEach(entry => navHistDropdown.appendChild(makeNavHistItem(entry, false)));
+                }
+            }
+
+            // Footer : deux boutons côte à côte
+            const footer = document.createElement('div');
+            footer.className = 'nav-hist-footer';
+
+            const btnHistory = document.createElement('button');
+            btnHistory.className = 'nav-hist-footer-btn';
+            btnHistory.textContent = '🕐 Voir l\'historique';
+            btnHistory.addEventListener('mousedown', e => {
+                e.preventDefault();
+                closeNavHistDropdown();
+                openHistoryPanel();
+            });
+
+            const btnHide = document.createElement('button');
+            btnHide.className = 'nav-hist-footer-btn hide-btn';
+            btnHide.textContent = '✕ Cacher';
+            btnHide.addEventListener('mousedown', e => {
+                e.preventDefault();
+                closeNavHistDropdown();
+            });
+
+            footer.appendChild(btnHistory);
+            footer.appendChild(btnHide);
+            navHistDropdown.appendChild(footer);
+
+            positionNavHistDropdown(btn);
+            navHistDropdown.classList.add('open');
+        }
+
+        // Crée un élément de la liste du dropdown nav-history
+        function makeNavHistItem(entry, isCurrent) {
+            const item = document.createElement('div');
+            item.className = 'nav-hist-item' + (isCurrent ? ' current' : '');
+
+            const icon = document.createElement('span');
+            icon.className = 'nav-hist-icon';
+            icon.textContent = isCurrent ? '●' : '○';
+
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'nav-hist-url';
+            // Afficher le titre si disponible, sinon le hostname
+            let label = entry.title || entry.url;
+            if (!entry.title) {
+                try { label = new URL(entry.url).hostname.replace('www.', ''); } catch { label = entry.url; }
+            }
+            urlSpan.textContent = label;
+            urlSpan.title = entry.url;
+
+            item.appendChild(icon);
+            item.appendChild(urlSpan);
+
+            if (!isCurrent) {
+                item.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    closeNavHistDropdown();
+                    navigate(entry.url);
+                });
+            }
+            return item;
+        }
+
+        function closeNavHistDropdown() {
+            navHistDropdown.classList.remove('open');
+            navHistActiveBtn = null;
+            clearTimeout(navHistTimer);
+            clearTimeout(navHistHoldTimer);
+        }
+
+        function attachNavHistEvents(btn) {
+            // Survol > 500 ms
+            btn.addEventListener('mouseenter', () => {
+                if (btn.disabled) return;
+                navHistTimer = setTimeout(() => showNavHistDropdown(btn), 500);
+            });
+            btn.addEventListener('mouseleave', () => {
+                clearTimeout(navHistTimer);
+                // Laisser le dropdown ouvert si la souris le survole
+            });
+            // Clic maintenu > 400 ms
+            btn.addEventListener('mousedown', (e) => {
+                if (e.button !== 0 || btn.disabled) return;
+                navHistHoldTimer = setTimeout(() => {
+                    showNavHistDropdown(btn);
+                }, 400);
+            });
+            btn.addEventListener('mouseup', () => clearTimeout(navHistHoldTimer));
+            btn.addEventListener('mouseleave', () => clearTimeout(navHistHoldTimer));
+        }
+
+        // Fermeture sur clic extérieur
+        document.addEventListener('click', (e) => {
+            if (navHistDropdown.classList.contains('open') &&
+                !navHistDropdown.contains(e.target) &&
+                e.target !== backBtn && e.target !== forwardBtn) {
+                closeNavHistDropdown();
+            }
+        });
+
+        // Attacher les events aux boutons ← →
+        attachNavHistEvents(backBtn);
+        attachNavHistEvents(forwardBtn);
+
+        // ── Raccourcis clavier (v0.4.1) ────────────────────────────────────────────
+        // Même logique que les commandes OBS : on appelle les fonctions UI existantes.
+        // Priorité absolue sur les raccourcis natifs du renderer pour F5/Ctrl+R.
+        document.addEventListener('keydown', (e) => {
+            // Ne pas intercepter si le focus est dans un champ de saisie (omnibar)
+            const tag = document.activeElement && document.activeElement.tagName;
+            const isInput = tag === 'INPUT' || tag === 'TEXTAREA';
+
+            // Ctrl+L / F6 — Focus barre d'adresse (intercepté même dans un input)
+            if ((e.key === 'F6') || (e.key === 'l' && (e.ctrlKey || e.metaKey) && !e.shiftKey)) {
+                e.preventDefault();
+                urlInput.select();
+                urlInput.focus();
+                return;
+            }
+
+            // Échap — Fermer dropdowns / quitter l'omnibar
+            if (e.key === 'Escape' && !isInput) {
+                document.getElementById('gear-menu').classList.remove('open');
+                syncMenu.classList.remove('open');
+                closeNavHistDropdown();
+                closeHistoryPanel();
+                return;
+            }
+
+            // Raccourcis bloqués si focus dans un champ de saisie (sauf ceux ci-dessus)
+            if (isInput) return;
+
+            // Alt+← — Retour
+            if (e.key === 'ArrowLeft' && e.altKey) {
+                e.preventDefault();
+                if (!backBtn.disabled) window.dualview.navBack();
+                return;
+            }
+            // Alt+→ — Avance
+            if (e.key === 'ArrowRight' && e.altKey) {
+                e.preventDefault();
+                if (!forwardBtn.disabled) window.dualview.navForward();
+                return;
+            }
+            // F5 ou Ctrl+R — Recharger (sans recharger la fenêtre Electron)
+            if (e.key === 'F5' || (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey)) {
+                e.preventDefault();
+                document.getElementById('reload-btn').click();
+                return;
+            }
+            // Ctrl+T — Nouvel onglet
+            if (e.key === 't' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                e.preventDefault();
+                addTab();
+                return;
+            }
+            // Ctrl+W — Fermer onglet actif
+            if (e.key === 'w' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                e.preventDefault();
+                if (tabs.length > 1) closeTab(activeTabId);
+                return;
+            }
+            // Ctrl+Tab — Onglet suivant
+            if (e.key === 'Tab' && e.ctrlKey && !e.shiftKey) {
+                e.preventDefault();
+                const idx = tabs.findIndex(t => t.id === activeTabId);
+                if (idx !== -1) switchTab(tabs[(idx + 1) % tabs.length].id);
+                return;
+            }
+            // Ctrl+Shift+Tab — Onglet précédent
+            if (e.key === 'Tab' && e.ctrlKey && e.shiftKey) {
+                e.preventDefault();
+                const idx = tabs.findIndex(t => t.id === activeTabId);
+                if (idx !== -1) switchTab(tabs[(idx - 1 + tabs.length) % tabs.length].id);
+                return;
+            }
+        });
+
+        // ── Boutons souris Retour/Avance (v0.4.1) ────────────────────────────────
+        // Le main envoie 'mouse-nav' après avoir capturé les boutons 3/4 via
+        // before-input-event (seule méthode fiable dans une webview Electron).
+        window.dualview.on('mouse-nav', (direction) => {
+            if (direction === 'back' && !backBtn.disabled) window.dualview.navBack();
+            if (direction === 'forward' && !forwardBtn.disabled) window.dualview.navForward();
+        });
+
+        // ── Actions du menu contextuel (v0.4.1) ──────────────────────────────────
+        // Reçues du main après sélection d'une entrée du menu natif.
+        window.dualview.on('context-menu-action', ({ action, url, text, x, y }) => {
+            const wv = getActiveWebview();
+            switch (action) {
+                case 'open-link-new-tab':
+                    if (url) addTabWithUrl(url);
+                    break;
+                case 'reload':
+                    document.getElementById('reload-btn').click();
+                    break;
+                case 'copy-page-url': {
+                    const currentUrl = document.getElementById('url-input').value;
+                    if (currentUrl) navigator.clipboard.writeText(currentUrl).catch(() => { });
+                    break;
+                }
+                case 'search-selection':
+                    if (text) addTabWithUrl(buildSearchUrl(text));
+                    break;
+                case 'inspect':
+                    if (wv && wv.openDevTools) wv.openDevTools();
+                    break;
+                default:
+                    break;
+            }
         });
 
         // ── Pollers ────────────────────────────────────────────────────────────────────

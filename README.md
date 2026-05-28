@@ -1,4 +1,4 @@
-# DualView v0.3.3
+# DualView v0.4.1
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.3.3.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.4.1.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -33,7 +33,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 ## Barre de navigation
 
 ```
-← → ⟳ 🏠 [url] ▶ [✅] [● Sync] ⚙️
+← → ⟳ 🏠 [url] ▶ 📷 [● Sync] ⚙️
 ```
 
 | Bouton | Fonction |
@@ -41,22 +41,43 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | ← → | Page précédente / suivante (les deux fenêtres) |
 | ⟳ | Recharger (les deux fenêtres) |
 | 🏠 | Page d'accueil |
-| ▶ | Charger l'URL saisie |
-| ✅ | Valider le redimensionnement Portrait |
+| [url] | Barre d'adresse — sélection auto au clic, Échap annule, suggestions omnibar |
+| ▶ | Charger l'URL ou lancer une recherche |
+| 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
 
 ---
 
-## Nouveautés v0.3.3
+## Nouveautés v0.4.0
 
-### 🐙🦊 GitHub et GitLab dans les services connectés
-Deux nouveaux services pré-configurés dans **Paramètres → Services connectés** :
-- **GitHub** 🐙 — connexion via github.com (cookies `user_session` / `logged_in`)
-- **GitLab** 🦊 — connexion via gitlab.com (cookie `_gitlab_session`)
+### 📱 Redimensionnement Portrait repensé
+**⚙️ → Redimensionner** ouvre une modale avec :
+- Préréglages : iPhone 15 (390×844), Pixel 8 (412×915), Galaxy S24 (360×780), iPad (768×1024)
+- Option taille libre : redimensionnez manuellement la fenêtre Portrait (contour orange)
+- **Valider** verrouille la taille. **Annuler** restaure la taille précédente.
 
-Les icônes de tous les services existants ont également été mises à jour pour
-mieux les identifier d'un coup d'œil.
+Le bouton ✅ est supprimé de la toolbar — tout passe par la modale.
+
+### 📷 Capture instantanée
+Le bouton **📷** dans la toolbar capture simultanément les deux vues en PNG horodaté.
+
+- Nommage : `dualview_YYYY-MM-DD_HH-mm-ss_paysage.png` + `_portrait.png`
+- Dossier configurable dans **Paramètres → Général → Captures d'écran** (par défaut : dossier Images)
+- Toast de confirmation avec le chemin de sauvegarde
+
+### 🔍 Barre d'adresse intelligente (omnibar)
+- **Clic sur la barre** : tout le texte est sélectionné automatiquement
+- **Échap** : annule la saisie et restaure l'URL courante
+- **Suggestions** pendant la frappe : historique de navigation, complétion de domaine, recherche avec le moteur configuré
+- **Navigation clavier** : ↑ ↓ pour parcourir les suggestions, Entrée pour valider
+- **Détection URL vs recherche** : texte avec un TLD reconnu → URL directe ; tout le reste → recherche
+
+### 🔎 Moteur de recherche configurable
+Dans **Paramètres → Général → Moteur de recherche** :
+- **DuckDuckGo** par défaut (respect de la vie privée)
+- Google, Bing, Brave Search, Qwant disponibles
+- Ajout de moteurs personnalisés (nom + URL template)
 
 ---
 
@@ -136,7 +157,7 @@ play/pause/seek détectés dans Paysage → appliqués à Portrait (±3s / ±5s)
 
 ## Sécurité
 
-- Téléchargements bloqués
+- Téléchargements bloqués (exception : enregistrement d'image via clic droit)
 - Permissions refusées (caméra, micro, géoloc, notifications)
 - Navigation limitée à `http://`, `https://`, `file://`
 - Bloqueur pub intégré (Google Ads, DoubleClick, YouTube pre-roll)
@@ -167,6 +188,7 @@ ajoutez un dock de navigateur personnalisé dans OBS, et chargez le script Lua
 | Position / taille | `%APPDATA%\DualView\dualview-config.json` |
 | Onglets & URLs | idem |
 | Paramètres & Services | idem |
+| **Historique de navigation** | `%APPDATA%\DualView\history.json` |
 | Cookies sessions | `%APPDATA%\DualView\Partitions\persist_dualview\` |
 
 ---
@@ -187,7 +209,7 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.3.3.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.4.1.exe` (~150 Mo).
 
 ---
 
@@ -216,6 +238,6 @@ Produit `dist/DualView-Setup-0.3.3.exe` (~150 Mo).
 | 0.2.5 | Sécurité. Paramètres. Menu ⚙️. i18n FR/EN. |
 | 0.2.6 | Pool de webviews. Switch onglet sans rechargement. |
 | 0.3.0 | Sync différée. Bouton sync. Services connectés. Anti-détection Electron. Détection login. YouTube Shorts. |
-| 0.3.1 | Fix cookies portrait. Fix ERR_ABORTED. Fix sync vidéo YouTube. Fix pub 1re vidéo. Auth Microsoft robuste. Overlay paramètres portrait. Mode debug --dev. |
-| 0.3.2 | Contrôle depuis OBS : dock OBS + hotkeys Lua natives. Serveur HTTP/WS local sécurisé par token. |
-| 0.3.3 | Services connectés : ajout GitHub 🐙 et GitLab 🦊. Mise à jour icônes services. |
+| 0.3.1 | Fix cookies portrait. Fix ERR_ABORTED. Fix sync vidéo YouTube. Fix pub 1re vidéo. Auth Microsoft robuste. Overlay paramètres portrait. Mode debug --dev. || 0.3.2 | Intégration OBS (dock + hotkeys Lua). Serveur local HTTP+WebSocket. |
+| 0.4.0 | Redimensionnement Portrait via modale (préréglages + taille libre). Capture instantanée PNG (📷). Omnibar (suggestions + Échap + sélection auto). Détection URL vs recherche. Moteur de recherche configurable (DuckDuckGo par défaut). Historique de navigation persistant (history.json) : panneau latéral groupé par date, recherche, suppression ; dropdown sur ← → par onglet. |
+| 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris Retour/Avance (boutons 3 et 4). Toute ouverture de nouvelle fenêtre redirigée en onglet DualView (`target="_blank"`, `window.open()`). Menu contextuel clic droit : lien, image, texte sélectionné, page — sans "Ouvrir dans une nouvelle fenêtre". Enregistrement d'image via clic droit ("Enregistrer l'image sous…") — seule exception aux téléchargements bloqués. |
