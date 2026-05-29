@@ -1,4 +1,4 @@
-# DualView - Architecture v0.4.1
+# DualView - Architecture v0.4.2
 
 ## Vue d'ensemble
 
@@ -311,66 +311,152 @@ main → landscapeWin :
 
 ---
 
-## Structure des fichiers v0.4.0
+## Structure des fichiers v0.4.2
 
 ```
 dualview/
 |
-|-- package.json              Version 0.4.0
+|-- package.json              Version 0.4.2
 |-- HOW_TO_INSTALL.md         Procédure d'installation + config OBS
 |-- ARCHITECTURE.md           Ce fichier
 |-- README.md
 |
 |-- src/
-|   |-- main.js               Processus principal v0.4.0
-|   |                         + syncState, scheduleSyncStart
-|   |                         + IPC sync-control, login-page-detected/left
-|   |                         + IPC services connectés
-|   |                         + isYouTubeShort (bypass bloqueur)
-|   |                         + isAuthUrl / AUTH_DOMAINS (guard portrait)
-|   |                         + detectServiceKeyFromUrl
-|   |                         + app.commandLine AutomationControlled
-|   |                         + OBS : require obs-control, applySyncAction,
-|   |                           handleObsCommand, pushObsStatus, get-obs-info
-|   |                         + v0.4.0 : PORTRAIT_PRESETS, IPC resize portrait
-|   |                           (start/apply/finish/cancel-portrait-resize)
-|   |                         + v0.4.0 : IPC screenshot (take-screenshot,
-|   |                           choose-screenshot-dir) via dialog natif
-|   |                         + v0.4.0 : IPC historique (history-add,
-|   |                           history-get-all, history-get-by-tab,
-|   |                           history-search, history-delete-url,
-|   |                           history-clear-all, history-clear-tab)
-|   |                         + v0.4.0 : require history-manager,
-|   |                           history.saveNow() à la fermeture
 |   |
-|   |-- history-manager.js    NOUVEAU v0.4.0 — Historique de navigation
-|   |                         Fichier : %AppData%/DualView/history.json
-|   |                         Entrée : { url, title, visitedAt, tabId }
-|   |                         Max 5000 entrées (FIFO), déduplication
-|   |                         URL+tabId par heure, sauvegarde différée 2 s
-|   |                         Méthodes : add, getAll, getByTab, search,
-|   |                           deleteUrl, deleteByIndex, clearAll, clearTab,
-|   |                           saveNow
-|   |                         Filtre : URLs d'auth jamais enregistrées
+|   |-- main.js               Point d'entrée v0.4.2 (~120 lignes)
+|   |                         Lifecycle app (whenReady, before-quit)
+|   |                         OBS helpers (handleObsCommand, pushObsStatus)
+|   |                         Require et câblage de tous les modules
 |   |
-|   |-- obs-control.js        NOUVEAU v0.3.2 — Serveur de contrôle OBS
-|   |                         HTTP + WebSocket sur 127.0.0.1, token
-|   |                         start/stop/updateStatus/getInfo
-|   |                         Liste blanche ALLOWED_ACTIONS
-|   |                         Sert obs-dock.html (injection token/port)
+|   |-- main/                 NOUVEAU v0.4.2 — Modules extraits de main.js
+|   |   |
+|   |   |-- config-manager.js   Configuration JSON
+|   |   |                       init(userDataPath), configGet, configSet
+|   |   |                       DEFAULTS, SETTINGS_DEFAULTS,
+|   |   |                       PORTRAIT_PRESETS, KNACK3_URL
+|   |   |
+|   |   |-- security.js         Sécurité session
+|   |   |                       sanitizeUrl, isYouTubeShort, isBlockedUrl
+|   |   |                       setupSessionSecurity({ onDownloadBlocked,
+|   |   |                         getPendingImageSavePath,
+|   |   |                         clearPendingImageSavePath })
+|   |   |                       RÈGLE : UN SEUL handler onBeforeSendHeaders
+|   |   |                       sur persist:dualview (jamais dans auth-window)
+|   |   |
+|   |   |-- url-detector.js     Classification d'URLs
+|   |   |                       isLoginPage(url), isAuthUrl(url)
+|   |   |                       detectServiceKeyFromUrl(url)
+|   |   |                       AUTH_DOMAINS, LOGIN_FORCED_DOMAINS,
+|   |   |                       LOGIN_URL_PATTERNS
+|   |   |
+|   |   |-- sync-manager.js     Cycle de vie synchronisation
+|   |   |                       init({ getLandscapeWin, getPortraitWin,
+|   |   |                             getActiveTabId, getTabUrl })
+|   |   |                       getSyncState(), broadcastSyncState()
+|   |   |                       tryScheduleSyncStart('landscape'|'portrait')
+|   |   |                       applySyncAction('pause'|'resume'|'restart')
+|   |   |                       → chemin partagé UI + OBS (zéro duplication)
+|   |   |
+|   |   |-- window-manager.js   Fenêtres BrowserWindow
+|   |   |                       createLandscapeWindow({ onContextMenu,
+|   |   |                                               onWindowOpen })
+|   |   |                       createPortraitWindow()
+|   |   |                       getLandscapeWin(), getPortraitWin()
+|   |   |                       saveWindowBounds() à la fermeture
+|   |   |
+|   |   |-- context-menu.js     Menu contextuel clic droit (v0.4.1)
+|   |   |                       buildAndShowContextMenu(params, wvContents)
+|   |   |                       Lien, image, texte sélectionné, page
+|   |   |                       Enregistrement image : flag
+|   |   |                       _pendingImageSavePath + downloadURL()
+|   |   |
+|   |   |-- ipc/                Handlers IPC thématiques
+|   |       |-- ipc-navigation.js   navigate, back, forward, reload, home
+|   |       |                       load-url, update-addressbar,
+|   |       |                       nav-state-changed, mouse-nav
+|   |       |-- ipc-sync.js         sync-control, sync-state-changed
+|   |       |                       sync-resume-state, sync-navigate
+|   |       |                       sync-scroll, video-play/pause/timeupdate
+|   |       |-- ipc-tabs.js         tab-created, tab-switched, tab-closed
+|   |       |                       tab-title-updated, reload-views
+|   |       |-- ipc-history.js      history-add, history-get-all,
+|   |       |                       history-get-by-tab, history-search,
+|   |       |                       history-delete-url, history-clear-all,
+|   |       |                       history-clear-tab
+|   |       |-- ipc-portrait.js     start/apply/finish/cancel-portrait-resize
+|   |       |-- ipc-services.js     open-auth-window, disconnect-service,
+|   |       |                       delete-custom-service,
+|   |       |                       auth-custom-confirmed/cancelled,
+|   |       |                       get-connected-services-status
+|   |       |-- ipc-settings.js     get-settings, save-settings,
+|   |       |                       get-is-dev, get-user-data-path
+|   |       |-- ipc-obs.js          get-obs-info
+|   |       |-- ipc-screenshot.js   take-screenshot, choose-screenshot-dir
 |   |
-|   |-- obs-dock.html         NOUVEAU v0.3.2 — Page du dock OBS
-|   |                         UI compacte (icônes), onglets sur 1 ligne
-|   |                         défilable (boutons ◀ ▶, ResizeObserver)
-|   |                         Favicons via google.com/s2/favicons
-|   |                         WebSocket temps réel + repli HTTP
+|   |-- landscape/            NOUVEAU v0.4.2 — Découpage de landscape.html
+|   |   |
+|   |   |-- landscape.html    HTML pur (~420 lignes)
+|   |   |                     Structure DOM + <link> CSS + <script src> JS
+|   |   |                     (remplace src/landscape.html)
+|   |   |
+|   |   |-- landscape.css     Tous les styles (~955 lignes)
+|   |   |                     Thèmes clair/sombre, toolbar, onglets,
+|   |   |                     omnibar, panneaux, modales, popups
+|   |   |
+|   |   |-- js/
+|   |       |-- i18n.js            Traductions FR/EN, t(), applyTranslations()
+|   |       |-- state.js           Variables globales partagées
+|   |       |                      (tabs, webviewPool, activeTabId…)
+|   |       |-- ui-utils.js        showToast, escHtml, applyWebviewTheme,
+|   |       |                      copyToClipboard
+|   |       |-- webview-pool.js    Pool de webviews, scripts injectés
+|   |       |                      (VIDEO_WATCHER, SCROLL_LISTENER,
+|   |       |                       EXECUTOR), listeners did-navigate
+|   |       |-- tabs-manager.js    renderTabs, switchTab, addTab, closeTab,
+|   |       |                      saveTabsState
+|   |       |-- navigation.js      navigate, resolveInput (URL vs recherche)
+|   |       |                      urlInput, go-btn, back/forward, reload, home
+|   |       |-- sync-ui.js         Bouton sync, menu dropdown, badge état
+|   |       |-- login-popup.js     Popup page de connexion (landscape)
+|   |       |                      + overlay portrait via IPC
+|   |       |-- history-panel.js   Panneau Historique (⚙️ → Historique)
+|   |       |                      groupé par date, recherche, suppression
+|   |       |-- nav-history-dropdown.js  Dropdown ← → (survol 500 ms /
+|   |       |                            clic 400 ms), 10 dernières URLs
+|   |       |-- resize-modal.js    Modale redimensionnement Portrait
+|   |       |                      Préréglages + taille libre, Valider/Annuler
+|   |       |-- settings-panel.js  Panneau Paramètres → Général, Apparence,
+|   |       |                      Langue, Moteur de recherche, OBS, Captures
+|   |       |-- services-panel.js  Panneau Services connectés : tuiles,
+|   |       |                      auth, déconnexion, service personnalisé
+|   |       |-- keyboard-shortcuts.js  Raccourcis clavier (Alt+←/→, F5,
+|   |       |                          Ctrl+R/T/W/Tab, Ctrl+L/F6)
+|   |       |                          Boutons souris 3/4 (before-input-event)
+|   |       |                          Listeners obs-command, screenshot
+|   |       |-- landscape-init.js  Point d'entrée renderer : séquence init,
+|   |                              chargement config, IPC entrants
 |   |
 |   |-- auth-window.js        Fenêtres authentification services
-|   |                         KNOWN_SERVICES, openAuthWindow
-|   |                         checkKnownServiceCookies, disconnectService
-|   |                         preload-auth.js via webPreferences.preload
+|   |                         KNOWN_SERVICES (9), openAuthWindow
+|   |                         checkKnownServiceCookies, checkAllServicesStatus
+|   |                         disconnectService, authWindowEvents (EventEmitter)
 |   |
-|   |-- logger.js             Logger (mode --dev) : fichier + console
+|   |-- history-manager.js    Historique de navigation (v0.4.0)
+|   |                         Fichier : %AppData%/DualView/history.json
+|   |                         Entrée : { url, title, visitedAt, tabId }
+|   |                         Max 5000 entrées (FIFO), déduplication,
+|   |                         sauvegarde différée 2 s, filtre URLs auth
+|   |
+|   |-- obs-control.js        Serveur de contrôle OBS (v0.3.2)
+|   |                         HTTP + WebSocket sur 127.0.0.1, token aléatoire
+|   |                         start/stop/updateStatus/getInfo
+|   |                         Liste blanche ALLOWED_ACTIONS
+|   |
+|   |-- obs-dock.html         Page du dock OBS (v0.3.2)
+|   |                         UI compacte, onglets défilables
+|   |                         WebSocket temps réel + repli HTTP
+|   |
+|   |-- logger.js             Logger mode --dev : fichier + console
 |   |                         Niveaux LOG/WARN/ERROR, source taggée
 |   |
 |   |-- preload-auth.js       Anti-détection Electron (authWin)
@@ -381,59 +467,23 @@ dualview/
 |   |-- preload-dev.js        Bridge mode debug (--dev)
 |   |                         Raccourcis F12 / Ctrl+F12 (DevTools)
 |   |
-|   |-- preload-landscape.js  Bridge sécurisé v0.4.0
-|   |                         + syncControl, getSyncState
-|   |                         + notifyLoginPage, notifyLoginPageLeft
-|   |                         + getConnectedServicesStatus, openAuthWindow
-|   |                         + disconnectService, deleteCustomService
-|   |                         + confirmCustomAuth, cancelCustomAuth
-|   |                         + getObsInfo, canal entrant obs-command
-|   |                         + v0.4.0 : getPortraitPresets,
-|   |                           startPortraitResize, applyPortraitPreset,
-|   |                           finishPortraitResize, cancelPortraitResize
-|   |                         + v0.4.0 : takeScreenshot, chooseScreenshotDir
-|   |                         + v0.4.0 : historyAdd, historyGetAll,
-|   |                           historyGetByTab, historySearch,
-|   |                           historyDeleteUrl, historyClearAll,
-|   |                           historyClearTab
+|   |-- preload-landscape.js  Bridge sécurisé landscape
+|   |                         Expose window.dualview (contextBridge)
+|   |                         Sync, navigation, tabs, history, services,
+|   |                         screenshot, portrait resize, OBS, dev
 |   |
-|   |-- preload-view.js       Bridge sécurisé (webviews)
-|   |                         + sync-state-changed, show-login-popup
-|   |                         + login-page-cleared, sync-resume-state
+|   |-- preload-view.js       Bridge sécurisé webviews
+|   |                         sync-state-changed, show-login-popup
+|   |                         login-page-cleared, sync-resume-state
 |   |
-|   |-- landscape.html        Fenêtre paysage v0.4.0
-|   |                         + Bouton sync (toolbar) + menu dropdown
-|   |                         + Section "Services connectés" dans Paramètres
-|   |                         + Section "OBS" dans Paramètres
-|   |                         + Listener obs-command
-|   |                         + Popup page de connexion + bouton Se connecter
-|   |                         + v0.4.0 : Modale redimensionnement Portrait
-|   |                           (préréglages + taille libre, Valider/Annuler)
-|   |                         + v0.4.0 : Bouton 📷 capture instantanée PNG
-|   |                         + v0.4.0 : Omnibar (sélection auto au focus,
-|   |                           Échap, suggestions historique+domaine+recherche,
-|   |                           navigation clavier ↑↓)
-|   |                         + v0.4.0 : resolveInput() — détection URL/recherche
-|   |                         + v0.4.0 : Panneau latéral Historique (⚙️ →
-|   |                           Historique), groupé par date, recherche,
-|   |                           suppression unitaire et globale
-|   |                         + v0.4.0 : Dropdown historique sur ← →
-|   |                           (survol 500 ms ou clic maintenu 400 ms)
-|   |                         + v0.4.0 : Section moteur de recherche dans
-|   |                           Paramètres → Général (DuckDuckGo par défaut)
-|   |                         + v0.4.0 : Section captures dans Paramètres
+|   |-- portrait.html         Fenêtre portrait
+|   |                         Indicateur sync, overlay login plein écran
+|   |                         sync-resume-state → réinjection scripts
 |   |
-|   |-- portrait.html         Fenêtre portrait v0.3.2
-|   |                         + Indicateur sync (badge discret)
-|   |                         + Overlay login plein écran (non ignorable)
-|   |                         + sync-resume-state → réinjection scripts
-|   |
-|-- obs-integration/          NOUVEAU v0.3.2 — Ressources OBS (hors binaire)
+|-- obs-integration/          Ressources OBS (hors binaire, non embarqué)
 |   |-- dualview-obs-hotkeys.lua   Script hotkeys natives OBS → /command
 |   |-- OBS_INTEGRATION.md         Guide d'utilisation (dock + hotkeys)
-|   |   NOTE : dossier NON embarqué dans l'installeur (destiné à OBS,
-|   |          pas à Electron). package.json.files ne couvre que src/**/*
-|   |
+|
 |-- assets/
 |   |-- icon.ico
 |   |-- README.txt
@@ -504,6 +554,7 @@ customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 | 0.3.0 | Démarrage sync différé 3 s. Bouton sync. Services connectés (9 + URL perso). Détection pages login + popup/overlay. Bouton "Se connecter" direct. YouTube Shorts bypass. Anti-détection Electron (preload-auth.js, 4 couches). |
 | 0.3.1 | Fix portrait partition persist:dualview (connexion cookies). Fix ERR_ABORTED (isAuthUrl hostname-only, AUTH_DOMAINS login-only). Fix sync vidéo (seek préserve état pause, executor réaligné). Fix injection scripts SPA (did-navigate-in-page). Fix session pre-init (pub 1re vidéo YouTube). Fix ordre fenêtres (portrait attend landscape). Fix déconnexion Microsoft (flush complet cookies). Auth Microsoft : confirmation obligatoire + bouton fallback (plus de fermeture automatique). LOGIN_FORCED_DOMAINS (login.microsoftonline.com toujours détecté). Portrait : overlay "Personnalisation en cours" sur onglet paramètres. Système de debug --dev (logger.js, preload-dev.js, F12, Ctrl+F12). |
 | 0.3.2 | Intégration OBS (Méthode 1 + 3). Serveur de contrôle local (obs-control.js) : HTTP + WebSocket sur 127.0.0.1, token d'authentification. Dock OBS (obs-dock.html) : sync, navigation, URL, onglets pilotables depuis l'interface OBS. Script Lua de hotkeys natives (obs-integration/dualview-obs-hotkeys.lua → /command). Paramètres → OBS (activation, port, dock URL, token). Refactor applySyncAction (partagé UI native / OBS). Canal IPC obs-command (renderer landscape réutilise addTab/closeTab/switchTab/navigate). Zéro régression. |
+| 0.4.2 | Restructuration modulaire. `main.js` (1 243 lignes) → point d'entrée ~120 lignes + 6 modules `src/main/` + 9 handlers IPC `src/main/ipc/`. `landscape.html` (4 237 lignes) → HTML pur ~420 lignes + `landscape.css` ~955 lignes + 15 modules JS dans `src/landscape/js/`. Zéro régression fonctionnelle. |
 | 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris retour/avance (boutons 3 et 4, via before-input-event). Toute ouverture de nouvelle fenêtre redirigée en onglet DualView (new-window + setWindowOpenHandler). Menu contextuel natif clic droit (did-attach-webview → wvContents.on context-menu → buildAndShowContextMenu) : lien, image, texte sélectionné, page — sans "Ouvrir dans une nouvelle fenêtre". Enregistrement d'image (clic droit → "Enregistrer l'image sous…") : dialogue natif + downloadURL via flag _pendingImageSavePath — seule exception au blocage des téléchargements. |
 | 0.4.0 | Expérience utilisateur : Redimensionnement Portrait via modale (⚙️ → Redimensionner) avec préréglages iPhone 15/Pixel 8/Galaxy S24/iPad + taille libre — suppression du bouton ✅ de la toolbar. Capture instantanée (bouton 📷 toolbar) : PNG horodatés des deux vues via capturePage(), dossier configurable (Paramètres → Général). Omnibar : sélection automatique de l'URL au focus, Échap annule, suggestions locales (historique + domaine) + recherche, navigation clavier ↑↓. Détection URL vs recherche (resolveInput) : TLDs reconnus = URL directe, tout le reste = moteur de recherche. Moteur de recherche dans Paramètres → Général : DuckDuckGo par défaut, Google/Bing/Brave/Qwant prédéfinis, ajout de moteurs personnalisés. Historique de navigation persistant (history-manager.js → history.json, max 5000 entrées, déduplication, filtre auth) : panneau latéral groupé par date (⚙️ → Historique), recherche fulltext, suppression unitaire et globale ; dropdown sur ← → (survol 500 ms / clic maintenu 400 ms) affichant les 10 dernières URLs de l'onglet actif. |
 

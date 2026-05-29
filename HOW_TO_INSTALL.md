@@ -1,31 +1,24 @@
-# DualView v0.3.2 - Instructions d'installation
+# DualView v0.4.2 - Instructions d'installation
 
-## Nouveautés v0.3.2
+## Nouveautés v0.4.2
 
-- **Contrôle depuis OBS** : pilotez DualView sans quitter OBS
-  - **Dock OBS** : panneau intégré (sync, URL, onglets) avec état en temps réel
-  - **Hotkeys OBS natives** : script Lua pour pause/reprise/redémarrage, navigation, recharge, onglets
-  - Réglages dans **⚙️ → Paramètres → OBS** (activation, port, URL du dock, token)
-  - Guide détaillé : **obs-integration/OBS_INTEGRATION.md**
+- **Restructuration modulaire** : aucun changement fonctionnel — code découpé en modules maintenables pour faciliter les contributions open source.
 
-## Nouveautés v0.3.1
+## Nouveautés v0.4.1
 
-- **Démarrage sync différé** : la synchronisation démarre 3 secondes après l'ouverture
-- **Contrôle de la synchronisation** : bouton dans la toolbar — ⏸ Pause / ▶ Reprendre / ↺ Redémarrer
-- **Services connectés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam + URL personnalisée
-- **Anti-détection Electron** : connexion par clé d'accès (Windows Hello, FIDO2) et email/mot de passe fonctionnels via une fenêtre dédiée
-- **Détection des pages de connexion** : popup dans landscape + overlay dans portrait avec bouton "Se connecter" direct
-- **YouTube Shorts** : bloqueur de publicités désactivé sur les Shorts
+- **Raccourcis clavier** : `Alt+←/→` (navigation), `F5`/`Ctrl+R` (recharger), `Ctrl+T/W/Tab` (onglets), `Ctrl+L`/`F6` (barre d'adresse)
+- **Boutons souris** : boutons latéraux (3 et 4) pour Retour/Avance
+- **Liens externes** : tout lien `target="_blank"` ou `window.open()` s'ouvre en onglet DualView
+- **Menu contextuel clic droit** : lien, image, texte sélectionné, page (sans "Ouvrir dans une nouvelle fenêtre")
+- **Enregistrement d'image** : clic droit → "Enregistrer l'image sous…" via dialogue système natif
 
-## Problèmes connus v0.3.1
+## Nouveautés v0.4.0
 
-> Ces bugs sont identifiés et seront corrigés en v0.3.1.
-
-| # | Symptôme | Contournement |
-|---|----------|---------------|
-| 1 | Après connexion Google/YouTube dans Services connectés, portrait affiche toujours l'utilisateur comme non connecté | Recharger manuellement l'onglet via ⟳ |
-| 2 | Connexion Microsoft : la fenêtre auth ne se ferme pas automatiquement, le statut reste "Non connecté" | Fermer la fenêtre manuellement ; rouvrir les paramètres pour vérifier le statut |
-| 3 | Navigation vers Outlook (et autres services Microsoft) : portrait affiche ERR_ABORTED au lieu de la page | Lié au BUG-2 ; sera corrigé avec la fermeture automatique Microsoft |
+- **Redimensionnement Portrait repensé** : **⚙️ → Redimensionner** avec préréglages (iPhone 15, Pixel 8, Galaxy S24, iPad) + taille libre. Le bouton ✅ de la toolbar est supprimé.
+- **Capture instantanée** : bouton 📷 dans la toolbar — PNG horodaté des deux vues, dossier configurable dans Paramètres
+- **Omnibar** : sélection auto au clic, Échap annule, suggestions (historique, domaine, recherche), navigation ↑↓
+- **Moteur de recherche configurable** : DuckDuckGo par défaut, Google / Bing / Brave / Qwant prédéfinis + moteurs personnalisés
+- **Historique de navigation** : panneau latéral (⚙️ → Historique) groupé par date, recherche fulltext, suppression ; dropdown sur ← →
 
 ---
 
@@ -36,7 +29,7 @@
 - Connexion internet
 
 ### Procédure
-1. Double-cliquez sur **DualView-Setup-0.3.1.exe**
+1. Double-cliquez sur **DualView-Setup-0.4.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur si demandée
 
@@ -66,7 +59,7 @@ Les données (`%APPDATA%\DualView\`) sont conservées. Supprimez ce dossier pour
 
 ## Barre de navigation (fenêtre Paysage)
 
-`← → ⟳ 🏠 [url] ▶ [✅] [● Sync] ⚙️`
+`← → ⟳ 🏠 [url] ▶ 📷 [● Sync] ⚙️`
 
 | Bouton | Fonction |
 |--------|----------|
@@ -74,10 +67,10 @@ Les données (`%APPDATA%\DualView\`) sont conservées. Supprimez ce dossier pour
 | → | Page suivante (les deux fenêtres) |
 | ⟳ | Recharger (les deux fenêtres) |
 | 🏠 | Page d'accueil |
-| ▶ | Charger l'URL saisie |
-| ✅ | Valider le redimensionnement Portrait |
+| ▶ | Charger l'URL ou lancer une recherche |
+| 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle de la synchronisation |
-| ⚙️ | Menu : Redimensionner / Paramètres |
+| ⚙️ | Menu : Redimensionner / Paramètres / Historique |
 
 ---
 
@@ -145,9 +138,8 @@ Les Shorts (`youtube.com/shorts/...`) sont exemptés du bloqueur de publicités.
 
 ## Redimensionnement de la fenêtre Portrait
 
-1. **⚙️ → Redimensionner** : contour orange, portrait redimensionnable
-2. Redimensionnez à votre convenance
-3. **✅** pour verrouiller et reprendre la synchronisation
+1. **⚙️ → Redimensionner** — choisissez un préréglage (iPhone 15, Pixel 8, Galaxy S24, iPad) ou **Taille libre** pour redimensionner manuellement (contour orange)
+2. **Valider** pour verrouiller la taille et reprendre la synchronisation, ou **Annuler** pour restaurer la taille précédente
 
 ---
 
@@ -174,4 +166,4 @@ Guide complet pas à pas : **obs-integration/OBS_INTEGRATION.md**.
 **Prérequis** : Node.js >= 22 (https://nodejs.org)
 
 Lancez **installer/build-installer.bat** depuis le dossier racine.
-Produit **dist/DualView-Setup-0.3.2.exe** (~150 Mo).
+Produit **dist/DualView-Setup-0.4.2.exe** (~150 Mo).

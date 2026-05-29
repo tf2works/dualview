@@ -1,4 +1,4 @@
-# DualView v0.4.1
+# DualView v0.4.2
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.4.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.4.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -46,6 +46,62 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Nouveautés v0.4.2
+
+### 🧩 Restructuration modulaire (maintenabilité open source)
+
+`main.js` (1 243 lignes) et `landscape.html` (4 237 lignes) ont été découpés en modules ciblés. Aucun changement fonctionnel — 100% compatible avec les versions précédentes.
+
+**Côté processus principal** (`src/main/`) :
+- `config-manager.js` — configuration JSON, constantes, préréglages
+- `security.js` — bloqueur de publicités, sécurisation de session
+- `url-detector.js` — détection pages login, URLs d'auth, identification de services
+- `sync-manager.js` — cycle de vie de la synchronisation (démarrage différé, pause, reprise)
+- `window-manager.js` — création et gestion des fenêtres BrowserWindow
+- `context-menu.js` — menu contextuel clic droit
+- `ipc/` — 9 handlers IPC thématiques (navigation, sync, tabs, historique, portrait, services, paramètres, OBS, captures)
+
+**Côté renderer landscape** (`src/landscape/`) :
+- `landscape.html` — HTML pur (~420 lignes, remplace les 4 237 lignes monolithiques)
+- `landscape.css` — tous les styles (~955 lignes)
+- `js/` — 15 modules JS : `i18n`, `state`, `ui-utils`, `webview-pool`, `tabs-manager`, `navigation`, `sync-ui`, `login-popup`, `history-panel`, `nav-history-dropdown`, `resize-modal`, `settings-panel`, `services-panel`, `keyboard-shortcuts`, `landscape-init`
+
+---
+
+## Nouveautés v0.4.1
+
+### ⌨️ Raccourcis clavier
+
+| Raccourci | Action |
+|-----------|--------|
+| `Alt + ←` / `Alt + →` | Page précédente / suivante |
+| `F5` / `Ctrl + R` | Recharger |
+| `Ctrl + T` | Nouvel onglet |
+| `Ctrl + W` | Fermer l'onglet |
+| `Ctrl + Tab` | Onglet suivant |
+| `Ctrl + L` / `F6` | Focus barre d'adresse |
+
+### 🖱️ Boutons souris Retour/Avance
+Les boutons latéraux de la souris (boutons 3 et 4) déclenchent navigation arrière/avant,
+comme dans un navigateur standard.
+
+### 🔗 Ouverture de liens dans DualView
+Tout lien ouvrant normalement un nouvel onglet navigateur (`target="_blank"`, `window.open()`)
+est automatiquement redirigé dans un nouvel onglet DualView au lieu d'une fenêtre externe.
+
+### 🖱️ Menu contextuel clic droit
+Menu natif contextuel selon l'élément cliqué :
+- **Lien** : Ouvrir dans un nouvel onglet, Copier l'URL
+- **Image** : Enregistrer l'image sous…, Copier l'URL de l'image
+- **Texte sélectionné** : Copier, Rechercher
+- **Page** : Recharger, Copier l'URL de la page
+
+### 💾 Enregistrement d'image (clic droit)
+Enregistrement natif via dialogue système — seule exception aux téléchargements
+bloqués par défaut.
 
 ---
 
@@ -209,7 +265,7 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.4.1.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.4.2.exe` (~150 Mo).
 
 ---
 
@@ -241,3 +297,4 @@ Produit `dist/DualView-Setup-0.4.1.exe` (~150 Mo).
 | 0.3.1 | Fix cookies portrait. Fix ERR_ABORTED. Fix sync vidéo YouTube. Fix pub 1re vidéo. Auth Microsoft robuste. Overlay paramètres portrait. Mode debug --dev. || 0.3.2 | Intégration OBS (dock + hotkeys Lua). Serveur local HTTP+WebSocket. |
 | 0.4.0 | Redimensionnement Portrait via modale (préréglages + taille libre). Capture instantanée PNG (📷). Omnibar (suggestions + Échap + sélection auto). Détection URL vs recherche. Moteur de recherche configurable (DuckDuckGo par défaut). Historique de navigation persistant (history.json) : panneau latéral groupé par date, recherche, suppression ; dropdown sur ← → par onglet. |
 | 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris Retour/Avance (boutons 3 et 4). Toute ouverture de nouvelle fenêtre redirigée en onglet DualView (`target="_blank"`, `window.open()`). Menu contextuel clic droit : lien, image, texte sélectionné, page — sans "Ouvrir dans une nouvelle fenêtre". Enregistrement d'image via clic droit ("Enregistrer l'image sous…") — seule exception aux téléchargements bloqués. |
+| 0.4.2 | Restructuration modulaire : `main.js` → point d'entrée + 6 modules + 9 handlers IPC. `landscape.html` → HTML pur + CSS externe + 15 modules JS. Zéro régression. |
