@@ -3,7 +3,1780 @@
 <head>
     <meta charset="UTF-8">
     <title>DualView - Paysage</title>
-    <link rel="stylesheet" href="landscape/landscape.css">
+    <style>
+        :root {
+            --bg: #f0f0f0;
+            --bg-alt: #e0e0e0;
+            --bg-tab: #d8d8d8;
+            --bg-tab-act: #ffffff;
+            --fg: #1a1a1a;
+            --fg-muted: #666666;
+            --accent: #0066cc;
+            --accent-h: #0055aa;
+            --border: #c0c0c0;
+            --input-bg: #ffffff;
+            --danger: #dc3545;
+            --tab-close: #888888;
+            --nav-btn: #f5f5f5;
+            --nav-btn-h: #e0e0e0;
+            --nav-dis: #cccccc;
+            --ind-bg: rgba(0,0,0,0.6);
+            --orange: #e67e00;
+            --sync-active: #28a745;
+            --sync-paused: #e67e00;
+        }
+
+        [data-theme="dark"] {
+            --bg: #1e1e1e;
+            --bg-alt: #2a2a2a;
+            --bg-tab: #2e2e2e;
+            --bg-tab-act: #3c3c3c;
+            --fg: #e8e8e8;
+            --fg-muted: #999999;
+            --accent: #4da6ff;
+            --accent-h: #66b3ff;
+            --border: #444444;
+            --input-bg: #333333;
+            --nav-btn: #2e2e2e;
+            --nav-btn-h: #444444;
+            --nav-dis: #444444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none
+        }
+
+        /* ── Onglets ── */
+        #tab-bar {
+            display: flex;
+            align-items: center;
+            background: var(--bg-alt);
+            border-bottom: 1px solid var(--border);
+            padding: 4px 6px 0;
+            gap: 3px;
+            min-height: 34px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            flex-shrink: 0
+        }
+
+            #tab-bar::-webkit-scrollbar {
+                height: 3px
+            }
+
+            #tab-bar::-webkit-scrollbar-thumb {
+                background: var(--border);
+                border-radius: 2px
+            }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--bg-tab);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            padding: 4px 10px 4px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            max-width: 160px;
+            transition: background 0.15s;
+            flex-shrink: 0
+        }
+
+            .tab:hover {
+                background: var(--bg-tab-act)
+            }
+
+            .tab.active {
+                background: var(--bg-tab-act);
+                border-bottom: 1px solid var(--bg-tab-act);
+                margin-bottom: -1px;
+                font-weight: 500
+            }
+
+            .tab.settings-tab {
+                font-style: italic
+            }
+
+        .tab-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--fg);
+            pointer-events: none
+        }
+
+        .tab-close {
+            background: none;
+            border: none;
+            color: var(--tab-close);
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            padding: 0 1px;
+            border-radius: 3px;
+            pointer-events: all;
+            transition: color 0.15s,background 0.15s
+        }
+
+            .tab-close:hover {
+                color: var(--danger);
+                background: rgba(220,53,69,0.12)
+            }
+
+        #add-tab-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 16px;
+            color: var(--fg-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s,color 0.15s;
+            margin-left: 2px
+        }
+
+            #add-tab-btn:hover {
+                background: var(--accent);
+                color: white;
+                border-color: var(--accent)
+            }
+
+        /* ── Toolbar ── */
+        #toolbar {
+            display: flex;
+            align-items: center;
+            padding: 5px 8px;
+            gap: 5px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            position: relative
+        }
+
+        .nav-btn {
+            width: 28px;
+            height: 28px;
+            background: var(--nav-btn);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--fg);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s,opacity 0.15s
+        }
+
+            .nav-btn:hover:not(:disabled) {
+                background: var(--nav-btn-h)
+            }
+
+            .nav-btn:disabled {
+                color: var(--nav-dis);
+                border-color: var(--nav-dis);
+                cursor: default;
+                opacity: 0.5
+            }
+
+        #url-input {
+            width: 100%;
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--input-bg);
+            color: var(--fg);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.15s,box-shadow 0.15s;
+            min-width: 0;
+            box-sizing: border-box
+        }
+
+            #url-input:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 2px rgba(0,102,204,0.2)
+            }
+
+        [data-theme="dark"] #url-input:focus {
+            box-shadow: 0 0 0 2px rgba(77,166,255,0.2)
+        }
+
+        #url-input.settings-url {
+            color: var(--fg-muted);
+            font-style: italic
+        }
+
+        #go-btn {
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s
+        }
+
+            #go-btn:hover {
+                background: var(--accent-h)
+            }
+
+        #resume-btn {
+            width: 28px;
+            height: 28px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: opacity 0.15s
+        }
+
+            #resume-btn:hover {
+                opacity: 0.85
+            }
+
+        #gear-btn {
+            width: 28px;
+            height: 28px;
+            background: var(--nav-btn);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--fg);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s
+        }
+
+            #gear-btn:hover {
+                background: var(--nav-btn-h)
+            }
+
+        /* ── Bouton sync ── */
+        #sync-btn {
+            height: 28px;
+            padding: 0 10px;
+            background: var(--nav-btn);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--fg);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-shrink: 0;
+            transition: background 0.15s;
+            white-space: nowrap
+        }
+
+            #sync-btn:hover {
+                background: var(--nav-btn-h)
+            }
+
+            #sync-btn .sync-dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: var(--sync-active);
+                flex-shrink: 0;
+                transition: background 0.3s
+            }
+
+            #sync-btn.paused .sync-dot {
+                background: var(--sync-paused)
+            }
+
+            #sync-btn.paused {
+                border-color: var(--sync-paused)
+            }
+
+        /* ── Dropdown sync ── */
+        #sync-menu {
+            position: absolute;
+            top: 38px;
+            right: 42px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 180px;
+            z-index: 1000;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            display: none
+        }
+
+            #sync-menu.open {
+                display: block
+            }
+
+        .sync-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            font-size: 13px;
+            color: var(--fg);
+            cursor: pointer;
+            transition: background 0.1s
+        }
+
+            .sync-item:hover:not(.disabled) {
+                background: var(--bg-alt)
+            }
+
+            .sync-item.disabled {
+                opacity: 0.35;
+                cursor: default;
+                pointer-events: none
+            }
+
+        .sync-item-icon {
+            font-size: 14px;
+            width: 18px;
+            text-align: center
+        }
+
+        .sync-separator {
+            height: 1px;
+            background: var(--border);
+            margin: 3px 0
+        }
+
+        /* ── Dropdown ⚙️ ── */
+        #gear-menu {
+            position: absolute;
+            top: 38px;
+            right: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 170px;
+            z-index: 1000;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            display: none
+        }
+
+            #gear-menu.open {
+                display: block
+            }
+
+        .gear-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 14px;
+            font-size: 13px;
+            color: var(--fg);
+            cursor: pointer;
+            transition: background 0.1s
+        }
+
+            .gear-item:hover {
+                background: var(--bg-alt)
+            }
+
+        .gear-separator {
+            height: 1px;
+            background: var(--border);
+            margin: 3px 0
+        }
+
+        /* ── Status bar ── */
+        #status-bar {
+            display: flex;
+            align-items: center;
+            padding: 2px 10px;
+            gap: 10px;
+            background: var(--bg-alt);
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--fg-muted);
+            flex-shrink: 0
+        }
+
+        #adblock-label {
+            color: #28a745;
+            font-weight: 500
+        }
+
+        #version-label {
+            margin-left: auto
+        }
+
+        #dev-btn {
+            background: none;
+            border: 1px solid var(--orange);
+            border-radius: 4px;
+            color: var(--orange);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 6px;
+            cursor: pointer;
+            display: none;
+            margin-left: 8px;
+            transition: background 0.15s
+        }
+
+            #dev-btn:hover {
+                background: rgba(230,126,0,0.15)
+            }
+
+        body.dev-mode #dev-btn {
+            display: inline-block
+        }
+
+        /* ── Toast ── */
+        #toast {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(220,53,69,0.92);
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 7px 16px;
+            border-radius: 6px;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.25s;
+            white-space: nowrap
+        }
+
+            #toast.show {
+                opacity: 1
+            }
+
+        /* ── Zone webviews ── */
+        #webview-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column
+        }
+
+        .wv-landscape {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none
+        }
+
+            .wv-landscape.active {
+                display: flex
+            }
+
+        #video-indicator {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: var(--ind-bg);
+            color: white;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 4px;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px
+        }
+
+            #video-indicator.visible {
+                opacity: 0.85
+            }
+
+            #video-indicator .dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #4caf50
+            }
+
+            #video-indicator.paused .dot {
+                background: #ff9800
+            }
+
+        #empty-state {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--fg);
+            opacity: 0.5;
+            pointer-events: none
+        }
+
+            #empty-state .icon {
+                font-size: 48px
+            }
+
+            #empty-state .text {
+                font-size: 16px;
+                font-weight: 500
+            }
+
+            #empty-state .sub {
+                font-size: 13px
+            }
+
+        /* ── Popup login ── */
+        #login-popup {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 8000;
+            align-items: center;
+            justify-content: center
+        }
+
+            #login-popup.show {
+                display: flex
+            }
+
+        #login-popup-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.45)
+        }
+
+        #login-popup-box {
+            position: relative;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px 28px;
+            max-width: 420px;
+            width: 90%;
+            z-index: 1;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2)
+        }
+
+        #login-popup-icon {
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 12px
+        }
+
+        #login-popup-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--fg);
+            margin-bottom: 8px;
+            text-align: center
+        }
+
+        #login-popup-desc {
+            font-size: 13px;
+            color: var(--fg-muted);
+            text-align: center;
+            margin-bottom: 20px;
+            line-height: 1.5
+        }
+
+        .login-popup-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center
+        }
+
+        .login-popup-btn {
+            padding: 8px 18px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: background 0.15s
+        }
+
+            .login-popup-btn.primary {
+                background: var(--accent);
+                color: white;
+                border-color: var(--accent)
+            }
+
+                .login-popup-btn.primary:hover {
+                    background: var(--accent-h)
+                }
+
+            .login-popup-btn.secondary {
+                background: var(--nav-btn);
+                color: var(--fg)
+            }
+
+                .login-popup-btn.secondary:hover {
+                    background: var(--nav-btn-h)
+                }
+        /* Popup d'ignorance */
+        #ignore-confirm {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 8100;
+            align-items: center;
+            justify-content: center
+        }
+
+            #ignore-confirm.show {
+                display: flex
+            }
+
+        #ignore-confirm-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.4)
+        }
+
+        #ignore-confirm-box {
+            position: relative;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 24px;
+            max-width: 380px;
+            width: 90%;
+            z-index: 1;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.2)
+        }
+
+        #ignore-confirm-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px
+        }
+
+        #ignore-confirm-desc {
+            font-size: 12px;
+            color: var(--fg-muted);
+            margin-bottom: 16px;
+            line-height: 1.5
+        }
+
+        .ignore-confirm-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end
+        }
+        /* Popup confirmation auth perso */
+        #auth-confirm-dialog {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 8200;
+            align-items: center;
+            justify-content: center
+        }
+
+            #auth-confirm-dialog.show {
+                display: flex
+            }
+
+        #auth-confirm-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.4)
+        }
+
+        #auth-confirm-box {
+            position: relative;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 24px;
+            max-width: 400px;
+            width: 90%;
+            z-index: 1;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.2)
+        }
+
+        #auth-confirm-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px
+        }
+
+        #auth-confirm-desc {
+            font-size: 12px;
+            color: var(--fg-muted);
+            margin-bottom: 16px;
+            line-height: 1.5
+        }
+
+        .auth-confirm-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end
+        }
+
+        /* ── Settings panel ── */
+        #settings-panel {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+            background: var(--bg);
+            position: relative
+        }
+
+            #settings-panel.show {
+                display: flex
+            }
+
+        .s-sidebar {
+            width: 170px;
+            border-right: 1px solid var(--border);
+            background: var(--bg-alt);
+            flex-shrink: 0;
+            padding: 8px 0
+        }
+
+        .s-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            font-size: 13px;
+            color: var(--fg-muted);
+            cursor: pointer;
+            transition: background 0.1s
+        }
+
+            .s-nav:hover {
+                background: var(--bg)
+            }
+
+            .s-nav.active {
+                background: var(--bg);
+                color: var(--fg);
+                font-weight: 500;
+                border-right: 2px solid var(--accent)
+            }
+
+        .s-nav-icon {
+            font-size: 16px
+        }
+
+        .s-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px
+        }
+
+        .s-section {
+            display: none
+        }
+
+            .s-section.active {
+                display: block
+            }
+
+        .s-heading {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--fg);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .s-row {
+            margin-bottom: 18px
+        }
+
+        .s-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--fg);
+            margin-bottom: 3px;
+            display: block
+        }
+
+        .s-desc {
+            font-size: 11px;
+            color: var(--fg-muted);
+            margin-bottom: 6px
+        }
+
+        .s-check-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px
+        }
+
+            .s-check-row input[type=checkbox] {
+                margin-top: 2px;
+                flex-shrink: 0;
+                cursor: pointer
+            }
+
+        .s-check-label {
+            font-size: 13px;
+            color: var(--fg);
+            cursor: pointer
+        }
+
+        .s-check-desc {
+            font-size: 11px;
+            color: var(--fg-muted);
+            margin-top: 2px
+        }
+
+        .s-select {
+            width: 100%;
+            padding: 6px 10px;
+            font-size: 13px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--fg);
+            outline: none
+        }
+
+            .s-select:focus {
+                border-color: var(--accent)
+            }
+
+        .s-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 18px 0
+        }
+
+        .s-custom-url {
+            display: none;
+            margin-top: 8px;
+            gap: 6px;
+            align-items: flex-start;
+            flex-direction: column
+        }
+
+            .s-custom-url.show {
+                display: flex
+            }
+
+        .s-url-row {
+            display: flex;
+            gap: 6px;
+            width: 100%
+        }
+
+        .s-url-input {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 13px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--fg);
+            outline: none
+        }
+
+            .s-url-input:focus {
+                border-color: var(--accent)
+            }
+
+        .s-validate-btn {
+            padding: 6px 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s
+        }
+
+            .s-validate-btn:hover {
+                background: var(--accent-h)
+            }
+
+        .s-msg {
+            font-size: 11px;
+            margin-top: 4px;
+            display: none
+        }
+
+            .s-msg.show {
+                display: block
+            }
+
+            .s-msg.ok {
+                color: #28a745
+            }
+
+            .s-msg.err {
+                color: var(--danger)
+            }
+
+        .s-info-block {
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 10px
+        }
+
+        .s-info-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--fg);
+            margin-bottom: 3px
+        }
+
+        .s-info-desc {
+            font-size: 11px;
+            color: var(--fg-muted)
+        }
+
+        .s-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba(40,167,69,0.15);
+            color: #28a745;
+            margin-top: 4px
+        }
+
+            .s-badge.warn {
+                background: rgba(230,126,0,0.15);
+                color: var(--orange)
+            }
+
+        /* ── Services connectés ── */
+        .svc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill,minmax(130px,1fr));
+            gap: 10px;
+            margin-bottom: 20px
+        }
+
+        .svc-tile {
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: border-color 0.2s,background 0.2s;
+            position: relative
+        }
+
+            .svc-tile:hover {
+                border-color: var(--accent);
+                background: var(--bg)
+            }
+
+            .svc-tile.connected {
+                border-color: #28a745
+            }
+
+        .svc-tile-icon {
+            font-size: 24px
+        }
+
+        .svc-tile-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--fg);
+            text-align: center
+        }
+
+        .svc-tile-status {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--fg-muted)
+        }
+
+        .svc-tile.connected .svc-tile-status {
+            color: #28a745
+        }
+
+        .svc-tile-disconnect {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: none;
+            border: none;
+            color: var(--fg-muted);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            display: none;
+            transition: color 0.15s
+        }
+
+        .svc-tile:hover .svc-tile-disconnect {
+            display: block
+        }
+
+        .svc-tile-disconnect:hover {
+            color: var(--danger)
+        }
+
+        .svc-custom-add {
+            background: var(--bg-alt);
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            padding: 12px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            color: var(--fg-muted)
+        }
+
+            .svc-custom-add:hover {
+                border-color: var(--accent);
+                color: var(--accent)
+            }
+
+        .svc-custom-form {
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 10px;
+            display: none
+        }
+
+            .svc-custom-form.show {
+                display: block
+            }
+
+        .svc-custom-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px
+        }
+
+        .svc-custom-input {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--fg);
+            outline: none
+        }
+
+            .svc-custom-input:focus {
+                border-color: var(--accent)
+            }
+
+        .svc-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--fg-muted);
+            padding: 10px 0
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite
+        }
+
+        /* ── Panneau Historique (v0.4.0) ── */
+        #history-panel {
+            position: fixed;
+            top: 0; right: 0; bottom: 0;
+            width: 360px;
+            background: var(--bg);
+            border-left: 1px solid var(--border);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.12);
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.22s ease
+        }
+
+            #history-panel.open {
+                transform: translateX(0)
+            }
+
+        #history-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0
+        }
+
+        #history-panel-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--fg)
+        }
+
+        #history-panel-close {
+            width: 26px; height: 26px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--fg-muted);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.1s, color 0.1s
+        }
+            #history-panel-close:hover { background: var(--bg-alt); color: var(--danger) }
+
+        #history-search-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0
+        }
+
+        #history-search-input {
+            flex: 1;
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--fg);
+            font-size: 12px;
+            outline: none
+        }
+            #history-search-input:focus { border-color: var(--accent) }
+
+        #history-clear-all-btn {
+            padding: 5px 10px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--danger);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.1s
+        }
+            #history-clear-all-btn:hover { background: rgba(220,53,69,0.08) }
+
+        #history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+            scrollbar-width: thin
+        }
+
+        .hist-group-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 10px 14px 4px;
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .hist-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px 6px 14px;
+            cursor: pointer;
+            transition: background 0.1s
+        }
+            .hist-item:hover { background: var(--bg-alt) }
+
+        .hist-favicon {
+            font-size: 13px;
+            flex-shrink: 0;
+            width: 16px;
+            text-align: center;
+            color: var(--fg-muted)
+        }
+
+        .hist-text {
+            flex: 1;
+            min-width: 0
+        }
+
+        .hist-title {
+            font-size: 12px;
+            color: var(--fg);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .hist-url {
+            font-size: 10px;
+            color: var(--fg-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .hist-time {
+            font-size: 10px;
+            color: var(--fg-muted);
+            flex-shrink: 0;
+            white-space: nowrap
+        }
+
+        .hist-delete-btn {
+            width: 20px; height: 20px;
+            background: none;
+            border: none;
+            color: var(--fg-muted);
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: color 0.1s, background 0.1s
+        }
+            .hist-item:hover .hist-delete-btn { display: flex }
+            .hist-delete-btn:hover { color: var(--danger); background: rgba(220,53,69,0.1) }
+
+        #history-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 40px 20px;
+            color: var(--fg-muted);
+            font-size: 13px;
+            text-align: center
+        }
+
+        /* ── Dropdown historique sur ← → (v0.4.0) ── */
+        #nav-history-dropdown {
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 0;
+            min-width: 280px;
+            max-width: 380px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+            z-index: 2500;
+            display: none;
+            overflow: hidden;
+            padding: 4px 0
+        }
+            #nav-history-dropdown.open { display: block }
+
+        .nav-hist-section {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 6px 12px 3px
+        }
+
+        .nav-hist-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--fg);
+            cursor: pointer;
+            transition: background 0.1s
+        }
+            .nav-hist-item:hover { background: var(--bg-alt) }
+            .nav-hist-item.current { background: rgba(0,102,204,0.07); font-weight: 500 }
+
+        .nav-hist-icon { font-size: 11px; color: var(--fg-muted); flex-shrink: 0 }
+
+        .nav-hist-url {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        .nav-hist-footer {
+            border-top: 1px solid var(--border);
+            padding: 5px 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px
+        }
+
+        .nav-hist-footer-btn {
+            flex: 1;
+            padding: 5px 8px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 11px;
+            color: var(--fg-muted);
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.1s, color 0.1s, border-color 0.1s
+        }
+            .nav-hist-footer-btn:hover {
+                background: var(--bg-alt);
+                color: var(--accent);
+                border-color: var(--accent)
+            }
+            .nav-hist-footer-btn.hide-btn:hover {
+                color: var(--fg);
+                border-color: var(--border)
+            }
+
+
+        #screenshot-btn {
+            width: 28px;
+            height: 28px;
+            background: rgba(40,167,69,0.12);
+            border: 1px solid #28a745;
+            border-radius: 6px;
+            color: #28a745;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s
+        }
+
+            #screenshot-btn:hover {
+                background: rgba(40,167,69,0.25)
+            }
+
+        /* ── Omnibar dropdown (v0.4.0) ── */
+        #omnibar-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 2px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+            z-index: 2000;
+            display: none;
+            overflow: hidden
+        }
+
+            #omnibar-dropdown.open {
+                display: block
+            }
+
+        .omni-section-lbl {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 6px 12px 3px
+        }
+
+        .omni-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--fg);
+            cursor: pointer;
+            transition: background 0.1s
+        }
+
+            .omni-item:hover, .omni-item.selected {
+                background: var(--bg-alt)
+            }
+
+            .omni-item.selected {
+                border-left: 2px solid var(--accent)
+            }
+
+        .omni-icon {
+            font-size: 12px;
+            width: 16px;
+            text-align: center;
+            flex-shrink: 0
+        }
+
+        .omni-url {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        .omni-sub {
+            font-size: 10px;
+            color: var(--fg-muted);
+            flex-shrink: 0
+        }
+
+        .omni-search-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            font-size: 12px;
+            color: var(--fg);
+            cursor: pointer;
+            border-top: 1px solid var(--border);
+            transition: background 0.1s
+        }
+
+            .omni-search-row:hover, .omni-search-row.selected {
+                background: var(--bg-alt)
+            }
+
+        .omni-engine-pill {
+            background: rgba(230,126,0,0.15);
+            color: var(--orange);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 10px;
+            font-weight: 600
+        }
+
+        .omni-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 2px 0
+        }
+
+        /* ── Modale redimensionnement Portrait (v0.4.0) ── */
+        #resize-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 8500;
+            background: rgba(0,0,0,0.4);
+            align-items: center;
+            justify-content: center
+        }
+
+            #resize-modal-overlay.show {
+                display: flex
+            }
+
+        #resize-modal-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            width: 320px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.22)
+        }
+
+        #resize-modal-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--fg);
+            margin-bottom: 4px
+        }
+
+        #resize-modal-sub {
+            font-size: 11px;
+            color: var(--fg-muted);
+            margin-bottom: 14px;
+            line-height: 1.5
+        }
+
+        .resize-preset-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 10px
+        }
+
+        .resize-preset-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--fg);
+            background: var(--bg);
+            transition: border-color 0.15s, background 0.15s
+        }
+
+            .resize-preset-item:hover {
+                background: var(--bg-alt)
+            }
+
+            .resize-preset-item.active {
+                border-color: var(--accent);
+                background: rgba(0,102,204,0.07)
+            }
+
+        [data-theme="dark"] .resize-preset-item.active {
+            background: rgba(77,166,255,0.1)
+        }
+
+        .resize-preset-dim {
+            font-size: 11px;
+            color: var(--fg-muted)
+        }
+
+        .resize-preset-item.free-size {
+            border-style: dashed;
+            color: var(--fg-muted)
+        }
+
+        .resize-modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 12px
+        }
+
+        /* ── Moteur de recherche (settings, v0.4.0) ── */
+        .search-engine-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 8px
+        }
+
+        .search-engine-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--fg);
+            background: var(--bg);
+            transition: border-color 0.15s, background 0.15s
+        }
+
+            .search-engine-item:hover {
+                background: var(--bg-alt)
+            }
+
+            .search-engine-item.active {
+                border-color: var(--accent);
+                background: rgba(0,102,204,0.07)
+            }
+
+        [data-theme="dark"] .search-engine-item.active {
+            background: rgba(77,166,255,0.1)
+        }
+
+        .search-engine-radio {
+            width: 14px;
+            height: 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center
+        }
+
+            .search-engine-radio.checked {
+                border-color: var(--accent)
+            }
+
+            .search-engine-radio.checked::after {
+                content: '';
+                width: 6px;
+                height: 6px;
+                background: var(--accent);
+                border-radius: 50%
+            }
+
+        .search-engine-url {
+            font-size: 10px;
+            color: var(--fg-muted);
+            margin-left: auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 160px
+        }
+
+        .search-engine-add-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px
+        }
+
+        /* ── Screenshot settings (v0.4.0) ── */
+        .screenshot-dir-row {
+            display: flex;
+            align-items: center;
+            gap: 6px
+        }
+
+        .screenshot-dir-path {
+            flex: 1;
+            font-size: 11px;
+            color: var(--fg-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+
+        #restart-dialog {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 500;
+            align-items: center;
+            justify-content: center
+        }
+
+            #restart-dialog.show {
+                display: flex
+            }
+
+        .restart-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 24px;
+            max-width: 360px;
+            width: 90%
+        }
+
+        .restart-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--fg);
+            margin-bottom: 8px
+        }
+
+        .restart-desc {
+            font-size: 12px;
+            color: var(--fg-muted);
+            margin-bottom: 16px;
+            line-height: 1.5
+        }
+
+        .restart-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end
+        }
+
+        .restart-cancel {
+            padding: 6px 14px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--fg);
+            cursor: pointer;
+            transition: background 0.15s
+        }
+
+            .restart-cancel:hover {
+                background: var(--bg-alt)
+            }
+
+        .restart-confirm {
+            padding: 6px 14px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.15s
+        }
+
+            .restart-confirm:hover {
+                background: var(--accent-h)
+            }
+    </style>
 </head>
 <body>
 
@@ -16,13 +1789,9 @@
         <button id="forward-btn" class="nav-btn" title="→" disabled>&#8594;</button>
         <button id="reload-btn" class="nav-btn" title="⟳">&#8635;</button>
         <button id="home-btn" class="nav-btn" title="🏠">&#8962;</button>
-        <div id="omnibar-wrapper" style="flex:1;position:relative;min-width:0">
-            <input type="text" id="url-input" autocomplete="off" spellcheck="false" />
-            <div id="omnibar-dropdown"></div>
-        </div>
+        <input type="text" id="url-input" autocomplete="off" spellcheck="false" />
         <button id="go-btn" title="▶">&#9654;</button>
-        <button id="resume-btn" title="✅" style="display:none">&#9989;</button>
-        <button id="screenshot-btn" title="📷 Capturer les deux vues">&#128247;</button>
+        <button id="resume-btn" title="✅">&#9989;</button>
 
         <!-- Bouton sync -->
         <button id="sync-btn" class="paused" title="Synchronisation">
@@ -32,7 +1801,7 @@
 
         <button id="gear-btn" title="⚙️">&#9881;&#65039;</button>
 
-        <!-- Dropdown nav-history (dans toolbar pour position:absolute) -->
+        <!-- Dropdown nav-history (v0.4.0) — dans toolbar pour position:absolute -->
         <div id="nav-history-dropdown"></div>
 
         <!-- Menu sync -->
@@ -59,11 +1828,6 @@
                 <span data-i18n="resize">Redimensionner</span>
             </div>
             <div class="gear-separator"></div>
-            <div class="gear-item" id="menu-history">
-                <span>&#128336;</span>
-                <span data-i18n="history">Historique</span>
-            </div>
-            <div class="gear-separator"></div>
             <div class="gear-item" id="menu-settings">
                 <span>&#9881;</span>
                 <span data-i18n="settings">Paramètres</span>
@@ -73,7 +1837,7 @@
 
     <div id="status-bar">
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
-        <span id="version-label">v0.4.2</span>
+        <span id="version-label">v0.4.0</span>
         <button id="dev-btn" title="Inspecter webview active (Ctrl+F12)">🔧 DEV</button>
     </div>
 
@@ -125,7 +1889,9 @@
         <div id="resize-modal-box">
             <div id="resize-modal-title">Redimensionner la fenêtre Portrait</div>
             <div id="resize-modal-sub">Choisissez un préréglage ou redimensionnez manuellement la fenêtre Portrait (contour orange).</div>
-            <div class="resize-preset-list" id="resize-preset-list"></div>
+            <div class="resize-preset-list" id="resize-preset-list">
+                <!-- généré par JS -->
+            </div>
             <div class="resize-modal-actions">
                 <button class="restart-cancel" id="resize-modal-cancel">Annuler</button>
                 <button class="restart-confirm" id="resize-modal-validate">✓ Valider</button>
@@ -205,18 +1971,22 @@
                     </select>
                 </div>
                 <div class="s-divider"></div>
+                <!-- Moteur de recherche (v0.4.0) -->
                 <div class="s-row">
                     <label class="s-label" data-i18n="searchEngineLabel">Moteur de recherche</label>
                     <div class="s-desc" data-i18n="searchEngineDesc">Utilisé quand le texte saisi n'est pas une adresse web.</div>
-                    <div class="search-engine-list" id="s-engine-list"></div>
+                    <div class="search-engine-list" id="s-engine-list">
+                        <!-- généré par JS -->
+                    </div>
                     <div class="search-engine-add-row">
-                        <input type="text" id="s-engine-name" class="s-url-input" style="max-width:110px" placeholder="Nom" />
-                        <input type="text" id="s-engine-url" class="s-url-input" placeholder="https://moteur.com/search?q=" />
+                        <input type="text" id="s-engine-name" class="s-url-input" style="max-width:110px" data-i18n-placeholder="searchEngineNamePlaceholder" placeholder="Nom" />
+                        <input type="text" id="s-engine-url" class="s-url-input" data-i18n-placeholder="searchEngineUrlPlaceholder" placeholder="https://moteur.com/search?q=" />
                         <button id="s-engine-add-btn" class="s-validate-btn" data-i18n="searchEngineAdd">+ Ajouter</button>
                     </div>
                     <div id="s-engine-msg" class="s-msg"></div>
                 </div>
                 <div class="s-divider"></div>
+                <!-- Captures d'écran (v0.4.0) -->
                 <div class="s-row">
                     <label class="s-label" data-i18n="screenshotLabel">Captures d'écran</label>
                     <div class="s-desc" data-i18n="screenshotDesc">Dossier de sauvegarde des captures.</div>
@@ -286,7 +2056,7 @@
                 <div class="s-heading" data-i18n="settingsPrivacy">Confidentialité</div>
                 <div class="s-info-block">
                     <div class="s-info-title" data-i18n="privacyDownloads">Téléchargements</div>
-                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. Exception : enregistrement d'image via clic droit.</div>
+                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. DualView est un outil de streaming.</div>
                     <div class="s-badge">&#10003; Bloqué</div>
                 </div>
                 <div class="s-info-block">
@@ -364,57 +2134,2077 @@
         </div>
     </div>
 
-    <!-- Panneau Historique (v0.4.0) -->
-    <div id="history-panel">
-        <div id="history-panel-header">
-            <span id="history-panel-title">🕐 Historique</span>
-            <button id="history-panel-close" title="Fermer">✕</button>
-        </div>
-        <div id="history-search-row">
-            <input type="text" id="history-search-input" placeholder="Rechercher dans l'historique…" autocomplete="off" spellcheck="false" />
-            <button id="history-clear-all-btn">Tout effacer</button>
-        </div>
-        <div id="history-list">
-            <div id="history-empty" style="display:none">
-                <span style="font-size:32px">🕐</span>
-                <span>Aucun historique</span>
-                <span style="font-size:11px;color:var(--fg-muted)">Les pages que vous visitez apparaîtront ici.</span>
-            </div>
-        </div>
-    </div>
+    <script>
+        // ── Traductions ────────────────────────────────────────────────────────────────
+        const I18N = {
+            fr: {
+                syncActive: 'Sync active', syncPaused: 'Sync pausée', syncStarting: 'Sync…',
+                syncPauseAction: 'Mettre en pause', syncResumeAction: 'Reprendre', syncRestartAction: 'Redémarrer',
+                adblockActive: 'Bloqueur pub actif', newTab: 'Nouvel onglet',
+                landscapeView: 'Vue Paysage (Desktop)', enterUrl: "Entrez une URL dans la barre d'adresse",
+                downloadBlocked: 'Téléchargement non autorisé', addressPlaceholder: 'https://exemple.com',
+                resize: 'Redimensionner', settings: 'Paramètres',
+                history: 'Historique',
+                settingsGeneral: 'Général', settingsAppearance: 'Apparence', settingsLanguage: 'Langue',
+                settingsServices: 'Services connectés', settingsPrivacy: 'Confidentialité',
+                restoreTabs: 'Ouvrir les fenêtres et onglets précédents',
+                restoreTabsDesc: 'Au démarrage, restaure les onglets et URL de la session précédente.',
+                homepageLabel: "Page d'accueil et nouvelles fenêtres", homepageDesc: "Page affichée au démarrage et sur le bouton accueil.",
+                homepageKnack3: "Page d'accueil Knack3 (par défaut)", homepageCustom: 'Adresse web personnalisée', homepageEmpty: 'Page vide',
+                newTabLabel: 'Nouveaux onglets', newTabHomepage: "Page d'accueil sélectionnée", newTabEmpty: 'Page vide',
+                customUrlPlaceholder: 'https://exemple.com', validateBtn: 'Valider',
+                urlValid: "URL valide — page d'accueil mise à jour.", urlInvalid: 'Seules les URL sont autorisées (http:// ou https://).',
+                appearanceLabel: 'Apparence des sites web', appearanceDesc: "Applique le thème aux sites visités et à l'interface DualView.",
+                appearanceAuto: 'Automatique (suit le système)', appearanceLight: 'Clair', appearanceDark: 'Sombre',
+                languageLabel: "Langue de l'interface", languageDesc: "Langue utilisée pour l'interface DualView.",
+                langFr: 'Français', langEn: 'English',
+                servicesDesc: 'Connectez-vous à vos services pour naviguer sans interruption.',
+                servicesLoading: 'Vérification des connexions…', servicesCustom: 'Service personnalisé',
+                servicesCustomDesc: 'Ajoutez un service non listé.', servicesAddCustom: 'Ajouter un service',
+                servicesConnect: 'Connecter', servicesConnected: 'Connecté', servicesNotConnected: 'Non connecté',
+                servicesReconnect: 'Se reconnecter', servicesDisconnect: 'Déconnecter',
+                servicesConnecting: 'Connexion en cours…', servicesSuccess: 'Connecté avec succès.',
+                servicesFailed: 'Connexion non confirmée.', servicesDeleted: 'Service supprimé.',
+                privacyDownloads: 'Téléchargements', privacyDownloadsDesc: "Les téléchargements sont désactivés. Exception : enregistrement d'image via clic droit (→ Enregistrer l'image sous…).",
+                privacyPermissions: 'Permissions', privacyPermissionsDesc: 'Caméra, microphone, géolocalisation et notifications sont bloqués.',
+                privacySchemes: 'Navigation sécurisée', privacySchemesDesc: 'Seuls les protocoles http://, https:// et file:// sont autorisés.',
+                privacyShorts: 'YouTube Shorts', privacyShortsDesc: 'Le bloqueur de publicités est désactivé sur YouTube Shorts (pas de pré-roll).',
+                restartTitle: 'Redémarrage requis',
+                restartAppearanceDesc: "Le thème sera appliqué au prochain démarrage. Redémarrer maintenant ?",
+                restartLanguageDesc: "La langue sera appliquée au prochain démarrage. Redémarrer maintenant ?",
+                loginPopupTitle: 'Connexion requise',
+                loginPopupDesc: "Pour continuer sans difficulté, il est recommandé d'enregistrer ce service dans Services connectés.",
+                loginPopupBack: 'Retour', loginPopupConnect: 'Se connecter', loginPopupServices: 'Services connectés',
+                ignoreConfirmTitle: 'Continuer sans connexion ?',
+                ignoreConfirmDesc: "Pour se connecter sans difficulté, il est recommandé d'ajouter un service connecté. Voulez-vous toujours ignorer ?",
+                ignoreCancel: 'Annuler', ignoreOk: 'Ignorer quand même',
+                authConfirmCancel: 'Pas encore', authConfirmOk: 'Confirmer',
+                syncResumeVideoHint: 'Synchronisation vidéo reprise.', syncResumeScrollHint: 'Synchronisation scroll reprise.',
+                settingsObs: 'OBS',
+                obsEnabledLabel: 'Activer le contrôle depuis OBS',
+                obsEnabledDesc: "Démarre un serveur local (127.0.0.1) permettant le dock OBS et les raccourcis clavier. Aucune donnée n'est exposée au réseau.",
+                obsPortLabel: 'Port du serveur',
+                obsPortDesc: '0 = port choisi automatiquement. Fixez une valeur (ex. 49231) pour un port stable.',
+                obsPortApply: 'Appliquer', obsPortApplied: 'Port appliqué.', obsPortInvalid: 'Port invalide (0–65535).',
+                obsStatusLabel: 'État du serveur', obsStatusRunning: 'Actif sur', obsStatusStopped: 'Arrêté', obsStatusDisabled: 'Désactivé',
+                obsDockUrlLabel: 'URL du dock OBS',
+                obsDockUrlDesc: 'À coller dans OBS : Affichage → Docks → Dock de navigateur personnalisé.',
+                obsPortValueLabel: 'Port (pour le script de hotkeys)',
+                obsTokenLabel: 'Token (pour le script de hotkeys)', obsTokenDesc: 'Sécurise les commandes OBS. Ne le partagez pas.',
+                obsGuideTitle: 'Guide complet', obsGuideDesc: 'Voir obs-integration/OBS_INTEGRATION.md pour la mise en place du dock et des raccourcis clavier.',
+                copyBtn: 'Copier', copiedBtn: 'Copié !',
+                // v0.4.0
+                searchEngineLabel: 'Moteur de recherche',
+                searchEngineDesc: "Utilisé quand le texte saisi n'est pas une adresse web.",
+                searchEngineAdd: '+ Ajouter',
+                searchEngineNamePlaceholder: 'Nom',
+                searchEngineUrlPlaceholder: 'https://moteur.com/search?q=',
+                searchEngineExists: 'Ce moteur existe déjà.',
+                searchEngineInvalid: 'URL invalide (doit commencer par http).',
+                screenshotLabel: "Captures d'écran",
+                screenshotDesc: 'Dossier de sauvegarde des captures.',
+                screenshotBrowse: 'Parcourir…',
+                screenshotOk: '✓ Captures sauvegardées',
+                screenshotErr: 'Erreur lors de la capture.',
+            },
+            en: {
+                syncActive: 'Sync active', syncPaused: 'Sync paused', syncStarting: 'Sync…',
+                syncPauseAction: 'Pause', syncResumeAction: 'Resume', syncRestartAction: 'Restart',
+                adblockActive: 'Ad blocker active', newTab: 'New tab',
+                landscapeView: 'Landscape view (Desktop)', enterUrl: 'Enter a URL in the address bar',
+                downloadBlocked: 'Download not allowed', addressPlaceholder: 'https://example.com',
+                resize: 'Resize', settings: 'Settings',
+                history: 'History',
+                settingsGeneral: 'General', settingsAppearance: 'Appearance', settingsLanguage: 'Language',
+                settingsServices: 'Connected services', settingsPrivacy: 'Privacy',
+                restoreTabs: 'Restore windows and tabs from previous session',
+                restoreTabsDesc: 'On startup, restores tabs and URLs from the previous session.',
+                homepageLabel: 'Homepage and new windows', homepageDesc: 'Page shown on startup and when clicking the home button.',
+                homepageKnack3: 'Knack3 homepage (default)', homepageCustom: 'Custom web address', homepageEmpty: 'Empty page',
+                newTabLabel: 'New tabs', newTabHomepage: 'Selected homepage', newTabEmpty: 'Empty page',
+                customUrlPlaceholder: 'https://example.com', validateBtn: 'Apply',
+                urlValid: 'Valid URL — homepage updated.', urlInvalid: 'Only URLs are allowed (http:// or https://).',
+                appearanceLabel: 'Website appearance', appearanceDesc: 'Applies theme to visited sites and DualView interface.',
+                appearanceAuto: 'Automatic (follows system)', appearanceLight: 'Light', appearanceDark: 'Dark',
+                languageLabel: 'Interface language', languageDesc: 'Language used for the DualView interface.',
+                langFr: 'Français', langEn: 'English',
+                servicesDesc: 'Sign in to your services to browse without interruption.',
+                servicesLoading: 'Checking connections…', servicesCustom: 'Custom service',
+                servicesCustomDesc: 'Add an unlisted service.', servicesAddCustom: 'Add a service',
+                servicesConnect: 'Connect', servicesConnected: 'Connected', servicesNotConnected: 'Not connected',
+                servicesReconnect: 'Reconnect', servicesDisconnect: 'Disconnect',
+                servicesConnecting: 'Connecting…', servicesSuccess: 'Successfully connected.',
+                servicesFailed: 'Connection not confirmed.', servicesDeleted: 'Service removed.',
+                privacyDownloads: 'Downloads', privacyDownloadsDesc: 'Downloads are disabled. Exception: images can be saved via right-click (→ Save image as…).',
+                privacyPermissions: 'Permissions', privacyPermissionsDesc: 'Camera, microphone, geolocation and notifications are blocked.',
+                privacySchemes: 'Secure browsing', privacySchemesDesc: 'Only http://, https:// and file:// protocols are allowed.',
+                privacyShorts: 'YouTube Shorts', privacyShortsDesc: 'Ad blocker is disabled on YouTube Shorts (no pre-roll).',
+                restartTitle: 'Restart required',
+                restartAppearanceDesc: 'The theme will be applied on next startup. Restart now?',
+                restartLanguageDesc: 'The language will be applied on next startup. Restart now?',
+                loginPopupTitle: 'Sign in required',
+                loginPopupDesc: 'To continue smoothly, it is recommended to add this service to Connected Services.',
+                loginPopupBack: 'Go back', loginPopupConnect: 'Sign in', loginPopupServices: 'Connected services',
+                ignoreConfirmTitle: 'Continue without signing in?',
+                ignoreConfirmDesc: 'It is recommended to add a connected service for a smooth experience. Ignore anyway?',
+                ignoreCancel: 'Cancel', ignoreOk: 'Ignore anyway',
+                authConfirmCancel: 'Not yet', authConfirmOk: 'Confirm',
+                syncResumeVideoHint: 'Video sync resumed.', syncResumeScrollHint: 'Scroll sync resumed.',
+                settingsObs: 'OBS',
+                obsEnabledLabel: 'Enable control from OBS',
+                obsEnabledDesc: 'Starts a local server (127.0.0.1) enabling the OBS dock and keyboard shortcuts. No data is exposed to the network.',
+                obsPortLabel: 'Server port',
+                obsPortDesc: '0 = automatically chosen port. Set a value (e.g. 49231) for a stable port.',
+                obsPortApply: 'Apply', obsPortApplied: 'Port applied.', obsPortInvalid: 'Invalid port (0–65535).',
+                obsStatusLabel: 'Server status', obsStatusRunning: 'Running on', obsStatusStopped: 'Stopped', obsStatusDisabled: 'Disabled',
+                obsDockUrlLabel: 'OBS dock URL',
+                obsDockUrlDesc: 'Paste into OBS: Docks → Custom Browser Docks.',
+                obsPortValueLabel: 'Port (for the hotkeys script)',
+                obsTokenLabel: 'Token (for the hotkeys script)', obsTokenDesc: 'Secures OBS commands. Do not share it.',
+                obsGuideTitle: 'Full guide', obsGuideDesc: 'See obs-integration/OBS_INTEGRATION.md to set up the dock and keyboard shortcuts.',
+                copyBtn: 'Copy', copiedBtn: 'Copied!',
+                // v0.4.0
+                searchEngineLabel: 'Search engine',
+                searchEngineDesc: 'Used when the typed text is not a web address.',
+                searchEngineAdd: '+ Add',
+                searchEngineNamePlaceholder: 'Name',
+                searchEngineUrlPlaceholder: 'https://engine.com/search?q=',
+                searchEngineExists: 'This engine already exists.',
+                searchEngineInvalid: 'Invalid URL (must start with http).',
+                screenshotLabel: 'Screenshots',
+                screenshotDesc: 'Save folder for screenshots.',
+                screenshotBrowse: 'Browse…',
+                screenshotOk: '✓ Screenshots saved',
+                screenshotErr: 'Screenshot error.',
+            }
+        };
+        let currentLang = 'fr';
+        function t(key) { return (I18N[currentLang] || I18N.fr)[key] || key; }
+        function applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (el.tagName === 'OPTION') el.textContent = t(key);
+                else el.textContent = t(key);
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                el.placeholder = t(key);
+            });
+            document.getElementById('url-input').placeholder = t('addressPlaceholder');
+            const cui = document.getElementById('s-custom-url-input');
+            if (cui) cui.placeholder = t('customUrlPlaceholder');
+            document.documentElement.lang = currentLang;
+        }
 
-    <!--
-        Modules JS — ordre de chargement critique :
-        1. i18n.js       : traductions (t, setLang, applyTranslations)
-        2. state.js      : état global (tabs, activeTabId, webviewPool, …)
-        3. ui-utils.js   : showToast, escHtml, applyWebviewTheme, …
-        4. webview-pool.js  : createWebview, getActiveWebview, …
-        5. tabs-manager.js  : renderTabs, switchTab, addTab, …
-        6. navigation.js    : navigate, updateNavButtons, omnibar, …
-        7. sync-ui.js       : bouton sync, pollers vidéo/scroll, thème
-        8. login-popup.js   : popup connexion, auth-confirm
-        9. history-panel.js : panneau historique persistant
-       10. nav-history-dropdown.js : dropdown ← →
-       11. resize-modal.js  : modale presets portrait
-       12. settings-panel.js : panneau paramètres
-       13. services-panel.js : tuiles services connectés
-       14. keyboard-shortcuts.js : raccourcis, obs-command, context-menu
-       15. landscape-init.js : initialisation finale (getStore)
-    -->
-    <script src="landscape/js/i18n.js"></script>
-    <script src="landscape/js/state.js"></script>
-    <script src="landscape/js/ui-utils.js"></script>
-    <script src="landscape/js/webview-pool.js"></script>
-    <script src="landscape/js/tabs-manager.js"></script>
-    <script src="landscape/js/navigation.js"></script>
-    <script src="landscape/js/sync-ui.js"></script>
-    <script src="landscape/js/login-popup.js"></script>
-    <script src="landscape/js/history-panel.js"></script>
-    <script src="landscape/js/nav-history-dropdown.js"></script>
-    <script src="landscape/js/resize-modal.js"></script>
-    <script src="landscape/js/settings-panel.js"></script>
-    <script src="landscape/js/services-panel.js"></script>
-    <script src="landscape/js/keyboard-shortcuts.js"></script>
-    <script src="landscape/js/landscape-init.js"></script>
+        // ── État ───────────────────────────────────────────────────────────────────────
+        const webviewCont = document.getElementById('webview-container');
+        const emptyState = document.getElementById('empty-state');
+        const settingsPanel = document.getElementById('settings-panel');
+        const indicator = document.getElementById('video-indicator');
+        const indicatorTxt = document.getElementById('video-indicator-text');
+        const SETTINGS_TAB_ID = '__settings__';
+        let currentSettings = {};
+        let tabs = [];
+        let activeTabId = null;
+        let currentSyncState = 'paused';  // Démarre en pause
+        let lastLoginPopupUrl = null;
+
+        const webviewPool = new Map();
+        const UA_DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+        // ── Bouton sync ────────────────────────────────────────────────────────────────
+        const syncBtn = document.getElementById('sync-btn');
+        const syncMenu = document.getElementById('sync-menu');
+        const syncLabel = document.getElementById('sync-btn-label');
+        const syncPauseItem = document.getElementById('sync-pause-item');
+        const syncResumeItem = document.getElementById('sync-resume-item');
+        const syncRestartItem = document.getElementById('sync-restart-item');
+
+        function updateSyncUI(state) {
+            currentSyncState = state;
+            if (state === 'active') {
+                syncBtn.classList.remove('paused');
+                syncLabel.textContent = t('syncActive');
+                syncPauseItem.classList.remove('disabled');
+                syncResumeItem.classList.add('disabled');
+            } else {
+                syncBtn.classList.add('paused');
+                syncLabel.textContent = state === 'paused' ? t('syncPaused') : t('syncStarting');
+                syncPauseItem.classList.add('disabled');
+                syncResumeItem.classList.remove('disabled');
+            }
+        }
+
+        syncBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            syncMenu.classList.toggle('open');
+            // Fermer gear menu
+            document.getElementById('gear-menu').classList.remove('open');
+        });
+        document.addEventListener('click', () => {
+            syncMenu.classList.remove('open');
+            document.getElementById('gear-menu').classList.remove('open');
+        });
+        syncMenu.addEventListener('click', e => e.stopPropagation());
+
+        syncPauseItem.addEventListener('click', () => {
+            if (syncPauseItem.classList.contains('disabled')) return;
+            syncMenu.classList.remove('open');
+            window.dualview.syncControl('pause');
+        });
+        syncResumeItem.addEventListener('click', () => {
+            if (syncResumeItem.classList.contains('disabled')) return;
+            syncMenu.classList.remove('open');
+            window.dualview.syncControl('resume');
+        });
+        syncRestartItem.addEventListener('click', () => {
+            syncMenu.classList.remove('open');
+            window.dualview.syncControl('restart');
+        });
+
+        window.dualview.on('sync-state-changed', state => {
+            updateSyncUI(state);
+        });
+
+        // Quand la sync reprend, rejouer scroll/vidéo dans portrait
+        window.dualview.on('sync-resume-state', ({ tabId, url }) => {
+            // La webview portrait recharge l'URL → les scripts détecteront l'état vidéo/scroll
+            showToast(t('syncResumeScrollHint'));
+        });
+
+        // ── Thème ──────────────────────────────────────────────────────────────────────
+        window.dualview.getTheme().then(th => document.documentElement.setAttribute('data-theme', th));
+        window.dualview.on('theme-changed', th => {
+            document.documentElement.setAttribute('data-theme', th);
+            webviewPool.forEach(wv => applyWebviewTheme(wv));
+        });
+
+        function applyWebviewTheme(wv) {
+            const appearance = currentSettings.appearance || 'auto';
+            if (appearance === 'auto' || !wv.getURL || wv.getURL() === 'about:blank') return;
+            const theme = document.documentElement.getAttribute('data-theme');
+            const css = theme === 'dark' ? ':root{color-scheme:dark!important}' : ':root{color-scheme:light!important}';
+            wv.insertCSS(css).catch(() => { });
+        }
+
+        window.dualview.getVersion().then(v => { document.getElementById('version-label').textContent = 'v' + v; });
+
+        // ── Toast ──────────────────────────────────────────────────────────────────────
+        let toastTimer = null;
+        function showToast(msg, duration) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), duration || 3500);
+        }
+        window.dualview.on('download-blocked', filename => {
+            showToast(t('downloadBlocked') + (filename ? ' : ' + filename : ''));
+        });
+
+        // ── Indicateur vidéo ───────────────────────────────────────────────────────────
+        function showIndicator(text, paused) {
+            indicatorTxt.textContent = text;
+            indicator.classList.toggle('paused', paused);
+            indicator.classList.add('visible');
+        }
+        function hideIndicator() { indicator.classList.remove('visible'); }
+
+        // ── Nav ────────────────────────────────────────────────────────────────────────
+        const backBtn = document.getElementById('back-btn');
+        const forwardBtn = document.getElementById('forward-btn');
+        function updateNavButtons(state) { backBtn.disabled = !state.canGoBack; forwardBtn.disabled = !state.canGoForward; }
+        window.dualview.on('nav-state-changed', updateNavButtons);
+        backBtn.addEventListener('click', () => { if (!backBtn.disabled) window.dualview.navBack(); });
+        forwardBtn.addEventListener('click', () => { if (!forwardBtn.disabled) window.dualview.navForward(); });
+        window.dualview.on('webview-go-back', () => { const wv = getActiveWebview(); if (wv && wv.canGoBack && wv.canGoBack()) wv.goBack(); });
+        window.dualview.on('webview-go-forward', () => { const wv = getActiveWebview(); if (wv && wv.canGoForward && wv.canGoForward()) wv.goForward(); });
+        function sendNavState(wv) {
+            if (!wv) wv = getActiveWebview();
+            window.dualview.notifyNavState({ canGoBack: wv && wv.canGoBack ? wv.canGoBack() : false, canGoForward: wv && wv.canGoForward ? wv.canGoForward() : false });
+        }
+        document.getElementById('reload-btn').addEventListener('click', () => {
+            if (activeTabId === SETTINGS_TAB_ID) return;
+            const wv = getActiveWebview();
+            if (wv && wv.getURL && wv.getURL() !== 'about:blank') wv.reload();
+            window.dualview.reloadViews();
+        });
+        document.getElementById('home-btn').addEventListener('click', async () => {
+            if (activeTabId === SETTINGS_TAB_ID) return;
+            const url = await window.dualview.getHomepageUrl();
+            if (url) { document.getElementById('url-input').value = url; navigate(url); }
+        });
+
+        // ── Menu ⚙️ ────────────────────────────────────────────────────────────────────
+        const gearBtn = document.getElementById('gear-btn');
+        const gearMenu = document.getElementById('gear-menu');
+        gearBtn.addEventListener('click', e => { e.stopPropagation(); gearMenu.classList.toggle('open'); syncMenu.classList.remove('open'); });
+        gearMenu.addEventListener('click', e => e.stopPropagation());
+        document.getElementById('menu-resize').addEventListener('click', () => { gearMenu.classList.remove('open'); startResizeMode(); });
+        document.getElementById('menu-history').addEventListener('click', () => { gearMenu.classList.remove('open'); openHistoryPanel(); });
+        document.getElementById('menu-settings').addEventListener('click', () => { gearMenu.classList.remove('open'); openSettingsTab(); });
+
+        // ── Mode redimensionnement v0.4.0 ──────────────────────────────────────────────
+        // Le bouton ✅ (resume-btn) est retiré de la toolbar — tout passe par la modale.
+        const resizeModalOverlay = document.getElementById('resize-modal-overlay');
+        const resizePresetList = document.getElementById('resize-preset-list');
+        let currentPresetId = null;  // preset sélectionné dans la modale
+
+        async function startResizeMode() {
+            const presets = await window.dualview.getPortraitPresets();
+            const savedPreset = currentSettings.portraitPreset || 'iphone15';
+            currentPresetId = savedPreset;
+
+            // Construire la liste de préréglages
+            resizePresetList.innerHTML = '';
+            presets.forEach(preset => {
+                const item = document.createElement('div');
+                item.className = 'resize-preset-item' + (preset.id === savedPreset ? ' active' : '');
+                item.dataset.id = preset.id;
+                item.innerHTML = `<span>📱 ${preset.label}</span><span class="resize-preset-dim">${preset.width} × ${preset.height} px</span>`;
+                item.addEventListener('click', () => {
+                    resizePresetList.querySelectorAll('.resize-preset-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                    currentPresetId = preset.id;
+                    window.dualview.applyPortraitPreset(preset.id);
+                });
+                resizePresetList.appendChild(item);
+            });
+            // Option taille libre
+            const freeItem = document.createElement('div');
+            freeItem.className = 'resize-preset-item free-size';
+            freeItem.innerHTML = `<span>↔ Taille libre</span><span class="resize-preset-dim">redimensionnez la fenêtre Portrait</span>`;
+            freeItem.addEventListener('click', () => {
+                resizePresetList.querySelectorAll('.resize-preset-item').forEach(el => el.classList.remove('active'));
+                freeItem.classList.add('active');
+                currentPresetId = null;
+            });
+            resizePresetList.appendChild(freeItem);
+
+            // Ouvrir la modale et activer le redimensionnement portrait
+            resizeModalOverlay.classList.add('show');
+            window.dualview.startPortraitResize();
+        }
+
+        document.getElementById('resize-modal-validate').addEventListener('click', () => {
+            resizeModalOverlay.classList.remove('show');
+            if (currentPresetId) {
+                currentSettings.portraitPreset = currentPresetId;
+                saveCurrentSettings();
+            }
+            window.dualview.finishPortraitResize();
+        });
+
+        document.getElementById('resize-modal-cancel').addEventListener('click', () => {
+            resizeModalOverlay.classList.remove('show');
+            window.dualview.cancelPortraitResize();
+        });
+
+        // ── Scripts webview ────────────────────────────────────────────────────────────
+        const VIDEO_WATCHER_SCRIPT = `
+(function() {
+        if (window.__dualviewVideoWatcher) return;
+        window.__dualviewVideoWatcher = true;
+        window.__dualviewVideoState = { playing:false, currentTime:0, platform:'generic', hasVideo:false };
+        function detectPlatform() {
+            const h = location.hostname;
+            if (h.includes('youtube.com'))   return 'youtube';
+            if (h.includes('tiktok.com'))    return 'tiktok';
+            if (h.includes('instagram.com')) return 'instagram';
+            return 'generic';
+        }
+        function getSelectors(p) {
+            if (p==='youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+            if (p==='tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
+            if (p==='instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
+            return ['video'];
+        }
+        function findBestVideo(sels) {
+            for (const s of sels) {
+                const list = Array.from(document.querySelectorAll(s)).filter(v=>{
+                    const r=v.getBoundingClientRect(); return r.width>100&&r.height>100;
+                });
+                if (list.length>0) { list.sort((a,b)=>{ const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect(); return(rb.width*rb.height)-(ra.width*ra.height); }); return list[0]; }
+            }
+            return null;
+        }
+        const platform=detectPlatform(), sels=getSelectors(platform);
+        let videoEl=null, attempts=0;
+        function attach(video) {
+            if (video.__dualviewAttached) return;
+            video.__dualviewAttached=true; videoEl=video;
+            window.__dualviewVideoState={hasVideo:true,platform,playing:!video.paused,currentTime:video.currentTime};
+            video.addEventListener('play',  ()=>{ window.__dualviewVideoState.playing=true;  window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'play', time:video.currentTime,platform}; });
+            video.addEventListener('pause', ()=>{ window.__dualviewVideoState.playing=false; window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'pause',time:video.currentTime,platform}; });
+            video.addEventListener('seeked',()=>{ window.__dualviewVideoState.currentTime=video.currentTime; window.__dualviewVideoEvent={type:'seek',time:video.currentTime,platform}; });
+        }
+        const findInt=setInterval(()=>{ attempts++; const v=findBestVideo(sels); if(v){attach(v);clearInterval(findInt);} else if(attempts>=60)clearInterval(findInt); if(videoEl&&!document.contains(videoEl)){const nv=findBestVideo(sels);if(nv){videoEl.__dualviewAttached=false;attach(nv);}} },500);
+        new MutationObserver(()=>{ if(!videoEl||!document.contains(videoEl)){const v=findBestVideo(sels);if(v)attach(v);} }).observe(document.body,{childList:true,subtree:true});
+        true;
+})();`;
+
+        const SCROLL_INJECT = `
+(function(){
+        if(window.__dualviewScrollWatcher)return;
+        window.__dualviewScrollWatcher=true;
+        let last=-1;
+        window.addEventListener('scroll',()=>{
+            const el=document.documentElement,top=el.scrollTop||document.body.scrollTop,max=el.scrollHeight-el.clientHeight;
+            if(max<=0)return; const pct=top/max;
+            if(Math.abs(pct-last)>0.001){last=pct;window.__dualviewScrollPct=pct;}
+        },{passive:true});
+})();true;`;
+
+        function resetWatcherFlags(wv) {
+            wv.executeJavaScript('window.__dualviewVideoWatcher=false;window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};window.__dualviewVideoEvent=null;true;').catch(() => { });
+        }
+        function injectWatcher(wv) { wv.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(() => { }); }
+
+        // ── Pool de webviews ───────────────────────────────────────────────────────────
+        function createWebview(tabId, url) {
+            if (webviewPool.has(tabId)) return webviewPool.get(tabId);
+            const wv = document.createElement('webview');
+            wv.setAttribute('partition', 'persist:dualview');
+            wv.setAttribute('useragent', UA_DESKTOP);
+            wv.setAttribute('allowpopups', '');
+            wv.className = 'wv-landscape';
+            wv.dataset.tabId = tabId;
+            // Attacher les listeners AVANT appendChild puis assigner src APRÈS
+            // appendChild pour éviter ERR_ABORTED sur les webviews nouvellement créées
+            attachWebviewListeners(wv, tabId);
+            webviewCont.appendChild(wv);
+            // src après DOM attachment — sinon Electron lève ERR_ABORTED
+            wv.src = url || 'about:blank';
+            webviewPool.set(tabId, wv);
+            window.dualview.createTab(tabId, url || '');
+            return wv;
+        }
+
+        function destroyWebview(tabId) {
+            const wv = webviewPool.get(tabId);
+            if (!wv) return;
+            try { wv.stop(); } catch (_) { }
+            wv.remove();
+            webviewPool.delete(tabId);
+            window.dualview.closeTab(tabId);
+        }
+
+        function showWebview(tabId) {
+            webviewPool.forEach((wv, id) => { wv.classList.toggle('active', id === tabId); });
+            const wv = webviewPool.get(tabId);
+            const hasUrl = wv && wv.src && wv.src !== 'about:blank';
+            emptyState.style.display = hasUrl ? 'none' : 'flex';
+        }
+
+        function getActiveWebview() { return webviewPool.get(activeTabId) || null; }
+
+        function attachWebviewListeners(wv, tabId) {
+            wv.addEventListener('dom-ready', () => {
+                resetWatcherFlags(wv);
+                injectWatcher(wv);
+                wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
+                // Réinjections différées : vérifier que la webview est toujours vivante
+                setTimeout(() => {
+                    if (webviewPool.has(tabId)) injectWatcher(wv);
+                }, 2000);
+                setTimeout(() => {
+                    if (webviewPool.has(tabId)) injectWatcher(wv);
+                }, 5000);
+                if (tabId === activeTabId) sendNavState(wv);
+                applyWebviewTheme(wv);
+            });
+
+            // ── Liens target="_blank" → nouvel onglet DualView (v0.4.1) ──────────
+            // Intercepter AVANT que Electron ouvre une BrowserWindow séparée.
+            // Les popups OAuth/lecteurs sont aussi capturés en onglet (sauf Services connectés).
+            wv.addEventListener('new-window', (e) => {
+                e.preventDefault();
+                const url = e.url;
+                if (!url || url === 'about:blank') return;
+                // Valider le protocole (http/https uniquement)
+                try {
+                    const parsed = new URL(url);
+                    if (!['http:', 'https:'].includes(parsed.protocol)) return;
+                } catch { return; }
+                // Ouvrir dans un nouvel onglet DualView
+                addTabWithUrl(url);
+            });
+
+            wv.addEventListener('did-navigate', (e) => {
+                resetWatcherFlags(wv);
+                if (e.url && e.url !== 'about:blank') {
+                    if (tabId === activeTabId) {
+                        if (isLoginPage(e.url)) {
+                            window.dualview.notifyLoginPage(e.url, tabId);
+                        } else {
+                            // L'utilisateur a quitté la page de connexion
+                            window.dualview.notifyLoginPageLeft(tabId);
+                        }
+                    }
+                    const tab = tabs.find(t => t.id === tabId);
+                    if (tab) {
+                        tab.url = e.url;
+                        try { const host = new URL(e.url).hostname.replace('www.', ''); tab.title = host.length > 18 ? host.slice(0, 18) + '…' : host; } catch { tab.title = e.url.slice(0, 20); }
+                        if (tabId === activeTabId) { renderTabs(); saveTabs(); document.getElementById('url-input').value = e.url; window.dualview.sendNavigate(e.url); }
+                    }
+                    // Alimenter l'historique omnibar (v0.4.0)
+                    addToHistory(tabId, e.url);
+                    // Alimenter l'historique persistant (v0.4.0)
+                    if (tabId === activeTabId) {
+                        const htab = tabs.find(t => t.id === tabId);
+                        window.dualview.historyAdd(e.url, htab ? htab.title : '', tabId);
+                    }
+                }
+                if (tabId === activeTabId) sendNavState(wv);
+            });
+            wv.addEventListener('did-navigate-in-page', (e) => {
+                resetWatcherFlags(wv);
+                if (e.url && e.url !== 'about:blank') {
+                    if (tabId === activeTabId) {
+                        if (isLoginPage(e.url)) {
+                            window.dualview.notifyLoginPage(e.url, tabId);
+                        } else {
+                            window.dualview.notifyLoginPageLeft(tabId);
+                        }
+                    }
+                    const tab = tabs.find(t => t.id === tabId);
+                    if (tab) {
+                        tab.url = e.url;
+                        if (tabId === activeTabId) { renderTabs(); saveTabs(); document.getElementById('url-input').value = e.url; window.dualview.sendNavigate(e.url); }
+                    }
+                }
+                if (tabId === activeTabId) sendNavState(wv);
+                // Réinjecter scroll + vidéo après navigation SPA (Google Search,
+                // YouTube, etc.) — dom-ready ne se redéclenche pas pour ces navigations
+                if (webviewPool.has(tabId)) {
+                    wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
+                    injectWatcher(wv);
+                }
+            });
+        }
+
+        // Détection page de connexion côté renderer (patterns URL)
+        const LOGIN_PATTERNS = [
+            /\/login\b/i, /\/signin\b/i, /\/sign-in\b/i, /\/sign_in\b/i,
+            /\/auth\b/i, /\/oauth\b/i, /\/connexion\b/i, /\/identification\b/i,
+            /\/compte\/connexion/i, /\/account\/login/i,
+        ];
+        const LOGIN_WHITELIST = ['localhost', '127.0.0.1'];
+        function isLoginPage(url) {
+            try {
+                const u = new URL(url);
+                if (LOGIN_WHITELIST.some(d => u.hostname.includes(d))) return false;
+                if (/\/callback|\/token|\/redirect/i.test(u.pathname)) return false;
+                return LOGIN_PATTERNS.some(re => re.test(u.pathname + u.search));
+            } catch { return false; }
+        }
+
+        // ── Popup page de connexion ────────────────────────────────────────────────────
+        const loginPopup = document.getElementById('login-popup');
+        const ignoreConfirm = document.getElementById('ignore-confirm');
+        let loginPopupActive = false;
+
+        let loginPopupServiceKey = null;
+
+        window.dualview.on('show-login-popup', ({ url, tabId, serviceKey }) => {
+            if (loginPopupActive) return;
+            loginPopupActive = true;
+            loginPopupServiceKey = serviceKey || null;
+            // Afficher le bouton "Se connecter" uniquement pour les services connus
+            const connectBtn = document.getElementById('login-popup-connect');
+            if (serviceKey) {
+                connectBtn.style.display = '';
+                connectBtn.textContent = 'Se connecter (' + (SERVICE_LABELS[serviceKey] || serviceKey) + ')';
+            } else {
+                connectBtn.style.display = 'none';
+            }
+            loginPopup.classList.add('show');
+        });
+
+        // main.js confirme que l'URL active n'est plus une page de login → fermer le popup
+        window.dualview.on('login-page-cleared', () => {
+            loginPopup.classList.remove('show');
+            ignoreConfirm.classList.remove('show');
+            loginPopupActive = false;
+        });
+
+        document.getElementById('login-popup-back').addEventListener('click', () => {
+            loginPopup.classList.remove('show');
+            loginPopupActive = false;
+            const wv = getActiveWebview();
+            if (wv && wv.canGoBack && wv.canGoBack()) wv.goBack();
+            else window.dualview.navBack();
+        });
+
+        document.getElementById('login-popup-services').addEventListener('click', () => {
+            loginPopup.classList.remove('show');
+            loginPopupActive = false;
+            openSettingsTab('services');
+        });
+
+        // Bouton "Se connecter" — ouvre directement la fenêtre d'auth pour le service détecté
+        document.getElementById('login-popup-connect').addEventListener('click', async () => {
+            loginPopup.classList.remove('show');
+            loginPopupActive = false;
+            if (loginPopupServiceKey) {
+                await connectService(loginPopupServiceKey, null, null);
+                loadServicesStatus();
+            }
+            loginPopupServiceKey = null;
+        });
+
+        document.getElementById('login-popup-backdrop').addEventListener('click', () => {
+            loginPopup.classList.remove('show');
+            ignoreConfirm.classList.add('show');
+        });
+
+        document.getElementById('ignore-cancel').addEventListener('click', () => {
+            ignoreConfirm.classList.remove('show');
+            loginPopup.classList.add('show');
+        });
+
+        document.getElementById('ignore-ok').addEventListener('click', () => {
+            ignoreConfirm.classList.remove('show');
+            loginPopupActive = false;
+        });
+
+        document.getElementById('ignore-confirm-backdrop').addEventListener('click', () => {
+            ignoreConfirm.classList.remove('show');
+            loginPopup.classList.add('show');
+        });
+
+        // Confirmation auth personnalisée (depuis auth-window.js)
+        window.dualview.on('auth-custom-confirm', ({ serviceLabel, hasCookies, cookieCount }) => {
+            const dialog = document.getElementById('auth-confirm-dialog');
+            document.getElementById('auth-confirm-title').textContent = `Confirmation — ${serviceLabel}`;
+            document.getElementById('auth-confirm-desc').textContent = hasCookies
+                ? `${cookieCount} cookie(s) de session détecté(s). Confirmez-vous que vous êtes bien connecté au service "${serviceLabel}" ?`
+                : `Aucun cookie de session détecté automatiquement. Confirmez-vous que vous êtes bien connecté au service "${serviceLabel}" ?`;
+            dialog.classList.add('show');
+        });
+
+        document.getElementById('auth-confirm-ok').addEventListener('click', () => {
+            document.getElementById('auth-confirm-dialog').classList.remove('show');
+            window.dualview.confirmCustomAuth(true);
+            loadServicesStatus();
+        });
+
+        document.getElementById('auth-confirm-cancel').addEventListener('click', () => {
+            document.getElementById('auth-confirm-dialog').classList.remove('show');
+            window.dualview.cancelCustomAuth();
+        });
+
+        document.getElementById('auth-confirm-backdrop').addEventListener('click', () => {
+            document.getElementById('auth-confirm-dialog').classList.remove('show');
+            window.dualview.cancelCustomAuth();
+        });
+
+        // ── Onglets ────────────────────────────────────────────────────────────────────
+        function isSettingsTab(tab) { return tab && tab.id === SETTINGS_TAB_ID; }
+
+        function renderTabs() {
+            const bar = document.getElementById('tab-bar');
+            const addBtn = document.getElementById('add-tab-btn');
+            bar.querySelectorAll('.tab').forEach(el => el.remove());
+            tabs.forEach(tab => {
+                const el = document.createElement('div');
+                el.className = 'tab' + (tab.id === activeTabId ? ' active' : '') + (isSettingsTab(tab) ? ' settings-tab' : '');
+                el.dataset.id = tab.id;
+                const title = document.createElement('span');
+                title.className = 'tab-title';
+                title.textContent = isSettingsTab(tab) ? '⚙ ' + t('settings') : (tab.title || t('newTab'));
+                el.appendChild(title);
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'tab-close';
+                closeBtn.innerHTML = '&times;';
+                closeBtn.addEventListener('click', e => { e.stopPropagation(); closeTab(tab.id); });
+                el.appendChild(closeBtn);
+                el.addEventListener('click', () => switchTab(tab.id));
+                bar.insertBefore(el, addBtn);
+            });
+        }
+
+        function switchTab(id) {
+            activeTabId = id;
+            const tab = tabs.find(t => t.id === id);
+            if (!tab) return;
+            // Reset popup login state au switch (main.js envoie login-page-cleared si nécessaire)
+            if (isSettingsTab(tab)) {
+                webviewPool.forEach(wv => wv.classList.remove('active'));
+                emptyState.style.display = 'none';
+                webviewCont.style.display = 'none';
+                settingsPanel.classList.add('show');
+                document.getElementById('url-input').value = 'dualview://paramètres';
+                document.getElementById('url-input').classList.add('settings-url');
+                document.getElementById('go-btn').disabled = true;
+                updateNavButtons({ canGoBack: false, canGoForward: false });
+                // Notifier main.js → portrait reçoit 'tab-switched' avec SETTINGS_TAB_ID
+                // et affiche l'overlay "Personnalisation en cours / stream reprendra"
+                window.dualview.switchTab(SETTINGS_TAB_ID);
+            } else {
+                webviewCont.style.display = 'flex';
+                settingsPanel.classList.remove('show');
+                document.getElementById('url-input').classList.remove('settings-url');
+                document.getElementById('go-btn').disabled = false;
+                document.getElementById('url-input').value = tab.url || '';
+                const isNewWebview = !webviewPool.has(id);
+                if (isNewWebview) createWebview(id, tab.url || '');
+                showWebview(id);
+                const wv = getActiveWebview();
+                if (!isNewWebview && wv && wv.canGoBack) {
+                    // Webview déjà dans le pool avec un historique intact :
+                    // lire l'état réel directement plutôt que de tout remettre à false.
+                    // dom-ready ne se déclenche plus pour une webview déjà chargée.
+                    updateNavButtons({
+                        canGoBack: wv.canGoBack(),
+                        canGoForward: wv.canGoForward ? wv.canGoForward() : false
+                    });
+                } else {
+                    // Nouvelle webview — dom-ready appellera sendNavState une fois prête.
+                    updateNavButtons({ canGoBack: false, canGoForward: false });
+                }
+                window.dualview.switchTab(id);
+            }
+            renderTabs(); saveTabs(); resetVideoCounters();
+        }
+
+        function openSettingsTab(section) {
+            const existing = tabs.find(t => t.id === SETTINGS_TAB_ID);
+            if (existing) {
+                switchTab(SETTINGS_TAB_ID);
+            } else {
+                tabs.push({ id: SETTINGS_TAB_ID, title: 'Paramètres', url: 'dualview://settings' });
+                switchTab(SETTINGS_TAB_ID);
+            }
+            if (section) {
+                setTimeout(() => activateSettingsSection(section), 50);
+            }
+        }
+
+        function activateSettingsSection(section) {
+            document.querySelectorAll('.s-nav').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.s-section').forEach(s => s.classList.remove('active'));
+            const nav = document.querySelector(`.s-nav[data-section="${section}"]`);
+            if (nav) nav.classList.add('active');
+            const sec = document.getElementById(`section-${section}`);
+            if (sec) sec.classList.add('active');
+            if (section === 'services') loadServicesStatus();
+            if (section === 'obs') loadObsInfo();
+        }
+
+        function addTab() {
+            const id = 'tab-' + Date.now();
+            const url = getNewTabUrl();
+            tabs.push({ id, title: url ? '' : t('newTab'), url });
+            createWebview(id, url);
+            switchTab(id);
+        }
+
+        // Ouvre un nouvel onglet avec une URL spécifique (v0.4.1 — new-window redirect)
+        function addTabWithUrl(url) {
+            const id = 'tab-' + Date.now();
+            let title = '';
+            try { title = new URL(url).hostname.replace('www.', ''); } catch { title = url.slice(0, 20); }
+            tabs.push({ id, title, url });
+            createWebview(id, url);
+            switchTab(id);
+        }
+
+        function getNewTabUrl() {
+            const mode = currentSettings.newTabMode || 'homepage';
+            if (mode === 'empty') return '';
+            const hp = currentSettings.homepageMode || 'knack3';
+            if (hp === 'empty') return '';
+            if (hp === 'custom') return currentSettings.customHomepageUrl || '';
+            return 'https://marketplace.atlassian.com/vendors/920480808/';
+        }
+
+        function closeTab(id) {
+            if (tabs.length <= 1) return;
+            const idx = tabs.findIndex(t => t.id === id);
+            tabs = tabs.filter(t => t.id !== id);
+            destroyWebview(id);
+            if (activeTabId === id) switchTab(tabs[Math.max(0, idx - 1)].id);
+            else { renderTabs(); saveTabs(); }
+        }
+
+        function saveTabs() {
+            const persist = tabs.filter(t => t.id !== SETTINGS_TAB_ID);
+            window.dualview.saveTabs({ tabs: persist.length ? persist : tabs, activeTabId });
+        }
+
+        document.getElementById('add-tab-btn').addEventListener('click', addTab);
+
+        // ── Commandes OBS (v0.3.2) ───────────────────────────────────────────────────
+        // Reçues depuis le dock OBS / les hotkeys via le serveur de contrôle local.
+        // Chaque commande appelle la MÊME fonction que l'UI native → comportement
+        // strictement identique, aucune logique dupliquée.
+        window.dualview.on('obs-command', ({ action, payload }) => {
+            payload = payload || {};
+            switch (action) {
+                case 'nav-back':
+                    if (!backBtn.disabled) window.dualview.navBack();
+                    break;
+                case 'nav-forward':
+                    if (!forwardBtn.disabled) window.dualview.navForward();
+                    break;
+                case 'nav-reload':
+                    document.getElementById('reload-btn').click();
+                    break;
+                case 'nav-home':
+                    document.getElementById('home-btn').click();
+                    break;
+                case 'navigate':
+                    if (payload.url && activeTabId !== SETTINGS_TAB_ID) navigate(payload.url);
+                    break;
+                case 'tab-new':
+                    addTab();
+                    break;
+                case 'tab-close':
+                    // tabId fourni par le dock, sinon onglet actif
+                    closeTab(payload.tabId || activeTabId);
+                    break;
+                case 'tab-switch':
+                    if (payload.tabId && tabs.some(t => t.id === payload.tabId)) switchTab(payload.tabId);
+                    break;
+                default:
+                    break;
+            }
+        });
+
+
+        // ── Résolution input v0.4.0 ────────────────────────────────────────────────────
+        // TLDs reconnus — si l'input contient un de ces TLDs sans espace, c'est une URL.
+        const KNOWN_TLDS = new Set([
+            'com','net','org','fr','io','co','uk','de','app','dev','ai','eu',
+            'info','biz','me','tv','us','ca','au','jp','it','es','nl','be','ch',
+            'at','pl','ru','br','in','cn','kr','se','no','fi','dk','nz','sg',
+            'gov','edu','mil','int','museum',
+        ]);
+
+        /**
+         * Détermine si la saisie est une URL directe ou un terme de recherche.
+         * Retourne l'URL finale à charger (directe ou URL du moteur de recherche).
+         */
+        function resolveInput(raw) {
+            const text = raw.trim();
+            if (!text) return '';
+            // 1. Protocole explicite → URL directe
+            if (/^https?:\/\//i.test(text) || /^file:\/\//i.test(text)) return text;
+            // 2. localhost / IP → URL directe
+            if (/^localhost(:\d+)?(\/.*)?$/.test(text) || /^\d{1,3}(\.\d{1,3}){3}/.test(text)) return 'http://' + text;
+            // 3. Contient un espace → recherche
+            if (/\s/.test(text)) return buildSearchUrl(text);
+            // 4. Vérifier si c'est un domaine avec TLD reconnu
+            const parts = text.split('.');
+            if (parts.length >= 2) {
+                const tld = parts[parts.length - 1].toLowerCase().split('/')[0].split('?')[0];
+                if (KNOWN_TLDS.has(tld)) return 'https://' + text;
+            }
+            // 5. Sinon → recherche
+            return buildSearchUrl(text);
+        }
+
+        function buildSearchUrl(query) {
+            const engineUrl = currentSettings.searchEngineUrl || 'https://duckduckgo.com/?q=';
+            return engineUrl + encodeURIComponent(query);
+        }
+
+        function getEngineName() {
+            return currentSettings.searchEngineName || 'DuckDuckGo';
+        }
+
+        // ── Navigation URL ─────────────────────────────────────────────────────────────
+        function navigate(rawInput) {
+            if (!rawInput || activeTabId === SETTINGS_TAB_ID) return;
+            closeOmnibar();
+            const url = resolveInput(rawInput);
+            if (!url) return;
+            document.getElementById('url-input').value = url;
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (tab && !isSettingsTab(tab)) {
+                tab.url = url;
+                try { const host = new URL(url).hostname.replace('www.', ''); tab.title = host.length > 18 ? host.slice(0, 18) + '…' : host; } catch { tab.title = url.slice(0, 20); }
+                renderTabs(); saveTabs();
+            }
+            updateNavButtons({ canGoBack: false, canGoForward: false });
+            const wv = getActiveWebview();
+            if (wv) {
+                if (wv.getURL !== undefined) {
+                    try {
+                        wv.src = url;
+                    } catch (e) {
+                        console.warn('Unexpected error while loading URL', e);
+                        wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
+                    }
+                } else {
+                    wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
+                }
+            }
+            window.dualview.navigate(url);
+        }
+
+        // ── Omnibar ────────────────────────────────────────────────────────────────────
+        const urlInput = document.getElementById('url-input');
+        const omniDropdown = document.getElementById('omnibar-dropdown');
+        let omniItems = [];       // liste des items rendus [{type, url, label, sub}]
+        let omniSelectedIdx = -1; // index sélectionné au clavier
+        // Historique en mémoire par onglet — enrichi lors des navigations
+        const tabHistory = new Map(); // tabId → string[]
+
+        function addToHistory(tabId, url) {
+            if (!url || url === 'about:blank') return;
+            if (!tabHistory.has(tabId)) tabHistory.set(tabId, []);
+            const hist = tabHistory.get(tabId);
+            const existing = hist.indexOf(url);
+            if (existing !== -1) hist.splice(existing, 1);
+            hist.unshift(url);
+            if (hist.length > 10) hist.pop();
+        }
+
+        function buildOmniItems(query) {
+            const q = query.trim().toLowerCase();
+            if (!q) return [];
+            const items = [];
+            // Historique de tous les onglets (dédupliqué)
+            const seen = new Set();
+            for (const [, hist] of tabHistory) {
+                for (const url of hist) {
+                    if (!seen.has(url) && url.toLowerCase().includes(q)) {
+                        seen.add(url);
+                        let label = url;
+                        try { label = new URL(url).hostname.replace('www.', ''); } catch { }
+                        items.push({ type: 'history', url, label, sub: url });
+                        if (items.length >= 4) break;
+                    }
+                }
+                if (items.length >= 4) break;
+            }
+            // Suggestion de domaine simple si l'input ressemble à un début de domaine
+            if (!/\s/.test(q) && q.length > 2 && !q.includes('/')) {
+                const suggestion = q.endsWith('.com') ? q : q + '.com';
+                if (!seen.has('https://' + suggestion)) {
+                    items.push({ type: 'domain', url: 'https://' + suggestion, label: suggestion, sub: '' });
+                }
+            }
+            // Recherche toujours en dernier
+            items.push({ type: 'search', url: buildSearchUrl(query), label: query, sub: getEngineName() });
+            return items;
+        }
+
+        function renderOmnibar(query) {
+            omniItems = buildOmniItems(query);
+            omniSelectedIdx = -1;
+            if (!omniItems.length) { closeOmnibar(); return; }
+            omniDropdown.innerHTML = '';
+            let hasHistory = omniItems.some(i => i.type === 'history');
+            let hasDomain  = omniItems.some(i => i.type === 'domain');
+            omniItems.forEach((item, idx) => {
+                if (item.type === 'search') {
+                    const row = document.createElement('div');
+                    row.className = 'omni-search-row';
+                    row.innerHTML = `<span>🔍</span><span>Rechercher &ldquo;${escHtml(item.label)}&rdquo; avec</span><span class="omni-engine-pill">${escHtml(item.sub)}</span>`;
+                    row.addEventListener('mousedown', e => { e.preventDefault(); navigate(item.label); });
+                    omniDropdown.appendChild(row);
+                } else {
+                    if (item.type === 'history' && idx === 0 && hasHistory) {
+                        const lbl = document.createElement('div');
+                        lbl.className = 'omni-section-lbl';
+                        lbl.textContent = 'Historique';
+                        omniDropdown.appendChild(lbl);
+                    }
+                    if (item.type === 'domain' && hasDomain) {
+                        const div2 = document.createElement('div');
+                        div2.className = 'omni-divider';
+                        omniDropdown.appendChild(div2);
+                        const lbl2 = document.createElement('div');
+                        lbl2.className = 'omni-section-lbl';
+                        lbl2.textContent = 'Suggestion';
+                        omniDropdown.appendChild(lbl2);
+                    }
+                    const row = document.createElement('div');
+                    row.className = 'omni-item';
+                    row.dataset.idx = idx;
+                    const icon = item.type === 'history' ? '🕐' : '🌐';
+                    row.innerHTML = `<span class="omni-icon">${icon}</span><span class="omni-url">${escHtml(item.url)}</span>${item.sub ? `<span class="omni-sub">${escHtml(item.sub)}</span>` : ''}`;
+                    row.addEventListener('mousedown', e => { e.preventDefault(); navigate(item.url); });
+                    omniDropdown.appendChild(row);
+                }
+            });
+            omniDropdown.classList.add('open');
+        }
+
+        function closeOmnibar() {
+            omniDropdown.classList.remove('open');
+            omniItems = [];
+            omniSelectedIdx = -1;
+        }
+
+        function omniSelectIdx(idx) {
+            omniDropdown.querySelectorAll('.omni-item,.omni-search-row').forEach((el, i) => {
+                el.classList.toggle('selected', i === idx);
+            });
+            omniSelectedIdx = idx;
+        }
+
+        // ── Events barre URL ───────────────────────────────────────────────────────────
+        // Sélection automatique au focus (v0.4.0)
+        urlInput.addEventListener('focus', () => {
+            if (activeTabId !== SETTINGS_TAB_ID) urlInput.select();
+        });
+
+        // Échap : annule la saisie, restore l'URL courante, perd le focus
+        urlInput.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (tab && !isSettingsTab(tab)) urlInput.value = tab.url || '';
+                closeOmnibar();
+                urlInput.blur();
+                return;
+            }
+            if (e.key === 'Enter') {
+                const selItems = omniDropdown.querySelectorAll('.omni-item,.omni-search-row');
+                if (omniSelectedIdx >= 0 && omniSelectedIdx < selItems.length) {
+                    const selectedItem = omniItems[omniSelectedIdx] || omniItems[omniItems.length - 1];
+                    if (selectedItem) { navigate(selectedItem.type === 'search' ? selectedItem.label : selectedItem.url); return; }
+                }
+                navigate(urlInput.value);
+                return;
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const total = omniDropdown.querySelectorAll('.omni-item,.omni-search-row').length;
+                omniSelectIdx(Math.min(omniSelectedIdx + 1, total - 1));
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                omniSelectIdx(Math.max(omniSelectedIdx - 1, 0));
+                return;
+            }
+        });
+
+        urlInput.addEventListener('input', () => {
+            const q = urlInput.value;
+            if (q.trim().length < 2) { closeOmnibar(); return; }
+            renderOmnibar(q);
+        });
+
+        urlInput.addEventListener('blur', () => {
+            setTimeout(closeOmnibar, 150);
+        });
+
+        document.getElementById('go-btn').addEventListener('click', () => navigate(urlInput.value));
+
+        window.dualview.on('update-addressbar', url => {
+            if (activeTabId === SETTINGS_TAB_ID) return;
+            document.getElementById('url-input').value = url;
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (tab && !isSettingsTab(tab)) {
+                tab.url = url;
+                try { const host = new URL(url).hostname.replace('www.', ''); tab.title = host.length > 18 ? host.slice(0, 18) + '…' : host; } catch { tab.title = url.slice(0, 20); }
+                renderTabs(); saveTabs();
+            }
+        });
+
+        window.dualview.on('load-url', url => {
+            if (activeTabId === SETTINGS_TAB_ID) return;
+            const wv = getActiveWebview();
+            if (!wv || !url || url === 'about:blank') return;
+            try {
+                wv.src = url;
+            } catch (e) {
+                wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
+            }
+            emptyState.style.display = 'none';
+            wv.classList.add('active');
+        });
+
+        // ── Screenshot (v0.4.0) ────────────────────────────────────────────────────────
+        document.getElementById('screenshot-btn').addEventListener('click', async () => {
+            const result = await window.dualview.takeScreenshot();
+            if (result && result.success) {
+                showToast(t('screenshotOk') + ' — ' + result.dir, 4000);
+            } else {
+                showToast(t('screenshotErr'));
+            }
+        });
+
+
+        // ── Moteurs de recherche prédéfinis (v0.4.0) ──────────────────────────────────
+        const DEFAULT_SEARCH_ENGINES = [
+            { id: 'duckduckgo', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' },
+            { id: 'google',     name: 'Google',     url: 'https://www.google.com/search?q=' },
+            { id: 'bing',       name: 'Bing',       url: 'https://www.bing.com/search?q=' },
+            { id: 'brave',      name: 'Brave Search', url: 'https://search.brave.com/search?q=' },
+            { id: 'qwant',      name: 'Qwant',      url: 'https://www.qwant.com/?q=' },
+        ];
+
+        function getSearchEngines() {
+            const custom = currentSettings.customSearchEngines || [];
+            return [...DEFAULT_SEARCH_ENGINES, ...custom];
+        }
+
+        function renderSearchEngineList() {
+            const list = document.getElementById('s-engine-list');
+            if (!list) return;
+            list.innerHTML = '';
+            const engines = getSearchEngines();
+            const activeId = currentSettings.searchEngineId || 'duckduckgo';
+            engines.forEach(engine => {
+                const item = document.createElement('div');
+                item.className = 'search-engine-item' + (engine.id === activeId ? ' active' : '');
+                const radio = document.createElement('div');
+                radio.className = 'search-engine-radio' + (engine.id === activeId ? ' checked' : '');
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = engine.name;
+                const urlSpan = document.createElement('span');
+                urlSpan.className = 'search-engine-url';
+                try { urlSpan.textContent = new URL(engine.url).hostname; } catch { urlSpan.textContent = engine.url; }
+                item.appendChild(radio);
+                item.appendChild(nameSpan);
+                item.appendChild(urlSpan);
+                item.addEventListener('click', () => {
+                    currentSettings.searchEngineId = engine.id;
+                    currentSettings.searchEngineUrl = engine.url;
+                    currentSettings.searchEngineName = engine.name;
+                    saveCurrentSettings();
+                    renderSearchEngineList();
+                });
+                list.appendChild(item);
+            });
+        }
+
+        document.getElementById('s-engine-add-btn').addEventListener('click', () => {
+            const nameEl = document.getElementById('s-engine-name');
+            const urlEl = document.getElementById('s-engine-url');
+            const msg = document.getElementById('s-engine-msg');
+            const name = nameEl.value.trim();
+            const url = urlEl.value.trim();
+            if (!name || !url) { msg.textContent = 'Nom et URL requis.'; msg.className = 's-msg show err'; return; }
+            if (!url.startsWith('http')) { msg.textContent = t('searchEngineInvalid'); msg.className = 's-msg show err'; return; }
+            const engines = getSearchEngines();
+            if (engines.some(e => e.url === url || e.name.toLowerCase() === name.toLowerCase())) {
+                msg.textContent = t('searchEngineExists'); msg.className = 's-msg show err'; return;
+            }
+            const custom = currentSettings.customSearchEngines || [];
+            custom.push({ id: 'custom-' + Date.now(), name, url });
+            currentSettings.customSearchEngines = custom;
+            saveCurrentSettings();
+            nameEl.value = ''; urlEl.value = '';
+            msg.className = 's-msg';
+            renderSearchEngineList();
+        });
+
+        document.getElementById('s-screenshot-browse').addEventListener('click', async () => {
+            const dir = await window.dualview.chooseScreenshotDir();
+            if (dir) {
+                currentSettings.screenshotDir = dir;
+                document.getElementById('s-screenshot-dir').textContent = dir;
+            }
+        });
+
+        function loadSettingsUI(s) {
+            currentSettings = s;
+            currentLang = s.language || 'fr';
+            document.getElementById('s-restore').checked = s.restoreTabs !== false;
+            document.getElementById('s-homepage').value = s.homepageMode || 'knack3';
+            document.getElementById('s-newtab').value = s.newTabMode || 'homepage';
+            document.getElementById('s-appearance').value = s.appearance || 'auto';
+            document.getElementById('s-language').value = s.language || 'fr';
+            if (s.customHomepageUrl) document.getElementById('s-custom-url-input').value = s.customHomepageUrl;
+            document.getElementById('s-obs-enabled').checked = s.obsEnabled !== false;
+            document.getElementById('s-obs-port').value = (s.obsPort != null ? s.obsPort : 0);
+            toggleCustomUrl(s.homepageMode === 'custom');
+            // v0.4.0
+            renderSearchEngineList();
+            const screenshotDir = s.screenshotDir || '';
+            const dirEl = document.getElementById('s-screenshot-dir');
+            if (dirEl) dirEl.textContent = screenshotDir || '(Dossier Images par défaut)';
+            applyTranslations();
+        }
+
+
+
+        // ── Intégration OBS (paramètres) ─────────────────────────────────────────────
+        async function loadObsInfo() {
+            let info = null;
+            try { info = await window.dualview.getObsInfo(); } catch { /* ignore */ }
+            const statusEl = document.getElementById('s-obs-status');
+            const dockEl = document.getElementById('s-obs-dock-url');
+            const portValEl = document.getElementById('s-obs-port-value');
+            const tokenEl = document.getElementById('s-obs-token');
+            if (!info || !info.enabled) {
+                statusEl.textContent = t('obsStatusDisabled');
+                dockEl.value = ''; portValEl.value = ''; tokenEl.value = '';
+                return;
+            }
+            if (info.running) {
+                statusEl.textContent = t('obsStatusRunning') + ' 127.0.0.1:' + info.port;
+                dockEl.value = info.dockUrl || '';
+                portValEl.value = String(info.port);
+                tokenEl.value = info.token || '';
+            } else {
+                statusEl.textContent = t('obsStatusStopped');
+                dockEl.value = ''; portValEl.value = ''; tokenEl.value = '';
+            }
+        }
+
+        function copyToClipboard(text, btn) {
+            if (!text) return;
+            try { navigator.clipboard.writeText(text); } catch { /* ignore */ }
+            const orig = btn.textContent;
+            btn.textContent = t('copiedBtn');
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+        }
+
+        document.getElementById('s-obs-enabled').addEventListener('change', e => {
+            currentSettings.obsEnabled = e.target.checked;
+            saveCurrentSettings();
+            setTimeout(loadObsInfo, 400);
+        });
+        document.getElementById('s-obs-port-apply').addEventListener('click', () => {
+            const raw = parseInt(document.getElementById('s-obs-port').value, 10);
+            const msg = document.getElementById('s-obs-port-msg');
+            const port = Number.isInteger(raw) ? raw : 0;
+            if (port < 0 || port > 65535) {
+                msg.textContent = t('obsPortInvalid'); msg.className = 's-msg show err'; return;
+            }
+            currentSettings.obsPort = port;
+            saveCurrentSettings();
+            msg.textContent = t('obsPortApplied'); msg.className = 's-msg show ok';
+            setTimeout(() => msg.classList.remove('show'), 3000);
+            setTimeout(loadObsInfo, 400);
+        });
+        document.getElementById('s-obs-dock-copy').addEventListener('click', e =>
+            copyToClipboard(document.getElementById('s-obs-dock-url').value, e.target));
+        document.getElementById('s-obs-port-copy').addEventListener('click', e =>
+            copyToClipboard(document.getElementById('s-obs-port-value').value, e.target));
+        document.getElementById('s-obs-token-copy').addEventListener('click', e =>
+            copyToClipboard(document.getElementById('s-obs-token').value, e.target));
+
+        function toggleCustomUrl(show) { document.getElementById('s-custom-url').classList.toggle('show', show); }
+        function saveCurrentSettings() { window.dualview.saveSettings(currentSettings); }
+
+        document.getElementById('s-homepage').addEventListener('change', e => {
+            currentSettings.homepageMode = e.target.value;
+            toggleCustomUrl(e.target.value === 'custom');
+            if (e.target.value !== 'custom') saveCurrentSettings();
+        });
+        document.getElementById('s-validate-url').addEventListener('click', () => {
+            const raw = document.getElementById('s-custom-url-input').value.trim();
+            const msg = document.getElementById('s-url-msg');
+            let url = raw;
+            if (url && !/^https?:\/\//i.test(url) && !/^file:\/\//i.test(url)) url = 'https://' + url;
+            let isValid = false; try { const p = new URL(url); isValid = ['http:', 'https:'].includes(p.protocol); } catch { }
+            if (isValid) {
+                currentSettings.customHomepageUrl = url;
+                document.getElementById('s-custom-url-input').value = url;
+                msg.textContent = t('urlValid'); msg.className = 's-msg show ok'; saveCurrentSettings();
+                setTimeout(() => msg.classList.remove('show'), 3000);
+            } else { msg.textContent = t('urlInvalid'); msg.className = 's-msg show err'; }
+        });
+        document.getElementById('s-newtab').addEventListener('change', e => { currentSettings.newTabMode = e.target.value; saveCurrentSettings(); });
+        document.getElementById('s-restore').addEventListener('change', e => { currentSettings.restoreTabs = e.target.checked; saveCurrentSettings(); });
+
+        let restartPendingSave = null, restartRevertFn = null;
+        function showRestartDialog(titleKey, descKey, onConfirm, onCancel) {
+            document.getElementById('restart-title').textContent = t(titleKey);
+            document.getElementById('restart-desc').textContent = t(descKey);
+            restartPendingSave = onConfirm; restartRevertFn = onCancel;
+            document.getElementById('restart-dialog').classList.add('show');
+        }
+        document.getElementById('restart-confirm').addEventListener('click', () => {
+            document.getElementById('restart-dialog').classList.remove('show');
+            if (restartPendingSave) restartPendingSave();
+            window.dualview.relaunchApp();
+        });
+        document.getElementById('restart-cancel').addEventListener('click', () => {
+            document.getElementById('restart-dialog').classList.remove('show');
+            if (restartRevertFn) restartRevertFn();
+            restartPendingSave = restartRevertFn = null;
+        });
+        document.getElementById('s-appearance').addEventListener('change', e => {
+            const newVal = e.target.value, prevVal = currentSettings.appearance || 'auto';
+            currentSettings.appearance = newVal; saveCurrentSettings();
+            showRestartDialog('restartTitle', 'restartAppearanceDesc', () => { }, () => { currentSettings.appearance = prevVal; document.getElementById('s-appearance').value = prevVal; saveCurrentSettings(); });
+        });
+        document.getElementById('s-language').addEventListener('change', e => {
+            const newVal = e.target.value, prevVal = currentSettings.language || 'fr';
+            currentSettings.language = newVal; saveCurrentSettings();
+            showRestartDialog('restartTitle', 'restartLanguageDesc', () => { }, () => { currentSettings.language = prevVal; document.getElementById('s-language').value = prevVal; saveCurrentSettings(); });
+        });
+        document.querySelectorAll('.s-nav').forEach(nav => {
+            nav.addEventListener('click', () => {
+                document.querySelectorAll('.s-nav').forEach(n => n.classList.remove('active'));
+                document.querySelectorAll('.s-section').forEach(s => s.classList.remove('active'));
+                nav.classList.add('active');
+                const sec = document.getElementById('section-' + nav.dataset.section);
+                if (sec) sec.classList.add('active');
+                if (nav.dataset.section === 'services') loadServicesStatus();
+            });
+        });
+
+        // ── Services connectés ─────────────────────────────────────────────────────────
+        const SERVICE_ICONS = {
+            google: '🔵', microsoft: '🪟', instagram: '📸', facebook: '👤',
+            twitch: '💜', tiktok: '🎵', twitter: '🐦', discord: '🎮', steam: '🎮'
+        };
+        const SERVICE_LABELS = {
+            google: 'Google', microsoft: 'Microsoft', instagram: 'Instagram', facebook: 'Facebook',
+            twitch: 'Twitch', tiktok: 'TikTok', twitter: 'X / Twitter', discord: 'Discord', steam: 'Steam'
+        };
+
+        async function loadServicesStatus() {
+            const loading = document.getElementById('svc-loading');
+            const grid = document.getElementById('svc-grid');
+            loading.style.display = 'flex';
+            grid.style.display = 'none';
+
+            const { known, custom } = await window.dualview.getConnectedServicesStatus();
+            loading.style.display = 'none';
+            grid.style.display = 'grid';
+            grid.innerHTML = '';
+
+            // Tuiles services connus
+            for (const [key, label] of Object.entries(SERVICE_LABELS)) {
+                const connected = known[key] === true;
+                const tile = document.createElement('div');
+                tile.className = 'svc-tile' + (connected ? ' connected' : '');
+                tile.innerHTML = `
+                <span class="svc-tile-icon">${SERVICE_ICONS[key] || '🌐'}</span>
+                <span class="svc-tile-label">${label}</span>
+                <span class="svc-tile-status">${connected ? t('servicesConnected') : t('servicesNotConnected')}</span>
+                ${connected ? `<button class="svc-tile-disconnect" data-key="${key}" title="${t('servicesDisconnect')}">✕</button>` : ''}
+            `;
+                tile.addEventListener('click', async (e) => {
+                    if (e.target.classList.contains('svc-tile-disconnect')) return;
+                    if (connected) {
+                        // Proposer reconnecter ou déconnecter
+                        showSvcContextMenu(key, null, null, tile, connected);
+                    } else {
+                        await connectService(key, null, null);
+                        loadServicesStatus();
+                    }
+                });
+                const discBtn = tile.querySelector('.svc-tile-disconnect');
+                if (discBtn) {
+                    discBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        await window.dualview.disconnectService({ serviceKey: key });
+                        showToast(t('servicesDeleted'));
+                        loadServicesStatus();
+                    });
+                }
+                grid.appendChild(tile);
+            }
+
+            // Services personnalisés
+            const customList = document.getElementById('svc-custom-list');
+            customList.innerHTML = '';
+            for (const svc of (custom || [])) {
+                const connected = svc.connected === true;
+                const item = document.createElement('div');
+                item.className = 'svc-tile' + (connected ? ' connected' : '');
+                item.style.cssText = 'flex-direction:row;justify-content:space-between;margin-bottom:8px;padding:10px 12px;';
+                item.innerHTML = `
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:18px">🌐</span>
+                    <div>
+                        <div class="svc-tile-label">${escHtml(svc.label)}</div>
+                        <div class="svc-tile-status" style="font-size:10px">${connected ? t('servicesConnected') : t('servicesNotConnected')}</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center">
+                    <button class="s-validate-btn" style="font-size:11px;padding:4px 8px" data-action="${connected ? 'reconnect' : 'connect'}" data-id="${svc.id}" data-url="${escHtml(svc.url)}" data-label="${escHtml(svc.label)}">
+                        ${connected ? t('servicesReconnect') : t('servicesConnect')}
+                    </button>
+                    ${connected ? `<button class="restart-cancel" style="font-size:11px;padding:4px 8px" data-action="disconnect" data-id="${svc.id}" data-url="${escHtml(svc.url)}">${t('servicesDisconnect')}</button>` : ''}
+                    <button class="tab-close" style="font-size:16px" data-action="delete" data-id="${svc.id}">×</button>
+                </div>
+            `;
+                item.querySelectorAll('button').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const action = btn.dataset.action;
+                        if (action === 'connect' || action === 'reconnect') {
+                            await connectService('custom', btn.dataset.url, btn.dataset.label);
+                            loadServicesStatus();
+                        } else if (action === 'disconnect') {
+                            await window.dualview.disconnectService({ serviceKey: 'custom', customUrl: btn.dataset.url });
+                            showToast(t('servicesDeleted'));
+                            loadServicesStatus();
+                        } else if (action === 'delete') {
+                            await window.dualview.deleteCustomService({ serviceId: btn.dataset.id });
+                            showToast(t('servicesDeleted'));
+                            loadServicesStatus();
+                        }
+                    });
+                });
+                customList.appendChild(item);
+            }
+        }
+
+        function escHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        async function connectService(serviceKey, customUrl, customLabel) {
+            showToast(t('servicesConnecting'), 8000);
+            const result = await window.dualview.openAuthWindow({ serviceKey, customUrl, customLabel });
+            if (result && result.success) showToast(t('servicesSuccess'));
+            else showToast(t('servicesFailed'));
+            return result && result.success;
+        }
+
+        function showSvcContextMenu(serviceKey, customUrl, customLabel, tileEl, isConnected) {
+            // Afficher menu contextuel reconnect/déconnecter
+            const existing = document.getElementById('svc-ctx-menu');
+            if (existing) existing.remove();
+            const menu = document.createElement('div');
+            menu.id = 'svc-ctx-menu';
+            menu.style.cssText = `position:fixed;background:var(--bg);border:1px solid var(--border);
+            border-radius:8px;padding:4px 0;min-width:160px;z-index:9000;
+            box-shadow:0 2px 12px rgba(0,0,0,0.15)`;
+            const rect = tileEl.getBoundingClientRect();
+            menu.style.left = rect.left + 'px';
+            menu.style.top = (rect.bottom + 4) + 'px';
+            menu.innerHTML = `
+            <div class="gear-item" id="ctx-reconnect"><span>↺</span><span>${t('servicesReconnect')}</span></div>
+            <div class="gear-separator"></div>
+            <div class="gear-item" id="ctx-disconnect" style="color:var(--danger)"><span>✕</span><span>${t('servicesDisconnect')}</span></div>
+        `;
+            document.body.appendChild(menu);
+            menu.querySelector('#ctx-reconnect').addEventListener('click', async () => {
+                menu.remove();
+                await connectService(serviceKey, customUrl, customLabel);
+                loadServicesStatus();
+            });
+            menu.querySelector('#ctx-disconnect').addEventListener('click', async () => {
+                menu.remove();
+                await window.dualview.disconnectService({ serviceKey, customUrl });
+                showToast(t('servicesDeleted'));
+                loadServicesStatus();
+            });
+            setTimeout(() => {
+                const closeMenu = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', closeMenu); } };
+                document.addEventListener('click', closeMenu);
+            }, 50);
+        }
+
+        // Formulaire ajout service perso
+        document.getElementById('svc-add-custom-btn').addEventListener('click', () => {
+            document.getElementById('svc-custom-form').classList.add('show');
+            document.getElementById('svc-custom-label').focus();
+        });
+        document.getElementById('svc-custom-cancel').addEventListener('click', () => {
+            document.getElementById('svc-custom-form').classList.remove('show');
+            document.getElementById('svc-custom-label').value = '';
+            document.getElementById('svc-custom-url').value = '';
+            document.getElementById('svc-custom-msg').className = 's-msg';
+        });
+        document.getElementById('svc-custom-connect').addEventListener('click', async () => {
+            const label = document.getElementById('svc-custom-label').value.trim();
+            let url = document.getElementById('svc-custom-url').value.trim();
+            const msg = document.getElementById('svc-custom-msg');
+            if (!label || !url) { msg.textContent = 'Nom et URL requis.'; msg.className = 's-msg show err'; return; }
+            if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+            let valid = false; try { new URL(url); valid = true; } catch { }
+            if (!valid) { msg.textContent = t('urlInvalid'); msg.className = 's-msg show err'; return; }
+            msg.textContent = t('servicesConnecting'); msg.className = 's-msg show ok';
+            document.getElementById('svc-custom-form').classList.remove('show');
+            document.getElementById('svc-custom-label').value = '';
+            document.getElementById('svc-custom-url').value = '';
+            await connectService('custom', url, label);
+            loadServicesStatus();
+        });
+
+        // ── Panneau Historique (v0.4.0) ────────────────────────────────────────────────
+        const historyPanel = document.getElementById('history-panel');
+        const historyList  = document.getElementById('history-list');
+        const historyEmpty = document.getElementById('history-empty');
+        const histSearchInput = document.getElementById('history-search-input');
+        let historyOpen = false;
+        let histSearchTimer = null;
+
+        document.getElementById('history-panel-close').addEventListener('click', closeHistoryPanel);
+        document.getElementById('history-clear-all-btn').addEventListener('click', async () => {
+            if (!confirm('Effacer tout l\'historique ?')) return;
+            window.dualview.historyClearAll();
+            renderHistoryList([]);
+        });
+
+        histSearchInput.addEventListener('input', () => {
+            clearTimeout(histSearchTimer);
+            histSearchTimer = setTimeout(async () => {
+                const q = histSearchInput.value.trim();
+                const results = await window.dualview.historySearch(q, 200);
+                renderHistoryList(results);
+            }, 200);
+        });
+
+        async function openHistoryPanel() {
+            historyOpen = true;
+            historyPanel.classList.add('open');
+            histSearchInput.value = '';
+            const entries = await window.dualview.historyGetAll();
+            renderHistoryList(entries);
+            setTimeout(() => histSearchInput.focus(), 250);
+        }
+
+        function closeHistoryPanel() {
+            historyOpen = false;
+            historyPanel.classList.remove('open');
+        }
+
+        // Fermeture sur clic extérieur au panneau
+        document.addEventListener('click', (e) => {
+            if (historyOpen && !historyPanel.contains(e.target) && e.target.id !== 'menu-history') {
+                closeHistoryPanel();
+            }
+        });
+
+        /**
+         * Groupe les entrées par date et génère le HTML du panneau.
+         */
+        function renderHistoryList(entries) {
+            // Vider sauf l'empty-state
+            historyList.innerHTML = '';
+            historyList.appendChild(historyEmpty);
+
+            if (!entries || entries.length === 0) {
+                historyEmpty.style.display = 'flex';
+                return;
+            }
+            historyEmpty.style.display = 'none';
+
+            // Groupement par date
+            const groups = new Map(); // label → [{entry, originalUrl}]
+            const now = new Date();
+            const todayStr = now.toDateString();
+            const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+            const yesterdayStr = yesterday.toDateString();
+            const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+
+            entries.forEach(entry => {
+                const d = new Date(entry.visitedAt);
+                const ds = d.toDateString();
+                let label;
+                if (ds === todayStr) label = "Aujourd'hui";
+                else if (ds === yesterdayStr) label = 'Hier';
+                else if (d >= weekAgo) label = 'Cette semaine';
+                else {
+                    // Mois + année
+                    label = d.toLocaleDateString(currentLang === 'fr' ? 'fr-FR' : 'en-US', { month: 'long', year: 'numeric' });
+                    label = label.charAt(0).toUpperCase() + label.slice(1);
+                }
+                if (!groups.has(label)) groups.set(label, []);
+                groups.get(label).push(entry);
+            });
+
+            groups.forEach((groupEntries, label) => {
+                // En-tête du groupe
+                const lbl = document.createElement('div');
+                lbl.className = 'hist-group-label';
+                lbl.textContent = label;
+                historyList.appendChild(lbl);
+
+                groupEntries.forEach(entry => {
+                    const item = document.createElement('div');
+                    item.className = 'hist-item';
+
+                    const favicon = document.createElement('span');
+                    favicon.className = 'hist-favicon';
+                    favicon.textContent = '🌐';
+
+                    const text = document.createElement('div');
+                    text.className = 'hist-text';
+
+                    const title = document.createElement('div');
+                    title.className = 'hist-title';
+                    title.textContent = entry.title || entry.url;
+                    title.title = entry.url;
+
+                    const url = document.createElement('div');
+                    url.className = 'hist-url';
+                    url.textContent = entry.url;
+
+                    text.appendChild(title);
+                    text.appendChild(url);
+
+                    const time = document.createElement('span');
+                    time.className = 'hist-time';
+                    const d = new Date(entry.visitedAt);
+                    time.textContent = d.toLocaleTimeString(currentLang === 'fr' ? 'fr-FR' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'hist-delete-btn';
+                    delBtn.title = 'Supprimer';
+                    delBtn.textContent = '✕';
+                    delBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        window.dualview.historyDeleteUrl(entry.url);
+                        item.remove();
+                        // Supprimer le groupe s'il est vide
+                        const parentGroup = lbl;
+                        const siblings = Array.from(historyList.children).filter(el =>
+                            el !== parentGroup && el.previousElementSibling === parentGroup
+                        );
+                        if (siblings.length === 0) {
+                            // Vérifier si plus aucun hist-item après ce label
+                            let next = parentGroup.nextElementSibling;
+                            if (!next || next.classList.contains('hist-group-label')) {
+                                parentGroup.remove();
+                            }
+                        }
+                        // Vérifier si tout est vide
+                        if (!historyList.querySelector('.hist-item')) {
+                            historyEmpty.style.display = 'flex';
+                        }
+                    });
+
+                    item.appendChild(favicon);
+                    item.appendChild(text);
+                    item.appendChild(time);
+                    item.appendChild(delBtn);
+
+                    // Clic sur l'item → naviguer
+                    item.addEventListener('click', () => {
+                        navigate(entry.url);
+                        closeHistoryPanel();
+                    });
+
+                    historyList.appendChild(item);
+                });
+            });
+        }
+
+        // ── Dropdown historique sur ← → (v0.4.0) ─────────────────────────────────────
+        const navHistDropdown = document.getElementById('nav-history-dropdown');
+        let navHistTimer = null;
+        let navHistHoldTimer = null;
+        let navHistActiveBtn = null;
+
+        function positionNavHistDropdown(btn) {
+            // Le dropdown est un enfant direct de #toolbar (position:absolute)
+            // On positionne par rapport au bouton dans la toolbar
+            const toolbarRect = document.getElementById('toolbar').getBoundingClientRect();
+            const btnRect = btn.getBoundingClientRect();
+            navHistDropdown.style.left = (btnRect.left - toolbarRect.left) + 'px';
+        }
+
+        async function showNavHistDropdown(btn) {
+            navHistActiveBtn = btn;
+
+            // ── Source de données : pile de navigation native de la webview ──────────
+            // Comme Chrome/Firefox : on lit directement l'historique de navigation
+            // interne de la webview (wv.navigationHistory), qui contient exactement
+            // les URLs visitées dans cet onglet avec l'index courant.
+            const wv = getActiveWebview();
+            let navEntries = [];   // [{url, title}]
+            let currentIndex = -1;
+
+            if (wv && wv.navigationHistory) {
+                // API Electron >= 22 : navigationHistory
+                try {
+                    const nh = wv.navigationHistory;
+                    currentIndex = nh.getActiveIndex();
+                    const total = nh.length();
+                    for (let i = 0; i < total; i++) {
+                        const entry = nh.getEntryAtIndex(i);
+                        if (entry) navEntries.push({ url: entry.url, title: entry.title || '' });
+                    }
+                } catch { navEntries = []; }
+            }
+
+            // Fallback : tabHistory en mémoire (alimenté par addToHistory dans did-navigate)
+            if (navEntries.length === 0) {
+                const memHist = tabHistory.get(activeTabId) || [];
+                navEntries = memHist.map(url => ({ url, title: '' }));
+                // En mémoire l'ordre est du plus récent au plus ancien → l'index courant est 0
+                currentIndex = 0;
+            }
+
+            navHistDropdown.innerHTML = '';
+
+            if (navEntries.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'nav-hist-item';
+                empty.style.color = 'var(--fg-muted)';
+                empty.style.fontStyle = 'italic';
+                empty.style.padding = '8px 12px';
+                empty.textContent = 'Aucun historique pour cet onglet';
+                navHistDropdown.appendChild(empty);
+            } else {
+                // ── Reproduire le comportement Chrome/Firefox ────────────────────────
+                // Pages SUIVANTES (au-dessus de la courante) — du plus proche au plus loin
+                const afterCurrent = navEntries.slice(currentIndex + 1).reverse();
+                // Page courante
+                const current = navEntries[currentIndex] || null;
+                // Pages PRÉCÉDENTES (sous la courante) — du plus récent au plus ancien
+                const beforeCurrent = navEntries.slice(0, currentIndex).reverse();
+
+                // Section "Pages suivantes" (si applicable — bouton → survolé)
+                if (afterCurrent.length > 0) {
+                    const lbl = document.createElement('div');
+                    lbl.className = 'nav-hist-section';
+                    lbl.textContent = 'Suivant';
+                    navHistDropdown.appendChild(lbl);
+                    afterCurrent.forEach(entry => navHistDropdown.appendChild(makeNavHistItem(entry, false)));
+                    const sep = document.createElement('div');
+                    sep.style.cssText = 'height:1px;background:var(--border);margin:2px 0';
+                    navHistDropdown.appendChild(sep);
+                }
+
+                // Page courante (toujours affichée)
+                if (current) {
+                    if (!afterCurrent.length) {
+                        const lbl = document.createElement('div');
+                        lbl.className = 'nav-hist-section';
+                        lbl.textContent = 'Onglet actif';
+                        navHistDropdown.appendChild(lbl);
+                    }
+                    navHistDropdown.appendChild(makeNavHistItem(current, true));
+                }
+
+                // Section "Pages précédentes"
+                if (beforeCurrent.length > 0) {
+                    const sep = document.createElement('div');
+                    sep.style.cssText = 'height:1px;background:var(--border);margin:2px 0';
+                    navHistDropdown.appendChild(sep);
+                    const lbl = document.createElement('div');
+                    lbl.className = 'nav-hist-section';
+                    lbl.textContent = 'Précédent';
+                    navHistDropdown.appendChild(lbl);
+                    // Limiter à 8 entrées précédentes
+                    beforeCurrent.slice(0, 8).forEach(entry => navHistDropdown.appendChild(makeNavHistItem(entry, false)));
+                }
+            }
+
+            // Footer : deux boutons côte à côte
+            const footer = document.createElement('div');
+            footer.className = 'nav-hist-footer';
+
+            const btnHistory = document.createElement('button');
+            btnHistory.className = 'nav-hist-footer-btn';
+            btnHistory.textContent = '🕐 Voir l\'historique';
+            btnHistory.addEventListener('mousedown', e => {
+                e.preventDefault();
+                closeNavHistDropdown();
+                openHistoryPanel();
+            });
+
+            const btnHide = document.createElement('button');
+            btnHide.className = 'nav-hist-footer-btn hide-btn';
+            btnHide.textContent = '✕ Cacher';
+            btnHide.addEventListener('mousedown', e => {
+                e.preventDefault();
+                closeNavHistDropdown();
+            });
+
+            footer.appendChild(btnHistory);
+            footer.appendChild(btnHide);
+            navHistDropdown.appendChild(footer);
+
+            positionNavHistDropdown(btn);
+            navHistDropdown.classList.add('open');
+        }
+
+        // Crée un élément de la liste du dropdown nav-history
+        function makeNavHistItem(entry, isCurrent) {
+            const item = document.createElement('div');
+            item.className = 'nav-hist-item' + (isCurrent ? ' current' : '');
+
+            const icon = document.createElement('span');
+            icon.className = 'nav-hist-icon';
+            icon.textContent = isCurrent ? '●' : '○';
+
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'nav-hist-url';
+            // Afficher le titre si disponible, sinon le hostname
+            let label = entry.title || entry.url;
+            if (!entry.title) {
+                try { label = new URL(entry.url).hostname.replace('www.', ''); } catch { label = entry.url; }
+            }
+            urlSpan.textContent = label;
+            urlSpan.title = entry.url;
+
+            item.appendChild(icon);
+            item.appendChild(urlSpan);
+
+            if (!isCurrent) {
+                item.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    closeNavHistDropdown();
+                    navigate(entry.url);
+                });
+            }
+            return item;
+        }
+
+        function closeNavHistDropdown() {
+            navHistDropdown.classList.remove('open');
+            navHistActiveBtn = null;
+            clearTimeout(navHistTimer);
+            clearTimeout(navHistHoldTimer);
+        }
+
+        function attachNavHistEvents(btn) {
+            // Survol > 500 ms
+            btn.addEventListener('mouseenter', () => {
+                if (btn.disabled) return;
+                navHistTimer = setTimeout(() => showNavHistDropdown(btn), 500);
+            });
+            btn.addEventListener('mouseleave', () => {
+                clearTimeout(navHistTimer);
+                // Laisser le dropdown ouvert si la souris le survole
+            });
+            // Clic maintenu > 400 ms
+            btn.addEventListener('mousedown', (e) => {
+                if (e.button !== 0 || btn.disabled) return;
+                navHistHoldTimer = setTimeout(() => {
+                    showNavHistDropdown(btn);
+                }, 400);
+            });
+            btn.addEventListener('mouseup', () => clearTimeout(navHistHoldTimer));
+            btn.addEventListener('mouseleave', () => clearTimeout(navHistHoldTimer));
+        }
+
+        // Fermeture sur clic extérieur
+        document.addEventListener('click', (e) => {
+            if (navHistDropdown.classList.contains('open') &&
+                !navHistDropdown.contains(e.target) &&
+                e.target !== backBtn && e.target !== forwardBtn) {
+                closeNavHistDropdown();
+            }
+        });
+
+        // Attacher les events aux boutons ← →
+        attachNavHistEvents(backBtn);
+        attachNavHistEvents(forwardBtn);
+
+        // ── Raccourcis clavier (v0.4.1) ────────────────────────────────────────────
+        // Même logique que les commandes OBS : on appelle les fonctions UI existantes.
+        // Priorité absolue sur les raccourcis natifs du renderer pour F5/Ctrl+R.
+        document.addEventListener('keydown', (e) => {
+            // Ne pas intercepter si le focus est dans un champ de saisie (omnibar)
+            const tag = document.activeElement && document.activeElement.tagName;
+            const isInput = tag === 'INPUT' || tag === 'TEXTAREA';
+
+            // Ctrl+L / F6 — Focus barre d'adresse (intercepté même dans un input)
+            if ((e.key === 'F6') || (e.key === 'l' && (e.ctrlKey || e.metaKey) && !e.shiftKey)) {
+                e.preventDefault();
+                urlInput.select();
+                urlInput.focus();
+                return;
+            }
+
+            // Échap — Fermer dropdowns / quitter l'omnibar
+            if (e.key === 'Escape' && !isInput) {
+                document.getElementById('gear-menu').classList.remove('open');
+                syncMenu.classList.remove('open');
+                closeNavHistDropdown();
+                closeHistoryPanel();
+                return;
+            }
+
+            // Raccourcis bloqués si focus dans un champ de saisie (sauf ceux ci-dessus)
+            if (isInput) return;
+
+            // Alt+← — Retour
+            if (e.key === 'ArrowLeft' && e.altKey) {
+                e.preventDefault();
+                if (!backBtn.disabled) window.dualview.navBack();
+                return;
+            }
+            // Alt+→ — Avance
+            if (e.key === 'ArrowRight' && e.altKey) {
+                e.preventDefault();
+                if (!forwardBtn.disabled) window.dualview.navForward();
+                return;
+            }
+            // F5 ou Ctrl+R — Recharger (sans recharger la fenêtre Electron)
+            if (e.key === 'F5' || (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey)) {
+                e.preventDefault();
+                document.getElementById('reload-btn').click();
+                return;
+            }
+            // Ctrl+T — Nouvel onglet
+            if (e.key === 't' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                e.preventDefault();
+                addTab();
+                return;
+            }
+            // Ctrl+W — Fermer onglet actif
+            if (e.key === 'w' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                e.preventDefault();
+                if (tabs.length > 1) closeTab(activeTabId);
+                return;
+            }
+            // Ctrl+Tab — Onglet suivant
+            if (e.key === 'Tab' && e.ctrlKey && !e.shiftKey) {
+                e.preventDefault();
+                const idx = tabs.findIndex(t => t.id === activeTabId);
+                if (idx !== -1) switchTab(tabs[(idx + 1) % tabs.length].id);
+                return;
+            }
+            // Ctrl+Shift+Tab — Onglet précédent
+            if (e.key === 'Tab' && e.ctrlKey && e.shiftKey) {
+                e.preventDefault();
+                const idx = tabs.findIndex(t => t.id === activeTabId);
+                if (idx !== -1) switchTab(tabs[(idx - 1 + tabs.length) % tabs.length].id);
+                return;
+            }
+        });
+
+        // ── Boutons souris Retour/Avance (v0.4.1) ────────────────────────────────
+        // Le main envoie 'mouse-nav' après avoir capturé les boutons 3/4 via
+        // before-input-event (seule méthode fiable dans une webview Electron).
+        window.dualview.on('mouse-nav', (direction) => {
+            if (direction === 'back' && !backBtn.disabled) window.dualview.navBack();
+            if (direction === 'forward' && !forwardBtn.disabled) window.dualview.navForward();
+        });
+
+        // ── Actions du menu contextuel (v0.4.1) ──────────────────────────────────
+        // Reçues du main après sélection d'une entrée du menu natif.
+        window.dualview.on('context-menu-action', ({ action, url, text, x, y }) => {
+            const wv = getActiveWebview();
+            switch (action) {
+                case 'open-link-new-tab':
+                    if (url) addTabWithUrl(url);
+                    break;
+                case 'reload':
+                    document.getElementById('reload-btn').click();
+                    break;
+                case 'copy-page-url': {
+                    const currentUrl = document.getElementById('url-input').value;
+                    if (currentUrl) navigator.clipboard.writeText(currentUrl).catch(() => { });
+                    break;
+                }
+                case 'search-selection':
+                    if (text) addTabWithUrl(buildSearchUrl(text));
+                    break;
+                case 'inspect':
+                    if (wv && wv.openDevTools) wv.openDevTools();
+                    break;
+                default:
+                    break;
+            }
+        });
+
+        // ── Pollers ────────────────────────────────────────────────────────────────────
+        let lastVideoEvent = null, lastTimeSyncAt = 0;
+        function pollVideoState() {
+            if (currentSyncState !== 'active') return;
+            const wv = getActiveWebview();
+            if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+            wv.executeJavaScript('window.__dualviewVideoEvent||null').then(evt => {
+                if (!evt) return;
+                const key = evt.type + '_' + Math.round(evt.time * 10);
+                if (key === lastVideoEvent) return;
+                lastVideoEvent = key;
+                wv.executeJavaScript('window.__dualviewVideoEvent=null;true;').catch(() => { });
+                if (evt.type === 'play') { showIndicator('Lecture (' + evt.platform + ')', false); window.dualview.sendVideoPlay(evt.time); }
+                if (evt.type === 'pause') { showIndicator('Pause (' + evt.platform + ')', true); window.dualview.sendVideoPause(evt.time); }
+                // seek : envoyer l'état courant (pause ou lecture) plutôt que toujours play
+                if (evt.type === 'seek') {
+                    wv.executeJavaScript('(window.__dualviewVideoState&&window.__dualviewVideoState.playing)||false')
+                        .then(isPlaying => {
+                            if (isPlaying) window.dualview.sendVideoPlay(evt.time);
+                            else window.dualview.sendVideoPause(evt.time);
+                        }).catch(() => window.dualview.sendVideoPlay(evt.time));
+                }
+            }).catch(() => { });
+            const now = Date.now();
+            if (now - lastTimeSyncAt >= 5000) {
+                lastTimeSyncAt = now;
+                wv.executeJavaScript('window.__dualviewVideoState||null').then(s => {
+                    if (s && s.hasVideo && s.playing) showIndicator('Lecture (' + s.platform + ')', false);
+                    else if (s && s.hasVideo) showIndicator('Pause (' + s.platform + ')', true);
+                    else hideIndicator();
+                    if (s && s.hasVideo && s.playing) window.dualview.sendVideoTimeUpdate(s.currentTime);
+                }).catch(() => { });
+            }
+        }
+        setInterval(pollVideoState, 150);
+
+        function resetVideoCounters() { lastVideoEvent = null; lastTimeSyncAt = 0; hideIndicator(); }
+
+        let lastScrollPct = -1;
+        function pollScroll() {
+            if (currentSyncState !== 'active') return;
+            const wv = getActiveWebview();
+            if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+            wv.executeJavaScript('window.__dualviewScrollPct||0').then(pct => {
+                if (typeof pct === 'number' && Math.abs(pct - lastScrollPct) > 0.001) {
+                    lastScrollPct = pct;
+                    window.dualview.sendScroll(pct);
+                }
+            }).catch(() => { });
+        }
+        setInterval(pollScroll, 100);
+
+        // ── Initialisation ─────────────────────────────────────────────────────────────
+        window.dualview.getSyncState().then(state => updateSyncUI(state));
+
+        // Mode dev : activer classe CSS + raccourci bouton 🔧
+        window.dualview.getIsDev().then(isDev => {
+            if (!isDev) return;
+
+            document.body.classList.add('dev-mode');
+
+            // ── Bouton 🔧 : DevTools de la webview active ──────────────────────────
+            document.getElementById('dev-btn').addEventListener('click', () => {
+                const wv = getActiveWebview();
+                if (!wv) return;
+                if (wv.isDevToolsOpened()) wv.closeDevTools();
+                else wv.openDevTools();
+            });
+
+            // ── F12 : DevTools de la fenêtre landscape (renderer) ──────────────────
+            // Géré dans le renderer car main n'a pas accès aux webviews du pool.
+            window.addEventListener('keydown', (e) => {
+                if (e.key !== 'F12') return;
+                e.preventDefault();
+
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl+F12 → DevTools de la webview active
+                    const wv = getActiveWebview();
+                    if (!wv) return;
+                    if (wv.isDevToolsOpened()) wv.closeDevTools();
+                    else wv.openDevTools();
+                } else {
+                    // F12 → DevTools de la fenêtre landscape elle-même
+                    // Passe par IPC car le renderer ne peut pas appeler
+                    // webContents.openDevTools() sur sa propre fenêtre directement
+                    window.dualview.toggleDevTools();
+                }
+            });
+        });
+
+        window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings }) => {
+            loadSettingsUI(settings || {});
+            const restore = settings && settings.restoreTabs !== false;
+            let initTabs, initActiveId;
+            if (restore && st && st.length > 0) {
+                initTabs = st; initActiveId = sa || st[0].id;
+            } else {
+                const homepageUrl = getNewTabUrl();
+                initTabs = [{ id: 'tab-1', title: homepageUrl ? '' : t('newTab'), url: homepageUrl }];
+                initActiveId = 'tab-1';
+            }
+            tabs = initTabs; activeTabId = initActiveId;
+            tabs.forEach(tab => { if (!isSettingsTab(tab)) createWebview(tab.id, tab.url || ''); });
+            if (activeTabId === SETTINGS_TAB_ID) {
+                const firstWeb = tabs.find(t => t.id !== SETTINGS_TAB_ID);
+                activeTabId = firstWeb ? firstWeb.id : tabs[0].id;
+            }
+            showWebview(activeTabId);
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            if (activeTab && activeTab.url) document.getElementById('url-input').value = activeTab.url;
+            window.dualview.switchTab(activeTabId);
+            renderTabs();
+        });
+    </script>
 </body>
 </html>
