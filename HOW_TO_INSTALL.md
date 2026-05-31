@@ -1,8 +1,4 @@
-# DualView v0.4.2 - Instructions d'installation
-
-## Nouveautés v0.4.2
-
-- **Restructuration modulaire** : aucun changement fonctionnel — code découpé en modules maintenables pour faciliter les contributions open source.
+# DualView v0.4.1 - Instructions d'installation
 
 ## Nouveautés v0.4.1
 

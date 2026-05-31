@@ -1789,9 +1789,13 @@
         <button id="forward-btn" class="nav-btn" title="→" disabled>&#8594;</button>
         <button id="reload-btn" class="nav-btn" title="⟳">&#8635;</button>
         <button id="home-btn" class="nav-btn" title="🏠">&#8962;</button>
-        <input type="text" id="url-input" autocomplete="off" spellcheck="false" />
+        <div id="omnibar-wrapper" style="flex:1;position:relative;min-width:0">
+            <input type="text" id="url-input" autocomplete="off" spellcheck="false" />
+            <div id="omnibar-dropdown"></div>
+        </div>
         <button id="go-btn" title="▶">&#9654;</button>
-        <button id="resume-btn" title="✅">&#9989;</button>
+        <button id="resume-btn" title="✅" style="display:none">&#9989;</button>
+        <button id="screenshot-btn" title="📷 Capturer les deux vues">&#128247;</button>
 
         <!-- Bouton sync -->
         <button id="sync-btn" class="paused" title="Synchronisation">
@@ -1826,6 +1830,11 @@
             <div class="gear-item" id="menu-resize">
                 <span>&#8596;</span>
                 <span data-i18n="resize">Redimensionner</span>
+            </div>
+            <div class="gear-separator"></div>
+            <div class="gear-item" id="menu-history">
+                <span>&#128336;</span>
+                <span data-i18n="history">Historique</span>
             </div>
             <div class="gear-separator"></div>
             <div class="gear-item" id="menu-settings">
@@ -2056,7 +2065,7 @@
                 <div class="s-heading" data-i18n="settingsPrivacy">Confidentialité</div>
                 <div class="s-info-block">
                     <div class="s-info-title" data-i18n="privacyDownloads">Téléchargements</div>
-                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. DualView est un outil de streaming.</div>
+                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. Exception : enregistrement d'image via clic droit.</div>
                     <div class="s-badge">&#10003; Bloqué</div>
                 </div>
                 <div class="s-info-block">
@@ -2084,14 +2093,14 @@
                         <input type="checkbox" id="s-obs-enabled" checked>
                         <div>
                             <label for="s-obs-enabled" class="s-check-label" data-i18n="obsEnabledLabel">Activer le contrôle depuis OBS</label>
-                            <div class="s-check-desc" data-i18n="obsEnabledDesc">Démarre un serveur local (127.0.0.1) permettant le dock OBS et les raccourcis clavier.</div>
+                            <div class="s-check-desc" data-i18n="obsEnabledDesc">Démarre un serveur local (127.0.0.1) permettant le dock OBS et les raccourcis clavier. Aucune donnée n'est exposée au réseau.</div>
                         </div>
                     </div>
                 </div>
                 <div class="s-divider"></div>
                 <div class="s-row">
                     <label class="s-label" data-i18n="obsPortLabel">Port du serveur</label>
-                    <div class="s-desc" data-i18n="obsPortDesc">0 = port choisi automatiquement.</div>
+                    <div class="s-desc" data-i18n="obsPortDesc">0 = port choisi automatiquement. Fixez une valeur (ex. 49231) pour un port stable.</div>
                     <div class="s-url-row">
                         <input type="number" id="s-obs-port" class="s-url-input" min="0" max="65535" placeholder="0" style="max-width:140px;" />
                         <button id="s-obs-port-apply" class="s-validate-btn" data-i18n="obsPortApply">Appliquer</button>
@@ -2130,6 +2139,25 @@
                     <div class="s-info-title" data-i18n="obsGuideTitle">Guide complet</div>
                     <div class="s-info-desc" data-i18n="obsGuideDesc">Voir obs-integration/OBS_INTEGRATION.md pour la mise en place du dock et des raccourcis clavier.</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panneau Historique (v0.4.0) -->
+    <div id="history-panel">
+        <div id="history-panel-header">
+            <span id="history-panel-title">🕐 Historique</span>
+            <button id="history-panel-close" title="Fermer">✕</button>
+        </div>
+        <div id="history-search-row">
+            <input type="text" id="history-search-input" placeholder="Rechercher dans l'historique…" autocomplete="off" spellcheck="false" />
+            <button id="history-clear-all-btn">Tout effacer</button>
+        </div>
+        <div id="history-list">
+            <div id="history-empty" style="display:none">
+                <span style="font-size:32px">🕐</span>
+                <span>Aucun historique</span>
+                <span style="font-size:11px;color:var(--fg-muted)">Les pages que vous visitez apparaîtront ici.</span>
             </div>
         </div>
     </div>

@@ -17,6 +17,8 @@ main.js
   |                                -> BYPASS si YouTube Shorts (/shorts/)
   |     setPermissionRequestHandler -> bloque toutes les permissions
   |     will-download -> bloque les téléchargements (toast dans landscapeWin)
+|                      EXCEPTION : images enregistrées via clic droit
+|                      → flag _pendingImageSavePath + downloadURL()
   |     NOTE : un seul handler onBeforeSendHeaders autorisé par session
   |            → toute correction sec-ch-ua doit être faite ici uniquement
   |
@@ -105,8 +107,8 @@ URLs bloquées vers portrait si isAuthUrl(url) :
 ```
 auth-window.js
   |
-  |-- KNOWN_SERVICES : 11 services (Google, Microsoft, Instagram, Facebook,
-  |                    Twitch, TikTok, X/Twitter, Discord, Steam, GitHub, GitLab)
+  |-- KNOWN_SERVICES : 9 services (Google, Microsoft, Instagram, Facebook,
+  |                    Twitch, TikTok, X/Twitter, Discord, Steam)
   |
   |-- checkKnownServiceCookies(serviceKey)
   |     → session.cookies.get({ domain })
@@ -351,16 +353,24 @@ dualview/
 |   |                           saveNow
 |   |                         Filtre : URLs d'auth jamais enregistrées
 |   |
-|   |-- obs-control.js        Serveur de contrôle OBS (v0.3.2)
-|   |                         HTTP + WebSocket sur 127.0.0.1, token aléatoire
+|   |-- obs-control.js        NOUVEAU v0.3.2 — Serveur de contrôle OBS
+|   |                         HTTP + WebSocket sur 127.0.0.1, token
 |   |                         start/stop/updateStatus/getInfo
 |   |                         Liste blanche ALLOWED_ACTIONS
+|   |                         Sert obs-dock.html (injection token/port)
 |   |
-|   |-- obs-dock.html         Page du dock OBS (v0.3.2)
-|   |                         UI compacte, onglets défilables
+|   |-- obs-dock.html         NOUVEAU v0.3.2 — Page du dock OBS
+|   |                         UI compacte (icônes), onglets sur 1 ligne
+|   |                         défilable (boutons ◀ ▶, ResizeObserver)
+|   |                         Favicons via google.com/s2/favicons
 |   |                         WebSocket temps réel + repli HTTP
 |   |
-|   |-- logger.js             Logger mode --dev : fichier + console
+|   |-- auth-window.js        Fenêtres authentification services
+|   |                         KNOWN_SERVICES, openAuthWindow
+|   |                         checkKnownServiceCookies, disconnectService
+|   |                         preload-auth.js via webPreferences.preload
+|   |
+|   |-- logger.js             Logger (mode --dev) : fichier + console
 |   |                         Niveaux LOG/WARN/ERROR, source taggée
 |   |
 |   |-- preload-auth.js       Anti-détection Electron (authWin)
@@ -387,9 +397,9 @@ dualview/
 |   |                           historyDeleteUrl, historyClearAll,
 |   |                           historyClearTab
 |   |
-|   |-- preload-view.js       Bridge sécurisé webviews
-|   |                         sync-state-changed, show-login-popup
-|   |                         login-page-cleared, sync-resume-state
+|   |-- preload-view.js       Bridge sécurisé (webviews)
+|   |                         + sync-state-changed, show-login-popup
+|   |                         + login-page-cleared, sync-resume-state
 |   |
 |   |-- landscape.html        Fenêtre paysage v0.4.0
 |   |                         + Bouton sync (toolbar) + menu dropdown
@@ -418,10 +428,12 @@ dualview/
 |   |                         + Overlay login plein écran (non ignorable)
 |   |                         + sync-resume-state → réinjection scripts
 |   |
-|-- obs-integration/          Ressources OBS (hors binaire, non embarqué)
+|-- obs-integration/          NOUVEAU v0.3.2 — Ressources OBS (hors binaire)
 |   |-- dualview-obs-hotkeys.lua   Script hotkeys natives OBS → /command
 |   |-- OBS_INTEGRATION.md         Guide d'utilisation (dock + hotkeys)
-|
+|   |   NOTE : dossier NON embarqué dans l'installeur (destiné à OBS,
+|   |          pas à Electron). package.json.files ne couvre que src/**/*
+|   |
 |-- assets/
 |   |-- icon.ico
 |   |-- README.txt
@@ -429,6 +441,18 @@ dualview/
 |-- installer/
     |-- build-installer.bat
     |-- build-installer.ps1
+```
+
+### Fichiers de données utilisateur (runtime, non versionnés)
+
+```
+%AppData%/DualView/
+|-- dualview-config.json      Configuration (fenêtres, onglets, paramètres)
+|-- history.json              NOUVEAU v0.4.0 — Historique de navigation
+|                             [{url, title, visitedAt, tabId}, ...]
+|                             Max 5000 entrées, géré par history-manager.js
+|-- Partitions/
+    |-- persist_dualview/     Cookies et sessions (partition Electron)
 ```
 
 ---
@@ -556,13 +580,3 @@ obs-integration/
 Note : `obs-integration/` n'est PAS embarqué dans le binaire (fichiers destinés
 à OBS, pas à Electron). `package.json.files` couvre `src/**/*` → obs-control.js
 et obs-dock.html sont bien inclus dans l'installeur.
-
-### Modifications v0.3.3
-```
-auth-window.js   Ajout GitHub (🐙) et GitLab (🦊) dans KNOWN_SERVICES
-                 Ajout github / gitlab dans DISCONNECT_EXTRA_DOMAINS
-main.js          Ajout github.com et gitlab.com dans AUTH_DOMAINS
-                 Ajout des cas github / gitlab dans detectServiceKeyFromUrl()
-landscape.html   Mise à jour SERVICE_ICONS (nouvelles icônes + github/gitlab)
-                 Mise à jour SERVICE_LABELS (GitHub, GitLab)
-```

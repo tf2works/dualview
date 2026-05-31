@@ -33,7 +33,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 ## Barre de navigation
 
 ```
-← → ⟳ 🏠 [url] ▶ [✅] [● Sync] ⚙️
+← → ⟳ 🏠 [url] ▶ 📷 [● Sync] ⚙️
 ```
 
 | Bouton | Fonction |
@@ -41,78 +41,43 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | ← → | Page précédente / suivante (les deux fenêtres) |
 | ⟳ | Recharger (les deux fenêtres) |
 | 🏠 | Page d'accueil |
-| ▶ | Charger l'URL saisie |
-| ✅ | Valider le redimensionnement Portrait |
+| [url] | Barre d'adresse — sélection auto au clic, Échap annule, suggestions omnibar |
+| ▶ | Charger l'URL ou lancer une recherche |
+| 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
 
 ---
 
-## Nouveautés v0.4.2
+## Nouveautés v0.4.0
 
-### 🧩 Restructuration modulaire (maintenabilité open source)
+### 📱 Redimensionnement Portrait repensé
+**⚙️ → Redimensionner** ouvre une modale avec :
+- Préréglages : iPhone 15 (390×844), Pixel 8 (412×915), Galaxy S24 (360×780), iPad (768×1024)
+- Option taille libre : redimensionnez manuellement la fenêtre Portrait (contour orange)
+- **Valider** verrouille la taille. **Annuler** restaure la taille précédente.
 
-`main.js` (1 243 lignes) et `landscape.html` (4 237 lignes) ont été découpés en modules ciblés. Aucun changement fonctionnel — 100% compatible avec les versions précédentes.
+Le bouton ✅ est supprimé de la toolbar — tout passe par la modale.
 
-**Côté processus principal** (`src/main/`) :
-- `config-manager.js` — configuration JSON, constantes, préréglages
-- `security.js` — bloqueur de publicités, sécurisation de session
-- `url-detector.js` — détection pages login, URLs d'auth, identification de services
-- `sync-manager.js` — cycle de vie de la synchronisation (démarrage différé, pause, reprise)
-- `window-manager.js` — création et gestion des fenêtres BrowserWindow
-- `context-menu.js` — menu contextuel clic droit
-- `ipc/` — 9 handlers IPC thématiques (navigation, sync, tabs, historique, portrait, services, paramètres, OBS, captures)
+### 📷 Capture instantanée
+Le bouton **📷** dans la toolbar capture simultanément les deux vues en PNG horodaté.
 
-**Côté renderer landscape** (`src/landscape/`) :
-- `landscape.html` — HTML pur (~420 lignes, remplace les 4 237 lignes monolithiques)
-- `landscape.css` — tous les styles (~955 lignes)
-- `js/` — 15 modules JS : `i18n`, `state`, `ui-utils`, `webview-pool`, `tabs-manager`, `navigation`, `sync-ui`, `login-popup`, `history-panel`, `nav-history-dropdown`, `resize-modal`, `settings-panel`, `services-panel`, `keyboard-shortcuts`, `landscape-init`
+- Nommage : `dualview_YYYY-MM-DD_HH-mm-ss_paysage.png` + `_portrait.png`
+- Dossier configurable dans **Paramètres → Général → Captures d'écran** (par défaut : dossier Images)
+- Toast de confirmation avec le chemin de sauvegarde
 
----
+### 🔍 Barre d'adresse intelligente (omnibar)
+- **Clic sur la barre** : tout le texte est sélectionné automatiquement
+- **Échap** : annule la saisie et restaure l'URL courante
+- **Suggestions** pendant la frappe : historique de navigation, complétion de domaine, recherche avec le moteur configuré
+- **Navigation clavier** : ↑ ↓ pour parcourir les suggestions, Entrée pour valider
+- **Détection URL vs recherche** : texte avec un TLD reconnu → URL directe ; tout le reste → recherche
 
-## Nouveautés v0.4.1
-
-### ⌨️ Raccourcis clavier
-
-| Raccourci | Action |
-|-----------|--------|
-| `Alt + ←` / `Alt + →` | Page précédente / suivante |
-| `F5` / `Ctrl + R` | Recharger |
-| `Ctrl + T` | Nouvel onglet |
-| `Ctrl + W` | Fermer l'onglet |
-| `Ctrl + Tab` | Onglet suivant |
-| `Ctrl + L` / `F6` | Focus barre d'adresse |
-
-### 🖱️ Boutons souris Retour/Avance
-Les boutons latéraux de la souris (boutons 3 et 4) déclenchent navigation arrière/avant,
-comme dans un navigateur standard.
-
-### 🔗 Ouverture de liens dans DualView
-Tout lien ouvrant normalement un nouvel onglet navigateur (`target="_blank"`, `window.open()`)
-est automatiquement redirigé dans un nouvel onglet DualView au lieu d'une fenêtre externe.
-
-### 🖱️ Menu contextuel clic droit
-Menu natif contextuel selon l'élément cliqué :
-- **Lien** : Ouvrir dans un nouvel onglet, Copier l'URL
-- **Image** : Enregistrer l'image sous…, Copier l'URL de l'image
-- **Texte sélectionné** : Copier, Rechercher
-- **Page** : Recharger, Copier l'URL de la page
-
-### 💾 Enregistrement d'image (clic droit)
-Enregistrement natif via dialogue système — seule exception aux téléchargements
-bloqués par défaut.
-
----
-
-## Nouveautés v0.3.3
-
-### 🐙🦊 GitHub et GitLab dans les services connectés
-Deux nouveaux services pré-configurés dans **Paramètres → Services connectés** :
-- **GitHub** 🐙 — connexion via github.com (cookies `user_session` / `logged_in`)
-- **GitLab** 🦊 — connexion via gitlab.com (cookie `_gitlab_session`)
-
-Les icônes de tous les services existants ont également été mises à jour pour
-mieux les identifier d'un coup d'œil.
+### 🔎 Moteur de recherche configurable
+Dans **Paramètres → Général → Moteur de recherche** :
+- **DuckDuckGo** par défaut (respect de la vie privée)
+- Google, Bing, Brave Search, Qwant disponibles
+- Ajout de moteurs personnalisés (nom + URL template)
 
 ---
 
@@ -192,7 +157,7 @@ play/pause/seek détectés dans Paysage → appliqués à Portrait (±3s / ±5s)
 
 ## Sécurité
 
-- Téléchargements bloqués
+- Téléchargements bloqués (exception : enregistrement d'image via clic droit)
 - Permissions refusées (caméra, micro, géoloc, notifications)
 - Navigation limitée à `http://`, `https://`, `file://`
 - Bloqueur pub intégré (Google Ads, DoubleClick, YouTube pre-roll)
@@ -223,6 +188,7 @@ ajoutez un dock de navigateur personnalisé dans OBS, et chargez le script Lua
 | Position / taille | `%APPDATA%\DualView\dualview-config.json` |
 | Onglets & URLs | idem |
 | Paramètres & Services | idem |
+| **Historique de navigation** | `%APPDATA%\DualView\history.json` |
 | Cookies sessions | `%APPDATA%\DualView\Partitions\persist_dualview\` |
 
 ---
