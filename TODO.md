@@ -7,20 +7,18 @@
 
 ## Priorité 1 — Expérience utilisateur quotidienne
 
-- [ ] **A. Préréglages de taille Portrait**
+- [x] **A. Préréglages de taille Portrait**
   Ajouter un sélecteur de device préconfiguré dans la toolbar (menu déroulant ou popup) :
   iPhone 15 (390×844), Pixel 8 (412×915), Galaxy S24 (360×780), iPad (768×1024).
-  Appliquer via `setSize()` sur `portraitWin` et sauvegarder dans la config.
-  _Référence : Chrome DevTools, Polypane._
+  ✅ Livré en v0.4.0 — modale ⚙️ → Redimensionner.
 
-- [ ] **B. Capture instantanée (screenshot)**
+- [x] **B. Capture instantanée (screenshot)**
   Bouton dans la toolbar pour capturer les deux vues simultanément en PNG.
-  Utiliser `webContents.capturePage()` (natif Electron).
-  Dossier de sauvegarde configurable dans Paramètres → Général.
+  ✅ Livré en v0.4.0 — bouton 📷, dossier configurable dans Paramètres.
 
-- [ ] **C. Historique de navigation par onglet**
-  Dropdown au clic long (ou survol) des boutons ← → affichant les 10 dernières URLs
-  de l'onglet actif. Les données sont déjà dans `tabUrls` ; c'est un ajout purement UI.
+- [x] **C. Historique de navigation par onglet**
+  Dropdown au survol (500 ms) des boutons ← → affichant les URLs de l'onglet actif.
+  ✅ Livré en v0.4.0 — dropdown avec fermeture auto 500ms unfocus (v0.4.2).
 
 ---
 
@@ -77,6 +75,10 @@
   de partage draggable pour comparer visuellement Desktop vs Mobile.
   Utile pour les tests de responsive design.
 
+- [ ] **L. Pause automatique YouTube Shorts**
+  Actuellement exclue (complexité de l'autoplay SPA YouTube Shorts).
+  À retravailler quand YouTube stabilise son architecture Shorts.
+
 ---
 
 ## Structure open source
@@ -89,7 +91,7 @@
 
 - [ ] **CHANGELOG.md**
   Créer un changelog structuré au format [Keep a Changelog](https://keepachangelog.com)
-  en reprenant les sections des versions existantes (v0.3.0, v0.3.1, v0.3.2).
+  en reprenant les sections des versions existantes.
   Indexé par GitHub, facilite le suivi des versions pour les utilisateurs.
 
 - [ ] **GitHub Actions — build automatique**
@@ -107,5 +109,5 @@
 | 🟡 | Valeur ajoutée significative |
 | 🟢 | Nice to have / différenciation |
 
-_B (screenshot), G (cross-platform) et CONTRIBUTING.md sont recommandés en premier
+_G (cross-platform), CONTRIBUTING.md et CHANGELOG.md sont recommandés en priorité
 pour le meilleur ratio impact / effort sur un projet open source._

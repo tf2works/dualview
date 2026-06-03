@@ -1,4 +1,4 @@
-# DualView - Architecture v0.4.1
+# DualView - Architecture v0.4.2
 
 ## Vue d'ensemble
 
@@ -13,12 +13,13 @@ main.js
   |                      preload: preload-auth.js (anti-détection Electron)
   |
   |-- session.fromPartition('persist:dualview')
-  |     webRequest.onBeforeRequest -> bloque ads + schémas non autorisés
+  |     webRequest.onBeforeRequest -> bloque ads (50+ domaines) + schémas non autorisés
   |                                -> BYPASS si YouTube Shorts (/shorts/)
+  |                                -> ctier=A sur googlevideo.com (flux pub YouTube)
   |     setPermissionRequestHandler -> bloque toutes les permissions
   |     will-download -> bloque les téléchargements (toast dans landscapeWin)
-|                      EXCEPTION : images enregistrées via clic droit
-|                      → flag _pendingImageSavePath + downloadURL()
+  |                      EXCEPTION : images enregistrées via clic droit
+  |                      → flag _pendingImageSavePath + downloadURL()
   |     NOTE : un seul handler onBeforeSendHeaders autorisé par session
   |            → toute correction sec-ch-ua doit être faite ici uniquement
   |
@@ -27,18 +28,27 @@ main.js
   |     Barre de contrôle intégrée + panneau paramètres
   |     Bouton sync (Pause/Reprendre/Redémarrer)
   |     Popup détection page de connexion + bouton "Se connecter" direct
+  |     Injection CSS cosmétique + stub IMA (Niveaux 2 & 3 bloqueur pub)
+  |     Polling pub YouTube (ad-showing/ad-interrupting) → IPC ad-state
+  |     Pause auto vidéos classiques YouTube (dom-ready → retry 200ms)
+  |     Dropdown historique ← → : fermeture auto 500ms après unfocus
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     Pool de webviews mobile (miroir du pool landscape)
   |     resizable=false (setResizable(true/false) via bouton ↔/✅)
   |     Indicateur sync (badge discret en haut)
   |     Overlay login (plein écran, non ignorable, auto-dismiss)
+  |     Overlay pub (semi-transparent, message + compte à rebours)
+  |     Bouton remute (polling 2s, visible si video.muted=false)
+  |     Pause auto vidéos classiques YouTube (dom-ready → retry 200ms)
+  |     Réalignement exact timeline au play (sans seuil de drift)
   |
   |-- État synchronisation
   |     syncState : 'paused' | 'active'
   |     Démarre à 'paused', passe à 'active' après 3 s (scheduleSyncStart)
   |     Les IPC scroll/vidéo/nav sont silencieux si syncState !== 'active'
   |     Les URLs d'auth ne sont jamais envoyées à portrait (isAuthUrl guard)
+  |     IPC ad-state : relayé indépendamment de syncState
   |
   |-- État onglets (main)
   |     tabUrls  : Map<tabId, url>
@@ -50,7 +60,8 @@ main.js
   |     portraitWindow  {x,y,width,height}
   |     tabs[]          {id,title,url}
   |     activeTabId
-  |     settings        {restoreTabs, homepageMode, customHomepageUrl,
+  |     settings        {restoreTabs, autoPauseVideo,
+  |                      homepageMode, customHomepageUrl,
   |                      newTabMode, appearance, language,
   |                      customServices[]}
 ```
@@ -97,6 +108,101 @@ Channels ignorés si syncState !== 'active' :
 URLs bloquées vers portrait si isAuthUrl(url) :
   navigate, sync-navigate, sync-resume-state
   → isAuthUrl() vérifie AUTH_DOMAINS (9 services) + patterns LOGIN_URL
+
+Canal ad-state : toujours relayé (indépendant de syncState)
+```
+
+---
+
+## Synchronisation vidéo v0.4.2
+
+### Flux landscape → portrait
+```
+landscape.html (webview paysage)
+  VIDEO_WATCHER_SCRIPT injecté au dom-ready
+    video.addEventListener('play')   → window.__dualviewVideoEvent = {type:'play',  time}
+    video.addEventListener('pause')  → window.__dualviewVideoEvent = {type:'pause', time}
+    video.addEventListener('seeked') → window.__dualviewVideoEvent = {type:'seek',  time}
+
+  pollVideoState() — setInterval 150ms
+    → executeJavaScript '__dualviewVideoEvent'
+    → si play  : sendVideoPlay(time)   → IPC 'video-play'
+    → si pause : sendVideoPause(time)  → IPC 'video-pause'
+    → si seek  : sendVideoPlay/Pause selon état courant
+
+main.js
+  ipcMain.on('video-play')  → portraitWin.send('video-cmd', {action:'play',  currentTime})
+  ipcMain.on('video-pause') → portraitWin.send('video-cmd', {action:'pause', currentTime})
+
+portrait.html (webview portrait)
+  VIDEO_EXECUTOR_SCRIPT injecté UNE SEULE FOIS au dom-ready
+    __dualviewApplyCmd(cmd) :
+      'pause' → video.currentTime = cmd.currentTime (exact, sans seuil)
+                video.pause()
+      'play'  → video.currentTime = cmd.currentTime (exact, sans seuil)
+                video.play()
+      'seek'  → si drift > 4s : video.currentTime = cmd.currentTime
+```
+
+### Détection pub YouTube (v0.4.2)
+```
+landscape.html
+  pollAdState() — exécuté dans pollVideoState (150ms)
+    AD_POLL_SCRIPT → vérifie player.classList.contains('ad-showing'|'ad-interrupting')
+                   → extrait compte à rebours (.ytp-ad-duration-remaining)
+    → si changement état : sendAdState({isAd, remaining})
+
+main.js
+  ipcMain.on('ad-state') → portraitWin.send('ad-state', {isAd, remaining})
+  (toujours relayé, indépendant de syncState)
+
+portrait.html
+  window.dualview.on('ad-state', ({isAd, remaining}))
+    → isAd=true  : affiche #ad-overlay + compte à rebours si remaining != null
+    → isAd=false : masque #ad-overlay
+```
+
+### Pause automatique YouTube (v0.4.2)
+```
+Vidéos classiques uniquement (Shorts exclus explicitement)
+
+landscape.html
+  AUTO_PAUSE_SCRIPT injecté à 2s et 5s après dom-ready, et après did-navigate
+    → détecte isAdPlaying() (ad-showing/ad-interrupting)
+    → si pub : poll 500ms jusqu'à fin pub → pause
+    → sinon  : pause immédiate à currentTime=0
+  Flag __dualviewAutoPauseDone : remis à false à chaque navigation
+
+portrait.html (miroir)
+  PORTRAIT_AUTO_PAUSE_SCRIPT injecté immédiatement au dom-ready
+    → même logique, retry toutes les 200ms pendant 10s max (50 tentatives)
+    → video.muted = true + video.currentTime = 0 + video.pause()
+```
+
+---
+
+## Bloqueur de publicités v0.4.2
+
+### Architecture 3 niveaux
+```
+Niveau 1 — Réseau (main.js, session.webRequest.onBeforeRequest)
+  isBlockedUrl(url, initiatorUrl)
+    → isYouTubeShort(initiatorUrl) → bypass si Shorts
+    → googlevideo.com : bloquer si ctier=A (flux pub), laisser passer sinon
+    → AD_BLOCK_DOMAINS (50+ domaines : DoubleClick, googlesyndication,
+      adservice.google.*, imasdk.googleapis.com, adnxs, criteo, taboola...)
+    → AD_BLOCK_PATHS (analytics, pagead, IMA SDK paths)
+
+Niveau 2 — DOM (landscape.html, injecté via did-attach-webview)
+  YOUTUBE_COSMETIC_CSS → insertCSS dans les webviews YouTube
+    Sélecteurs : ytd-promoted-*, ytd-ad-slot-renderer,
+    .ytp-ad-overlay-container, .ytp-ad-skip-button*, #player-ads...
+
+Niveau 3 — JS (landscape.html, injecté via dom-ready webview)
+  YOUTUBE_IMA_STUB_SCRIPT → executeJavaScript
+    Object.defineProperty(window, 'google', ...) → stub complet google.ima
+    Neutralise AdsLoader, AdsManager, AdsRequest, AdDisplayContainer
+    Résistant à la ré-écriture par YouTube (setter intercepté)
 ```
 
 ---
@@ -158,297 +264,74 @@ ATTENTION : ne pas installer de handler onBeforeSendHeaders
   et sa suppression retire TOUS les handlers → ERR_ABORTED généralisé.
 ```
 
-### Flux connexion service connu
-```
-Utilisateur → clic tuile service → openAuthWindow({ serviceKey })
-  → BrowserWindow s'ouvre sur URL auth du service
-  → did-navigate : URL hors domaine auth + vérif cookies → fermeture auto
-  → Toast "Connecté avec succès"
-  → loadServicesStatus() → rafraîchit tuiles
-  → Portrait rechargera l'onglet actif via sync-resume-state si nécessaire
-```
-
-### Flux connexion URL personnalisée
-```
-Utilisateur → formulaire (nom + URL) → clic Connecter
-  → openAuthWindow({ serviceKey:'custom', customUrl, customLabel })
-  → BrowserWindow s'ouvre sur customUrl
-  → Bouton "✓ J'ai terminé" injecté (fixed bottom-right)
-  → Poller 500ms détecte clic
-  → checkGenericCookies() → count cookies suspects
-  → main envoie 'auth-custom-confirm' { serviceLabel, hasCookies, cookieCount }
-  → landscape affiche dialog confirmation
-  → Utilisateur confirme → ipcMain 'auth-custom-confirmed' true
-  → configSet customServices + connected:true
-  → Toast "Connecté avec succès"
-```
-
-### Reconnexion (session expirée)
-```
-Bouton "Se reconnecter" → connectService(serviceKey, ...)
-  → openAuthWindow() comme une connexion normale
-  → Les cookies existants sont dans la session → auto-login possible
-  → Si page login réapparaît → flux auth normal
-```
-
-### Bugs identifiés v0.3.0 (à corriger en v0.3.1)
-```
-BUG-1 : Portrait non connecté après auth Google/YouTube
-  Symptôme : connexion Google réussie dans authWin, mais YouTube dans
-             portrait affiche l'utilisateur comme non connecté.
-  Cause    : la webview portrait a chargé YouTube AVANT la fin de l'écriture
-             des cookies par authWin. Les cookies persist:dualview sont
-             présents mais la page ne les a pas relus (pas de rechargement).
-  Fix prévu : après finish(true) dans openAuthWindow, envoyer un IPC
-              'auth-success' { serviceKey } → main recharge la webview
-              portrait de l'onglet actif si son URL appartient au service.
-
-BUG-2 : Microsoft — fenêtre auth ne se ferme pas, service déconnecté
-  Symptôme : après login Microsoft, la fenêtre auth reste ouverte et
-             redirige dans auth-window sans se fermer. Le statut reste
-             "Non connecté" dans les paramètres.
-  Cause A  : authDomains trop larges — après login, Microsoft redirige
-             vers login.microsoftonline.com/common/oauth2/... qui reste
-             dans authDomains → la condition "hors domaine auth" n'est
-             jamais vraie, la fenêtre ne se ferme pas.
-  Cause B  : les cookies ESTSAUTH sont créés sur login.microsoftonline.com
-             mais checkKnownServiceCookies cherche sur .microsoft.com et
-             .microsoftonline.com — le domaine exact peut ne pas matcher.
-  Fix prévu : affiner authDomains Microsoft + ajouter login.microsoftonline.com
-              dans cookieDomains avec domaine exact.
-
-BUG-3 : Outlook non synchronisé dans portrait (ERR_ABORTED)
-  Symptôme : navigation vers outlook.live.com dans landscape → portrait
-             reçoit ERR_ABORTED, ne charge pas la page.
-  Cause    : le handler onBeforeSendHeaders installé dans auth-window.js
-             sur la session persist:dualview écrase le handler de
-             setupSessionSecurity(). Sa suppression à la fermeture retire
-             tous les handlers → les requêtes des webviews portrait sont
-             bloquées (ERR_ABORTED généralisé sur toutes les URLs).
-  Fix prévu : supprimer onBeforeSendHeaders de auth-window.js. Intégrer
-              la correction sec-ch-ua dans setupSessionSecurity() de
-              main.js (seul handler autorisé sur la session).
-```
-
 ---
 
-## Détection pages de connexion v0.3.0
-
-```
-Patterns URL (renderer landscape, attachWebviewListeners) :
-  /\/login\b/i, /\/signin\b/i, /\/sign-in\b/i, /\/sign_in\b/i,
-  /\/auth\b/i, /\/oauth\b/i, /\/connexion\b/i, /\/identification\b/i,
-  /\/compte\/connexion/i, /\/account\/login/i
-
-Whitelist : localhost, 127.0.0.1
-Exclusions : /callback, /token, /redirect (retours OAuth)
-
-Flux :
-  did-navigate → isLoginPage(url) → dualview.notifyLoginPage(url, tabId)
-    → ipcMain 'login-page-detected'
-    → detectServiceKeyFromUrl(url) → serviceKey (null si inconnu)
-    → landscapeWin: 'show-login-popup' { url, tabId, serviceKey }
-    → portraitWin:  'show-login-popup' { url, tabId, serviceKey }
-
-  did-navigate URL non-login → dualview.notifyLoginPageLeft(tabId)
-    → ipcMain 'login-page-left'
-    → broadcastLoginPageCleared() → les deux fenêtres masquent leur UI
-
-Popup landscape :
-  - "Retour"             → goBack() dans la webview
-  - "Se connecter (Svc)" → openAuthWindow direct (si service détecté)
-  - "Services connectés" → openSettingsTab('services')
-  - Clic fond → dialog confirmation ignorance
-    - "Annuler"          → retour au popup
-    - "Ignorer quand même" → ferme tout
-
-Overlay portrait (plein écran, non ignorable) :
-  - Masqué automatiquement par login-page-cleared (piloté par main.js)
-  - Message : "Page de connexion détectée — Synchronisation en pause"
-```
-
----
-
-## YouTube Shorts v0.3.0
-
-```
-main.js → isYouTubeShort(initiatorUrl)
-  Si URL initiateur = https://www.youtube.com/shorts/*
-  → isBlockedUrl() retourne false (bypass bloqueur pub)
-  → Les requêtes ads/tracking passent pour les Shorts
-
-Les scripts VIDEO_WATCHER/EXECUTOR restent actifs sur les Shorts.
-```
-
----
-
-## Flux IPC complet v0.3.0
-
-```
-Nouveaux canaux v0.3.0 :
-
-landscapeWin → main :
-  sync-control(action)              : 'pause'|'resume'|'restart'
-  login-page-detected({url,tabId})  : détection page login
-  login-page-left({tabId})          : navigation hors page login
-  open-auth-window(opts)            : ouvre fenêtre auth (invoke)
-  disconnect-service(opts)          : supprime cookies (invoke)
-  delete-custom-service(opts)       : supprime service perso (invoke)
-  auth-custom-confirmed(bool)       : confirmation auth perso
-  auth-custom-cancelled()           : annulation auth perso
-
-main → landscapeWin + portraitWin :
-  sync-state-changed(state)         : 'active'|'paused'
-  show-login-popup({url,tabId,serviceKey}) : affiche popup/overlay connexion
-  login-page-cleared()              : masque popup/overlay connexion
-
-main → portraitWin :
-  sync-resume-state({tabId,url})    : reprise sync (réinjection scripts)
-
-main → landscapeWin :
-  auth-custom-confirm({serviceLabel,hasCookies,cookieCount})
-```
-
----
-
-## Structure des fichiers v0.4.0
+## Structure des fichiers
 
 ```
 dualview/
-|
-|-- package.json              Version 0.4.0
-|-- HOW_TO_INSTALL.md         Procédure d'installation + config OBS
+|-- package.json              v0.4.2
 |-- ARCHITECTURE.md           Ce fichier
+|-- HOW_TO_INSTALL.md
 |-- README.md
-|
-|-- src/
-|   |-- main.js               Processus principal v0.4.0
-|   |                         + syncState, scheduleSyncStart
-|   |                         + IPC sync-control, login-page-detected/left
-|   |                         + IPC services connectés
-|   |                         + isYouTubeShort (bypass bloqueur)
-|   |                         + isAuthUrl / AUTH_DOMAINS (guard portrait)
-|   |                         + detectServiceKeyFromUrl
-|   |                         + app.commandLine AutomationControlled
-|   |                         + OBS : require obs-control, applySyncAction,
-|   |                           handleObsCommand, pushObsStatus, get-obs-info
-|   |                         + v0.4.0 : PORTRAIT_PRESETS, IPC resize portrait
-|   |                           (start/apply/finish/cancel-portrait-resize)
-|   |                         + v0.4.0 : IPC screenshot (take-screenshot,
-|   |                           choose-screenshot-dir) via dialog natif
-|   |                         + v0.4.0 : IPC historique (history-add,
-|   |                           history-get-all, history-get-by-tab,
-|   |                           history-search, history-delete-url,
-|   |                           history-clear-all, history-clear-tab)
-|   |                         + v0.4.0 : require history-manager,
-|   |                           history.saveNow() à la fermeture
-|   |
-|   |-- history-manager.js    NOUVEAU v0.4.0 — Historique de navigation
-|   |                         Fichier : %AppData%/DualView/history.json
-|   |                         Entrée : { url, title, visitedAt, tabId }
-|   |                         Max 5000 entrées (FIFO), déduplication
-|   |                         URL+tabId par heure, sauvegarde différée 2 s
-|   |                         Méthodes : add, getAll, getByTab, search,
-|   |                           deleteUrl, deleteByIndex, clearAll, clearTab,
-|   |                           saveNow
-|   |                         Filtre : URLs d'auth jamais enregistrées
-|   |
-|   |-- obs-control.js        NOUVEAU v0.3.2 — Serveur de contrôle OBS
-|   |                         HTTP + WebSocket sur 127.0.0.1, token
-|   |                         start/stop/updateStatus/getInfo
-|   |                         Liste blanche ALLOWED_ACTIONS
-|   |                         Sert obs-dock.html (injection token/port)
-|   |
-|   |-- obs-dock.html         NOUVEAU v0.3.2 — Page du dock OBS
-|   |                         UI compacte (icônes), onglets sur 1 ligne
-|   |                         défilable (boutons ◀ ▶, ResizeObserver)
-|   |                         Favicons via google.com/s2/favicons
-|   |                         WebSocket temps réel + repli HTTP
-|   |
-|   |-- auth-window.js        Fenêtres authentification services
-|   |                         KNOWN_SERVICES, openAuthWindow
-|   |                         checkKnownServiceCookies, disconnectService
-|   |                         preload-auth.js via webPreferences.preload
-|   |
-|   |-- logger.js             Logger (mode --dev) : fichier + console
-|   |                         Niveaux LOG/WARN/ERROR, source taggée
-|   |
-|   |-- preload-auth.js       Anti-détection Electron (authWin)
-|   |                         webFrame.executeJavaScript (main world) :
-|   |                         navigator.webdriver, userAgentData,
-|   |                         window.chrome, plugins, permissions
-|   |
-|   |-- preload-dev.js        Bridge mode debug (--dev)
-|   |                         Raccourcis F12 / Ctrl+F12 (DevTools)
-|   |
-|   |-- preload-landscape.js  Bridge sécurisé v0.4.0
-|   |                         + syncControl, getSyncState
-|   |                         + notifyLoginPage, notifyLoginPageLeft
-|   |                         + getConnectedServicesStatus, openAuthWindow
-|   |                         + disconnectService, deleteCustomService
-|   |                         + confirmCustomAuth, cancelCustomAuth
-|   |                         + getObsInfo, canal entrant obs-command
-|   |                         + v0.4.0 : getPortraitPresets,
-|   |                           startPortraitResize, applyPortraitPreset,
-|   |                           finishPortraitResize, cancelPortraitResize
-|   |                         + v0.4.0 : takeScreenshot, chooseScreenshotDir
-|   |                         + v0.4.0 : historyAdd, historyGetAll,
-|   |                           historyGetByTab, historySearch,
-|   |                           historyDeleteUrl, historyClearAll,
-|   |                           historyClearTab
-|   |
-|   |-- preload-view.js       Bridge sécurisé (webviews)
-|   |                         + sync-state-changed, show-login-popup
-|   |                         + login-page-cleared, sync-resume-state
-|   |
-|   |-- landscape.html        Fenêtre paysage v0.4.0
-|   |                         + Bouton sync (toolbar) + menu dropdown
-|   |                         + Section "Services connectés" dans Paramètres
-|   |                         + Section "OBS" dans Paramètres
-|   |                         + Listener obs-command
-|   |                         + Popup page de connexion + bouton Se connecter
-|   |                         + v0.4.0 : Modale redimensionnement Portrait
-|   |                           (préréglages + taille libre, Valider/Annuler)
-|   |                         + v0.4.0 : Bouton 📷 capture instantanée PNG
-|   |                         + v0.4.0 : Omnibar (sélection auto au focus,
-|   |                           Échap, suggestions historique+domaine+recherche,
-|   |                           navigation clavier ↑↓)
-|   |                         + v0.4.0 : resolveInput() — détection URL/recherche
-|   |                         + v0.4.0 : Panneau latéral Historique (⚙️ →
-|   |                           Historique), groupé par date, recherche,
-|   |                           suppression unitaire et globale
-|   |                         + v0.4.0 : Dropdown historique sur ← →
-|   |                           (survol 500 ms ou clic maintenu 400 ms)
-|   |                         + v0.4.0 : Section moteur de recherche dans
-|   |                           Paramètres → Général (DuckDuckGo par défaut)
-|   |                         + v0.4.0 : Section captures dans Paramètres
-|   |
-|   |-- portrait.html         Fenêtre portrait v0.3.2
-|   |                         + Indicateur sync (badge discret)
-|   |                         + Overlay login plein écran (non ignorable)
-|   |                         + sync-resume-state → réinjection scripts
-|   |
-|-- obs-integration/          NOUVEAU v0.3.2 — Ressources OBS (hors binaire)
-|   |-- dualview-obs-hotkeys.lua   Script hotkeys natives OBS → /command
-|   |-- OBS_INTEGRATION.md         Guide d'utilisation (dock + hotkeys)
-|   |   NOTE : dossier NON embarqué dans l'installeur (destiné à OBS,
-|   |          pas à Electron). package.json.files ne couvre que src/**/*
-|   |
+|-- TODO.md
 |-- assets/
 |   |-- icon.ico
 |   |-- README.txt
 |
 |-- installer/
-    |-- build-installer.bat
-    |-- build-installer.ps1
+|   |-- build-installer.bat
+|   |-- build-installer.ps1
+|
+|-- obs-integration/
+|   |-- dualview-obs-hotkeys.lua
+|   |-- OBS_INTEGRATION.md
+|
+|-- src/
+    |-- main.js               Processus principal v0.4.2
+    |   |                     + Bloqueur pub 3 niveaux (réseau renforcé, CSS, IMA stub)
+    |   |                     + IPC ad-state (relay landscape → portrait)
+    |   |                     + Injection CSS cosmétique + stub IMA via did-attach-webview
+    |   |
+    |-- obs-control.js        Serveur HTTP + WebSocket OBS (v0.3.2)
+    |-- obs-dock.html         Page dock OBS
+    |-- auth-window.js        Fenêtres d'authentification
+    |-- history-manager.js    Historique persistant (history.json)
+    |-- logger.js             Système de debug --dev
+    |-- preload-auth.js       Anti-détection Electron (authWin)
+    |-- preload-dev.js        DevTools en mode --dev
+    |-- preload-landscape.js  API IPC renderer landscape
+    |   |                     + v0.4.2 : sendAdState({isAd, remaining})
+    |-- preload-view.js       API IPC renderer portrait
+    |   |                     + v0.4.2 : canal 'ad-state' ajouté
+    |
+    |-- landscape.html        Fenêtre paysage v0.4.2
+    |   |                     + Bloqueur pub niveaux 2 & 3 (CSS cosmétique, stub IMA)
+    |   |                     + pollAdState() → sendAdState IPC
+    |   |                     + AUTO_PAUSE_SCRIPT (vidéos classiques, Shorts exclus)
+    |   |                     + SHORT_CHANGE_WATCHER supprimé (Shorts non gérés)
+    |   |                     + Dropdown historique : fermeture 500ms après unfocus
+    |   |                       (navHistCloseTimer partagé boutons + dropdown)
+    |   |                     + Paramètre autoPauseVideo dans Settings → Général
+    |   |
+    |-- portrait.html         Fenêtre portrait v0.4.2
+        |                     + Overlay pub (#ad-overlay) : message + compte à rebours
+        |                     + Bouton remute (#remute-btn) : polling muted 2s
+        |                     + PORTRAIT_AUTO_PAUSE_SCRIPT : retry 200ms, currentTime=0
+        |                     + VIDEO_EXECUTOR_SCRIPT : réalignement exact au play
+        |                     + Overlay login plein écran (non ignorable)
+        |                     + Indicateur sync (badge discret)
 ```
+
+---
 
 ### Fichiers de données utilisateur (runtime, non versionnés)
 
 ```
 %AppData%/DualView/
 |-- dualview-config.json      Configuration (fenêtres, onglets, paramètres)
-|-- history.json              NOUVEAU v0.4.0 — Historique de navigation
+|                             settings.autoPauseVideo (v0.4.2)
+|-- history.json              Historique de navigation (v0.4.0)
 |                             [{url, title, visitedAt, tabId}, ...]
 |                             Max 5000 entrées, géré par history-manager.js
 |-- Partitions/
@@ -464,7 +347,8 @@ Session persist:dualview — UN SEUL handler par événement webRequest
   webRequest.onBeforeRequest (setupSessionSecurity dans main.js)
     isBlockedUrl(url, initiatorUrl)
       → isYouTubeShort(initiatorUrl) → bypass si Shorts
-      → sinon : protocoles + domaines pub + paths analytics
+      → googlevideo.com + ctier=A → flux pub YouTube bloqué
+      → sinon : protocoles + 50+ domaines pub + paths analytics/IMA
 
   RÈGLE : ne jamais installer un second onBeforeSendHeaders dans
   auth-window.js ou ailleurs — cela écrase le handler de main.js
@@ -473,12 +357,13 @@ Session persist:dualview — UN SEUL handler par événement webRequest
 
 ---
 
-## Paramètres v0.3.1
+## Paramètres v0.4.2
 
 ```
 Clé               | Valeurs                         | Effet
 ------------------|----------------------------------|---------------------------
 restoreTabs       | true / false                     | Prochain démarrage
+autoPauseVideo    | true / false (défaut: true)      | Immédiat (pause auto YouTube)
 homepageMode      | knack3 / custom / empty          | Immédiat
 customHomepageUrl | URL http/https validée           | Immédiat
 newTabMode        | homepage / empty                 | Immédiat
@@ -502,10 +387,11 @@ customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 | 0.2.5 | Sécurité. Paramètres. Menu ⚙️. Boutons ⟳ 🏠. i18n FR/EN. Installeur simplifié. |
 | 0.2.6 | Pool de webviews. Switch onglet sans rechargement. IPC tab-switched/closed/created. |
 | 0.3.0 | Démarrage sync différé 3 s. Bouton sync. Services connectés (9 + URL perso). Détection pages login + popup/overlay. Bouton "Se connecter" direct. YouTube Shorts bypass. Anti-détection Electron (preload-auth.js, 4 couches). |
-| 0.3.1 | Fix portrait partition persist:dualview (connexion cookies). Fix ERR_ABORTED (isAuthUrl hostname-only, AUTH_DOMAINS login-only). Fix sync vidéo (seek préserve état pause, executor réaligné). Fix injection scripts SPA (did-navigate-in-page). Fix session pre-init (pub 1re vidéo YouTube). Fix ordre fenêtres (portrait attend landscape). Fix déconnexion Microsoft (flush complet cookies). Auth Microsoft : confirmation obligatoire + bouton fallback (plus de fermeture automatique). LOGIN_FORCED_DOMAINS (login.microsoftonline.com toujours détecté). Portrait : overlay "Personnalisation en cours" sur onglet paramètres. Système de debug --dev (logger.js, preload-dev.js, F12, Ctrl+F12). |
-| 0.3.2 | Intégration OBS (Méthode 1 + 3). Serveur de contrôle local (obs-control.js) : HTTP + WebSocket sur 127.0.0.1, token d'authentification. Dock OBS (obs-dock.html) : sync, navigation, URL, onglets pilotables depuis l'interface OBS. Script Lua de hotkeys natives (obs-integration/dualview-obs-hotkeys.lua → /command). Paramètres → OBS (activation, port, dock URL, token). Refactor applySyncAction (partagé UI native / OBS). Canal IPC obs-command (renderer landscape réutilise addTab/closeTab/switchTab/navigate). Zéro régression. |
-| 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris retour/avance (boutons 3 et 4, via before-input-event). Toute ouverture de nouvelle fenêtre redirigée en onglet DualView (new-window + setWindowOpenHandler). Menu contextuel natif clic droit (did-attach-webview → wvContents.on context-menu → buildAndShowContextMenu) : lien, image, texte sélectionné, page — sans "Ouvrir dans une nouvelle fenêtre". Enregistrement d'image (clic droit → "Enregistrer l'image sous…") : dialogue natif + downloadURL via flag _pendingImageSavePath — seule exception au blocage des téléchargements. |
-| 0.4.0 | Expérience utilisateur : Redimensionnement Portrait via modale (⚙️ → Redimensionner) avec préréglages iPhone 15/Pixel 8/Galaxy S24/iPad + taille libre — suppression du bouton ✅ de la toolbar. Capture instantanée (bouton 📷 toolbar) : PNG horodatés des deux vues via capturePage(), dossier configurable (Paramètres → Général). Omnibar : sélection automatique de l'URL au focus, Échap annule, suggestions locales (historique + domaine) + recherche, navigation clavier ↑↓. Détection URL vs recherche (resolveInput) : TLDs reconnus = URL directe, tout le reste = moteur de recherche. Moteur de recherche dans Paramètres → Général : DuckDuckGo par défaut, Google/Bing/Brave/Qwant prédéfinis, ajout de moteurs personnalisés. Historique de navigation persistant (history-manager.js → history.json, max 5000 entrées, déduplication, filtre auth) : panneau latéral groupé par date (⚙️ → Historique), recherche fulltext, suppression unitaire et globale ; dropdown sur ← → (survol 500 ms / clic maintenu 400 ms) affichant les 10 dernières URLs de l'onglet actif. |
+| 0.3.1 | Fix portrait partition persist:dualview. Fix ERR_ABORTED. Fix sync vidéo. Fix injection scripts SPA. Fix session pre-init. Fix ordre fenêtres. Fix déconnexion Microsoft. Auth Microsoft : confirmation obligatoire. Système de debug --dev. |
+| 0.3.2 | Intégration OBS (Méthode 1 + 3). Serveur de contrôle local (obs-control.js). Dock OBS (obs-dock.html). Script Lua hotkeys (dualview-obs-hotkeys.lua). Paramètres → OBS. |
+| 0.4.0 | Redimensionnement Portrait via modale (préréglages + taille libre). Capture PNG (📷). Omnibar (suggestions + Échap + sélection auto). Détection URL vs recherche. Moteur de recherche configurable. Historique de navigation persistant. Dropdown ← →. |
+| 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris retour/avance. Liens externes → onglet DualView. Menu contextuel clic droit. Enregistrement image via clic droit. |
+| 0.4.2 | Bloqueur pub 3 niveaux (réseau 50+ domaines + ctier=A, CSS cosmétique, stub IMA complet). IPC ad-state (pub YouTube → overlay portrait avec compte à rebours). Pause auto vidéos classiques YouTube dans les deux fenêtres (retry 200ms, currentTime=0, gestion pub). Paramètre autoPauseVideo (Settings → Général). Bouton remute portrait (polling muted). Sync vidéo : réalignement exact au play sans seuil de drift. Dropdown historique : fermeture auto 500ms après unfocus (timer partagé boutons + dropdown). |
 
 ---
 
@@ -548,35 +434,3 @@ Sécurité :
   - liste blanche ALLOWED_ACTIONS (toute autre action rejetée)
   - WebSocket maison minimal (RFC 6455 texte), aucune dépendance npm ajoutée
 ```
-
-### Dispatch des commandes (main.js)
-```
-handleObsCommand(action, payload) :
-  sync-pause | sync-resume | sync-restart
-        → applySyncAction()   (même code que l'IPC 'sync-control')
-  nav-back | nav-forward | nav-reload | nav-home
-  navigate | tab-new | tab-close | tab-switch
-        → landscapeWin.send('obs-command', {action, payload})
-          → le renderer appelle navBack/addTab/closeTab/switchTab/navigate
-            (fonctions UI existantes → comportement identique au clic)
-```
-
-### Paramètres OBS (config)
-```
-Clé        | Valeurs              | Effet
------------|----------------------|-------------------------------------
-obsEnabled | true / false         | Démarre/arrête le serveur (immédiat)
-obsPort    | 0–65535 (0 = auto)   | Redémarre le serveur sur le nouveau port
-```
-
-### Fichiers ajoutés v0.3.2
-```
-src/obs-control.js                      Serveur HTTP + WebSocket local
-src/obs-dock.html                       Page du dock OBS (token/port injectés)
-obs-integration/
-  dualview-obs-hotkeys.lua              Script hotkeys natives OBS
-  OBS_INTEGRATION.md                    Guide d'utilisation OBS
-```
-Note : `obs-integration/` n'est PAS embarqué dans le binaire (fichiers destinés
-à OBS, pas à Electron). `package.json.files` couvre `src/**/*` → obs-control.js
-et obs-dock.html sont bien inclus dans l'installeur.

@@ -810,6 +810,15 @@ ipcMain.on('video-timeupdate', (e, t) => {
     if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('video-cmd', { action: 'seek', currentTime: t });
 });
 
+// ── IPC : Pub YouTube détectée dans le paysage ────────────────────────────────
+// Payload : { isAd: bool, remaining: number|null }
+// Relayé au portrait pour afficher/masquer l'overlay pub.
+ipcMain.on('ad-state', (e, payload) => {
+    if (portraitWin && !portraitWin.isDestroyed()) {
+        portraitWin.webContents.send('ad-state', payload);
+    }
+});
+
 // ── IPC : Redimensionnement portrait ─────────────────────────────────────────
 ipcMain.on('sync-pause', () => {
     if (portraitWin && !portraitWin.isDestroyed()) {

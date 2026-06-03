@@ -1956,6 +1956,16 @@
                 </div>
                 <div class="s-divider"></div>
                 <div class="s-row">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-auto-pause" checked>
+                        <div>
+                            <label for="s-auto-pause" class="s-check-label" data-i18n="autoPauseLabel">Pause automatique des vidéos YouTube</label>
+                            <div class="s-check-desc" data-i18n="autoPauseDesc">Pause la vidéo au lancement (classique et Shorts). La pub joue librement ; la vraie vidéo est pausée à la fin de la pub.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
                     <label class="s-label" data-i18n="homepageLabel">Page d'accueil et nouvelles fenêtres</label>
                     <div class="s-desc" data-i18n="homepageDesc">Page affichée au démarrage et sur le bouton accueil.</div>
                     <select class="s-select" id="s-homepage">
@@ -2177,6 +2187,8 @@
                 settingsServices: 'Services connectés', settingsPrivacy: 'Confidentialité',
                 restoreTabs: 'Ouvrir les fenêtres et onglets précédents',
                 restoreTabsDesc: 'Au démarrage, restaure les onglets et URL de la session précédente.',
+                autoPauseLabel: 'Pause automatique des vidéos YouTube',
+                autoPauseDesc: 'Pause la vidéo au lancement (classique et Shorts). La pub joue librement ; la vraie vidéo est pausée à la fin de la pub.',
                 homepageLabel: "Page d'accueil et nouvelles fenêtres", homepageDesc: "Page affichée au démarrage et sur le bouton accueil.",
                 homepageKnack3: "Page d'accueil Knack3 (par défaut)", homepageCustom: 'Adresse web personnalisée', homepageEmpty: 'Page vide',
                 newTabLabel: 'Nouveaux onglets', newTabHomepage: "Page d'accueil sélectionnée", newTabEmpty: 'Page vide',
@@ -2247,6 +2259,8 @@
                 settingsServices: 'Connected services', settingsPrivacy: 'Privacy',
                 restoreTabs: 'Restore windows and tabs from previous session',
                 restoreTabsDesc: 'On startup, restores tabs and URLs from the previous session.',
+                autoPauseLabel: 'Auto-pause YouTube videos',
+                autoPauseDesc: 'Pauses the video on launch (classic and Shorts). Ads play freely; the real video is paused once the ad ends.',
                 homepageLabel: 'Homepage and new windows', homepageDesc: 'Page shown on startup and when clicking the home button.',
                 homepageKnack3: 'Knack3 homepage (default)', homepageCustom: 'Custom web address', homepageEmpty: 'Empty page',
                 newTabLabel: 'New tabs', newTabHomepage: 'Selected homepage', newTabEmpty: 'Empty page',
@@ -2583,10 +2597,67 @@
         },{passive:true});
 })();true;`;
 
+        // ── Pause automatique YouTube (vidéos classiques uniquement) ──────────────────
+        // Shorts exclus — aucune interférence avec leur autoplay.
+        // Si pub en cours → attendre fin pub → pauser. Sinon → pause directe.
+        const AUTO_PAUSE_SCRIPT = `
+(function() {
+    if (window.__dualviewAutoPauseDone) return;
+    const url = location.href;
+    if (!url.includes('youtube.com')) return;
+    // Shorts : sortir immédiatement, aucune pause
+    if (url.includes('/shorts/') ||
+        !!document.getElementById('shorts-container') ||
+        !!document.querySelector('ytd-reel-video-renderer')) return;
+    window.__dualviewAutoPauseDone = true;
+    const selectors = ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+    function findVideo() {
+        for (const s of selectors) {
+            const list = Array.from(document.querySelectorAll(s))
+                .filter(v => { const r = v.getBoundingClientRect(); return r.width > 100 && r.height > 100; });
+            if (list.length) return list[0];
+        }
+        return null;
+    }
+    function isAdPlaying() {
+        const player = document.getElementById('movie_player');
+        return player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'));
+    }
+    function doPause(attempts) {
+        const video = findVideo();
+        if (video) {
+            if (isAdPlaying()) {
+                let waited = 0;
+                const poll = setInterval(() => {
+                    waited += 500;
+                    if (!isAdPlaying() || waited > 120000) {
+                        clearInterval(poll);
+                        const v = findVideo();
+                        if (v) v.pause();
+                    }
+                }, 500);
+            } else {
+                video.pause();
+            }
+            return;
+        }
+        if (attempts < 20) setTimeout(() => doPause(attempts + 1), 300);
+    }
+    doPause(0);
+    true;
+})()`;
+
         function resetWatcherFlags(wv) {
-            wv.executeJavaScript('window.__dualviewVideoWatcher=false;window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};window.__dualviewVideoEvent=null;true;').catch(() => { });
+            wv.executeJavaScript('window.__dualviewVideoWatcher=false;window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};window.__dualviewVideoEvent=null;window.__dualviewAutoPauseDone=false;true;').catch(() => { });
         }
         function injectWatcher(wv) { wv.executeJavaScript(VIDEO_WATCHER_SCRIPT).catch(() => { }); }
+        
+        function injectAutoPause(wv) {
+            if (currentSettings.autoPauseVideo === false) return;
+            const url = wv.getURL ? wv.getURL() : '';
+            if (!url || !url.includes('youtube.com')) return;
+            wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+        }
 
         // ── Pool de webviews ───────────────────────────────────────────────────────────
         function createWebview(tabId, url) {
@@ -2631,12 +2702,17 @@
                 resetWatcherFlags(wv);
                 injectWatcher(wv);
                 wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
-                // Réinjections différées : vérifier que la webview est toujours vivante
+                // Réinjection à 2s : couvre les pages lentes à initialiser leur player
                 setTimeout(() => {
-                    if (webviewPool.has(tabId)) injectWatcher(wv);
+                    if (!webviewPool.has(tabId)) return;
+                    injectWatcher(wv);
+                    injectAutoPause(wv);
                 }, 2000);
+                // Réinjection à 5s : filet de sécurité pour les connexions lentes
                 setTimeout(() => {
-                    if (webviewPool.has(tabId)) injectWatcher(wv);
+                    if (!webviewPool.has(tabId)) return;
+                    injectWatcher(wv);
+                    injectAutoPause(wv);
                 }, 5000);
                 if (tabId === activeTabId) sendNavState(wv);
                 applyWebviewTheme(wv);
@@ -2682,6 +2758,9 @@
                         const htab = tabs.find(t => t.id === tabId);
                         window.dualview.historyAdd(e.url, htab ? htab.title : '', tabId);
                     }
+                    // Pause auto sur navigation complète (vidéo classique ou Short direct)
+                    // Délai 1.5s : laisser le player YouTube s'initialiser
+                    if (tabId === activeTabId) setTimeout(() => injectAutoPause(wv), 1500);
                 }
                 if (tabId === activeTabId) sendNavState(wv);
             });
@@ -2707,6 +2786,9 @@
                 if (webviewPool.has(tabId)) {
                     wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
                     injectWatcher(wv);
+                    // Pause auto sur navigation SPA (clic vidéo YouTube, nouveau Short)
+                    // Délai 1.2s : légèrement plus court car le player est déjà initialisé
+                    if (tabId === activeTabId) setTimeout(() => injectAutoPause(wv), 1200);
                 }
             });
         }
@@ -3336,6 +3418,7 @@
             currentSettings = s;
             currentLang = s.language || 'fr';
             document.getElementById('s-restore').checked = s.restoreTabs !== false;
+            document.getElementById('s-auto-pause').checked = s.autoPauseVideo !== false;
             document.getElementById('s-homepage').value = s.homepageMode || 'knack3';
             document.getElementById('s-newtab').value = s.newTabMode || 'homepage';
             document.getElementById('s-appearance').value = s.appearance || 'auto';
@@ -3434,6 +3517,7 @@
         });
         document.getElementById('s-newtab').addEventListener('change', e => { currentSettings.newTabMode = e.target.value; saveCurrentSettings(); });
         document.getElementById('s-restore').addEventListener('change', e => { currentSettings.restoreTabs = e.target.checked; saveCurrentSettings(); });
+        document.getElementById('s-auto-pause').addEventListener('change', e => { currentSettings.autoPauseVideo = e.target.checked; saveCurrentSettings(); });
 
         let restartPendingSave = null, restartRevertFn = null;
         function showRestartDialog(titleKey, descKey, onConfirm, onCancel) {
@@ -3975,19 +4059,43 @@
             navHistActiveBtn = null;
             clearTimeout(navHistTimer);
             clearTimeout(navHistHoldTimer);
+            clearTimeout(navHistCloseTimer);
         }
 
+        // ── Timer de fermeture par unfocus ────────────────────────────────────────────
+        // Partagé entre les boutons ← → ET le dropdown lui-même.
+        // Déclenché quand la souris quitte l'un ou l'autre.
+        // Annulé si la souris revient sur l'un ou l'autre avant 500ms.
+        let navHistCloseTimer = null;
+
+        function scheduleNavHistClose() {
+            clearTimeout(navHistCloseTimer);
+            navHistCloseTimer = setTimeout(() => {
+                if (navHistDropdown.classList.contains('open')) closeNavHistDropdown();
+            }, 500);
+        }
+
+        function cancelNavHistClose() {
+            clearTimeout(navHistCloseTimer);
+        }
+
+        // Le dropdown lui-même annule la fermeture quand la souris le survole
+        navHistDropdown.addEventListener('mouseenter', cancelNavHistClose);
+        navHistDropdown.addEventListener('mouseleave', scheduleNavHistClose);
+
         function attachNavHistEvents(btn) {
-            // Survol > 500 ms
+            // Survol > 500 ms → ouvrir
             btn.addEventListener('mouseenter', () => {
+                cancelNavHistClose();
                 if (btn.disabled) return;
                 navHistTimer = setTimeout(() => showNavHistDropdown(btn), 500);
             });
             btn.addEventListener('mouseleave', () => {
                 clearTimeout(navHistTimer);
-                // Laisser le dropdown ouvert si la souris le survole
+                // Lancer le timer de fermeture si le dropdown est ouvert
+                if (navHistDropdown.classList.contains('open')) scheduleNavHistClose();
             });
-            // Clic maintenu > 400 ms
+            // Clic maintenu > 400 ms → ouvrir
             btn.addEventListener('mousedown', (e) => {
                 if (e.button !== 0 || btn.disabled) return;
                 navHistHoldTimer = setTimeout(() => {
@@ -4122,10 +4230,62 @@
 
         // ── Pollers ────────────────────────────────────────────────────────────────────
         let lastVideoEvent = null, lastTimeSyncAt = 0;
+
+        // ── Polling pub YouTube ───────────────────────────────────────────────────────
+        // Toutes les 500ms : détecte si une pub est en cours + extrait le compte à rebours.
+        // Le compte à rebours YouTube est dans .ytp-ad-duration-remaining (texte "0:15")
+        // ou dans .ytp-time-display sur le player pub.
+        let _lastAdState = false;
+        const AD_POLL_SCRIPT = `
+(function(){
+    const player = document.getElementById('movie_player');
+    if (!player) return { isAd: false, remaining: null };
+    const isAd = player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting');
+    if (!isAd) return { isAd: false, remaining: null };
+    // Tenter d'extraire la durée restante
+    // YouTube affiche le temps restant dans plusieurs éléments selon la version du player
+    let remaining = null;
+    const selectors = [
+        '.ytp-ad-duration-remaining',
+        '.video-ads .ytp-time-display .ytp-time-current',
+        '.ytp-ad-preview-container .ytp-ad-duration-remaining',
+    ];
+    for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el && el.textContent.trim()) {
+            const text = el.textContent.trim(); // format "0:15" ou "15"
+            const parts = text.split(':').map(Number);
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                remaining = parts[0] * 60 + parts[1];
+            } else if (parts.length === 1 && !isNaN(parts[0])) {
+                remaining = parts[0];
+            }
+            if (remaining !== null) break;
+        }
+    }
+    return { isAd: true, remaining };
+})()`;
+
+        function pollAdState(wv) {
+            wv.executeJavaScript(AD_POLL_SCRIPT).then(result => {
+                if (!result) return;
+                const isAd = result.isAd;
+                // Envoyer uniquement si l'état change OU si pub en cours (pour mettre à jour le compte à rebours)
+                if (isAd !== _lastAdState || isAd) {
+                    _lastAdState = isAd;
+                    window.dualview.sendAdState({ isAd, remaining: result.remaining });
+                }
+            }).catch(() => { });
+        }
+
         function pollVideoState() {
             if (currentSyncState !== 'active') return;
             const wv = getActiveWebview();
             if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+
+            // Polling pub (toutes les 150ms comme pollVideoState, léger car script court)
+            pollAdState(wv);
+
             wv.executeJavaScript('window.__dualviewVideoEvent||null').then(evt => {
                 if (!evt) return;
                 const key = evt.type + '_' + Math.round(evt.time * 10);
@@ -4143,6 +4303,7 @@
                         }).catch(() => window.dualview.sendVideoPlay(evt.time));
                 }
             }).catch(() => { });
+            
             const now = Date.now();
             if (now - lastTimeSyncAt >= 5000) {
                 lastTimeSyncAt = now;

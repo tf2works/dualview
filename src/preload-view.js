@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('dualview', {
             'tab-switched', 'tab-closed', 'tab-created',
             // v0.3.0
             'sync-state-changed', 'show-login-popup', 'login-page-cleared', 'sync-resume-state',
+            // v0.4.2
+            'ad-state',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

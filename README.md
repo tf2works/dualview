@@ -1,4 +1,4 @@
-# DualView v0.4.1
+# DualView v0.4.2
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.4.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.4.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -38,7 +38,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 | Bouton | Fonction |
 |--------|----------|
-| ← → | Page précédente / suivante (les deux fenêtres) |
+| ← → | Page précédente / suivante (les deux fenêtres). Survol 500 ms → dropdown historique de l'onglet |
 | ⟳ | Recharger (les deux fenêtres) |
 | 🏠 | Page d'accueil |
 | [url] | Barre d'adresse — sélection auto au clic, Échap annule, suggestions omnibar |
@@ -46,6 +46,74 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Nouveautés v0.4.2
+
+### ⏸ Pause automatique des vidéos YouTube
+Quand l'utilisateur clique sur une vidéo classique YouTube, elle est automatiquement
+mise en pause dans **les deux fenêtres** dès son ouverture :
+
+- **Si une publicité est en cours** : la pub joue librement sans interférence.
+  La vidéo réelle est pausée dès la fin de la pub.
+- **Si pas de pub** : pause immédiate à la seconde zéro.
+
+L'option est désactivable dans **Paramètres → Général → Pause automatique des vidéos YouTube**.
+
+> Les **YouTube Shorts** ne sont pas concernés par cette pause automatique.
+
+### 📢 Overlay pub dans le portrait
+Pendant qu'une publicité est diffusée dans la fenêtre paysage, un overlay
+semi-transparent apparaît dans la fenêtre portrait :
+- Message **"Publicité en cours"**
+- **Compte à rebours** affiché si YouTube expose la durée restante
+- Disparaît automatiquement à la fin de la pub
+
+### 🔇 Bouton "Remettre en mute" (portrait)
+La vidéo dans la fenêtre portrait est **toujours mute par défaut**.
+Si l'utilisateur active le son via le menu contextuel, un bouton rouge
+**🔇 Remettre en mute** apparaît en bas à droite de la fenêtre portrait.
+
+### 📋 Fermeture automatique du dropdown historique
+Le dropdown historique des boutons ← → se ferme automatiquement
+**500 ms après** que la souris a quitté la zone (boutons ou dropdown).
+Déplacement entre le bouton et le dropdown : pas de fermeture intempestive.
+
+### 🛡️ Bloqueur de publicités renforcé
+Le bloqueur passe à **3 niveaux** :
+- **Niveau 1 — Réseau** : 50+ domaines publicitaires bloqués (vs 8 avant).
+  Blocage ciblé des flux pub YouTube (`ctier=A`) sans affecter les vidéos normales.
+- **Niveau 2 — DOM** : injection CSS masquant les éléments pub résiduels (bannières,
+  overlays, compteurs).
+- **Niveau 3 — JS** : neutralisation du SDK IMA de Google (pub in-stream YouTube).
+
+### 🔄 Synchronisation vidéo améliorée
+- Réalignement **exact** de la timeline portrait à chaque play (sans seuil de drift).
+- Pause portrait forcée à `currentTime = 0` dès la détection de la vidéo.
+
+---
+
+## Nouveautés v0.4.1
+
+### ⌨️ Raccourcis clavier
+- `Alt+←` / `Alt+→` : navigation Retour / Avance
+- `F5` / `Ctrl+R` : recharger
+- `Ctrl+T` : nouvel onglet — `Ctrl+W` : fermer l'onglet actif
+- `Ctrl+Tab` : onglet suivant
+- `Ctrl+L` / `F6` : focus sur la barre d'adresse
+
+### 🖱️ Boutons souris Retour / Avance
+Les boutons latéraux de la souris (boutons 3 et 4) déclenchent Retour / Avance.
+
+### 🔗 Liens externes → onglet DualView
+Tout lien `target="_blank"` ou `window.open()` s'ouvre dans un **nouvel onglet DualView**
+au lieu d'une fenêtre séparée.
+
+### 🖱️ Menu contextuel clic droit
+Clic droit dans la webview paysage : lien, image, texte sélectionné, page.
+Option "Enregistrer l'image sous…" : dialogue système natif (seule exception aux
+téléchargements bloqués).
 
 ---
 
@@ -69,7 +137,7 @@ Le bouton **📷** dans la toolbar capture simultanément les deux vues en PNG h
 ### 🔍 Barre d'adresse intelligente (omnibar)
 - **Clic sur la barre** : tout le texte est sélectionné automatiquement
 - **Échap** : annule la saisie et restaure l'URL courante
-- **Suggestions** pendant la frappe : historique de navigation, complétion de domaine, recherche avec le moteur configuré
+- **Suggestions** pendant la frappe : historique de navigation, complétion de domaine, recherche
 - **Navigation clavier** : ↑ ↓ pour parcourir les suggestions, Entrée pour valider
 - **Détection URL vs recherche** : texte avec un TLD reconnu → URL directe ; tout le reste → recherche
 
@@ -121,19 +189,6 @@ Le bouton **● Sync** dans la toolbar : ⏸ Pause / ▶ Reprendre / ↺ Redéma
 - **Landscape** : popup avec bouton "Se connecter" direct pour le service détecté
 - **Portrait** : overlay plein écran, disparaît automatiquement à la navigation
 
-### YouTube Shorts
-Bloqueur de publicités désactivé sur `youtube.com/shorts/`.
-
----
-
-## Problèmes connus v0.3.0
-
-| # | Symptôme | Contournement |
-|---|----------|---------------|
-| 1 | Portrait non connecté après auth Google | Recharger via ⟳ |
-| 2 | Auth Microsoft : fenêtre ne se ferme pas | Fermer manuellement |
-| 3 | Outlook/services Microsoft : ERR_ABORTED dans portrait | Lié au BUG-2, corrigé en v0.3.1 |
-
 ---
 
 ## Onglets
@@ -151,7 +206,9 @@ Bloqueur de publicités désactivé sur `youtube.com/shorts/`.
 Paysage → Portrait en pourcentage.
 
 ### Vidéo
-play/pause/seek détectés dans Paysage → appliqués à Portrait (±3s / ±5s). YouTube, TikTok, Instagram, générique.
+play/pause/seek détectés dans Paysage → appliqués au Portrait.
+Réalignement exact de la timeline au play. Seuil de correction sur seek : ±4s.
+Plateformes : YouTube, TikTok, Instagram, générique.
 
 ---
 
@@ -160,8 +217,8 @@ play/pause/seek détectés dans Paysage → appliqués à Portrait (±3s / ±5s)
 - Téléchargements bloqués (exception : enregistrement d'image via clic droit)
 - Permissions refusées (caméra, micro, géoloc, notifications)
 - Navigation limitée à `http://`, `https://`, `file://`
-- Bloqueur pub intégré (Google Ads, DoubleClick, YouTube pre-roll)
-- Exception : YouTube Shorts
+- Bloqueur pub 3 niveaux : réseau (50+ domaines) + CSS cosmétique + stub SDK IMA
+- YouTube Shorts : exemptés du bloqueur (pas de pré-roll)
 
 ---
 
@@ -209,7 +266,7 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.4.1.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.4.2.exe` (~150 Mo).
 
 ---
 
@@ -238,6 +295,8 @@ Produit `dist/DualView-Setup-0.4.1.exe` (~150 Mo).
 | 0.2.5 | Sécurité. Paramètres. Menu ⚙️. i18n FR/EN. |
 | 0.2.6 | Pool de webviews. Switch onglet sans rechargement. |
 | 0.3.0 | Sync différée. Bouton sync. Services connectés. Anti-détection Electron. Détection login. YouTube Shorts. |
-| 0.3.1 | Fix cookies portrait. Fix ERR_ABORTED. Fix sync vidéo YouTube. Fix pub 1re vidéo. Auth Microsoft robuste. Overlay paramètres portrait. Mode debug --dev. || 0.3.2 | Intégration OBS (dock + hotkeys Lua). Serveur local HTTP+WebSocket. |
-| 0.4.0 | Redimensionnement Portrait via modale (préréglages + taille libre). Capture instantanée PNG (📷). Omnibar (suggestions + Échap + sélection auto). Détection URL vs recherche. Moteur de recherche configurable (DuckDuckGo par défaut). Historique de navigation persistant (history.json) : panneau latéral groupé par date, recherche, suppression ; dropdown sur ← → par onglet. |
-| 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris Retour/Avance (boutons 3 et 4). Toute ouverture de nouvelle fenêtre redirigée en onglet DualView (`target="_blank"`, `window.open()`). Menu contextuel clic droit : lien, image, texte sélectionné, page — sans "Ouvrir dans une nouvelle fenêtre". Enregistrement d'image via clic droit ("Enregistrer l'image sous…") — seule exception aux téléchargements bloqués. |
+| 0.3.1 | Fix cookies portrait. Fix ERR_ABORTED. Fix sync vidéo YouTube. Fix pub 1re vidéo. Auth Microsoft robuste. Overlay paramètres portrait. Mode debug --dev. |
+| 0.3.2 | Intégration OBS (dock + hotkeys Lua). Serveur local HTTP+WebSocket. |
+| 0.4.0 | Redimensionnement Portrait via modale (préréglages + taille libre). Capture instantanée PNG (📷). Omnibar. Moteur de recherche configurable. Historique de navigation persistant. Dropdown ← →. |
+| 0.4.1 | Raccourcis clavier. Boutons souris Retour/Avance. Liens externes → onglet DualView. Menu contextuel clic droit. Enregistrement image. |
+| 0.4.2 | Pause automatique vidéos YouTube classiques (+ paramètre). Overlay pub dans portrait (message + compte à rebours). Bouton remute portrait. Fermeture auto dropdown historique (500 ms unfocus). Bloqueur pub renforcé 3 niveaux (50+ domaines, CSS cosmétique, stub IMA). Sync vidéo : réalignement exact au play, pause à currentTime=0. |

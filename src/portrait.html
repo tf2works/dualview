@@ -242,6 +242,93 @@
             padding: 0 32px;
             line-height: 1.5;
         }
+
+        /* ── Overlay pub YouTube ── */
+        #ad-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 8500;
+            background: rgba(0, 0, 0, 0.72);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            pointer-events: none;
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            animation: adOverlayIn 0.25s ease;
+        }
+        @keyframes adOverlayIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+            #ad-overlay.show { display: flex; }
+
+        #ad-overlay-icon {
+            font-size: 44px;
+            opacity: 0.9;
+        }
+        #ad-overlay-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            letter-spacing: 0.02em;
+        }
+        #ad-overlay-sub {
+            font-size: 12px;
+            color: rgba(255,255,255,0.65);
+            text-align: center;
+            padding: 0 32px;
+            line-height: 1.6;
+        }
+        #ad-overlay-countdown {
+            display: none;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 24px;
+            padding: 8px 22px;
+            font-size: 15px;
+            font-weight: 600;
+            color: white;
+            letter-spacing: 0.04em;
+            min-width: 100px;
+            text-align: center;
+        }
+            #ad-overlay-countdown.show { display: block; }
+
+        /* ── Bouton remute ── */
+        #remute-btn {
+            display: none;
+            position: fixed;
+            bottom: 16px;
+            right: 14px;
+            z-index: 9998;
+            background: rgba(220, 53, 69, 0.92);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            gap: 6px;
+            align-items: center;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: opacity 0.25s, transform 0.25s;
+            transform: translateY(10px);
+            opacity: 0;
+        }
+            #remute-btn.show {
+                display: flex;
+                opacity: 1;
+                transform: translateY(0);
+            }
+            #remute-btn:hover {
+                background: rgba(185, 30, 45, 0.95);
+            }
     </style>
 </head>
 <body>
@@ -270,11 +357,22 @@
     <!-- Toast reprise stream -->
     <div id="resume-toast">▶ Stream en cours de reprise…</div>
 
-    <!-- Overlay login portrait — plein écran, non ignorable, disparaît à la navigation -->
+    <!-- Overlay login portrait -->
     <div id="login-overlay">
         <div id="login-overlay-icon">🔐</div>
         <div id="login-overlay-title">Page de connexion détectée<br>Synchronisation en pause</div>
         <div id="login-overlay-sub">Connectez-vous dans la fenêtre Paysage.<br>La synchronisation reprendra automatiquement.</div>
+    </div>
+
+    <!-- Bouton remute -->
+    <button id="remute-btn">🔇 Remettre en mute</button>
+
+    <!-- Overlay pub YouTube -->
+    <div id="ad-overlay">
+        <div id="ad-overlay-icon">📢</div>
+        <div id="ad-overlay-title">Publicité en cours</div>
+        <div id="ad-overlay-sub">Une publicité est diffusée<br>dans la fenêtre paysage.</div>
+        <div id="ad-overlay-countdown"></div>
     </div>
 
     <script>
@@ -306,11 +404,13 @@
         window.dualview.on('sync-state-changed', state => updateSyncIndicator(state));
 
         // ── Script vidéo exécuteur ─────────────────────────────────────────────────────
+        // Injecté UNE SEULE FOIS par dom-ready. Ne pas ré-injecter à chaque video-cmd.
         const VIDEO_EXECUTOR_SCRIPT = `
 (function() {
         if (window.__dualviewExecutorReady) return;
         window.__dualviewExecutorReady = true;
         window.__dualviewPendingCmd = null;
+        window.__dualviewCmdLockUntil = 0;
         function detectPlatform() {
             const host = location.hostname;
             if (host.includes('youtube.com'))   return 'youtube';
@@ -335,44 +435,48 @@
             return null;
         }
         const platform=detectPlatform(), selectors=getVideoSelectors(platform);
+        function ensureMuted(video) {
+            if (!video.__dualviewMuteApplied) { video.muted = true; video.__dualviewMuteApplied = true; }
+        }
+        new MutationObserver(function() {
+            const video = findBestVideo(selectors);
+            if (video) ensureMuted(video);
+        }).observe(document.body, {childList:true, subtree:true});
         window.__dualviewApplyCmd = function(cmd) {
             const video = findBestVideo(selectors);
-            if (!video) { window.__dualviewPendingCmd=cmd; return false; }
-
+            if (!video) { window.__dualviewPendingCmd = cmd; return false; }
+            ensureMuted(video);
+            window.__dualviewCmdLockUntil = Date.now() + 1500;
             const drift = Math.abs(video.currentTime - cmd.currentTime);
-
             if (cmd.action === 'pause') {
-                // Réaligner d'abord la position si décalage > 1s, puis pauser
-                if (drift > 1) video.currentTime = cmd.currentTime;
+                // Réalignement exact avant pause (pas de seuil)
+                video.currentTime = cmd.currentTime;
                 video.pause();
-            }
-            else if (cmd.action === 'play') {
-                // Réaligner d'abord la position si décalage > 1s, puis lancer
-                if (drift > 1) video.currentTime = cmd.currentTime;
+            } else if (cmd.action === 'play') {
+                // Réalignement TOUJOURS forcé avant play — élimine la seconde d'avance.
+                // On ne pose pas de seuil : même un drift de 0.1s est corrigé.
+                video.currentTime = cmd.currentTime;
                 const p = video.play();
                 if (p && p.catch) p.catch(() => {});
-            }
-            else if (cmd.action === 'seek') {
-                // Repositionner uniquement si décalage > 2s
-                // Ne PAS relancer la lecture si la vidéo était en pause
-                if (drift > 2) {
+            } else if (cmd.action === 'seek') {
+                // Seek périodique : seuil conservé pour éviter les micro-corrections
+                if (drift > 4) {
                     video.currentTime = cmd.currentTime;
-                    // Relancer seulement si elle était déjà en lecture
-                    if (!video.paused) {
-                        const p = video.play();
-                        if (p && p.catch) p.catch(() => {});
-                    }
+                    if (!video.paused) { const p = video.play(); if (p && p.catch) p.catch(() => {}); }
                 }
             }
             return true;
         };
-        const observer = new MutationObserver(function() {
-            if (window.__dualviewPendingCmd) { const ok=window.__dualviewApplyCmd(window.__dualviewPendingCmd); if(ok)window.__dualviewPendingCmd=null; }
-        });
-        observer.observe(document.body,{childList:true,subtree:true});
+        new MutationObserver(function() {
+            if (window.__dualviewPendingCmd) {
+                const ok = window.__dualviewApplyCmd(window.__dualviewPendingCmd);
+                if (ok) window.__dualviewPendingCmd = null;
+            }
+        }).observe(document.body, {childList:true, subtree:true});
         true;
 })();`;
 
+        // ── Pause automatique portrait (miroir paysage, corrigé) ──────────────────────
         // ── Pool de webviews ───────────────────────────────────────────────────────────
         function createWebview(tabId, url) {
             if (webviewPool.has(tabId)) return webviewPool.get(tabId);
@@ -386,13 +490,10 @@
             webviewCont.appendChild(wv);
             wv.src = url || 'about:blank';
             webviewPool.set(tabId, wv);
-
-            // Capturer les erreurs de chargement pour éviter les exceptions non gérées
             wv.addEventListener('did-fail-load', (e) => {
-                if (e.errorCode === -3) return; // ERR_ABORTED = navigation annulée normalement
+                if (e.errorCode === -3) return;
                 console.warn('[portrait] did-fail-load', e.errorCode, e.errorDescription, e.validatedURL);
             });
-
             return wv;
         }
 
@@ -419,18 +520,85 @@
                 .catch(() => { });
         }
 
+        // ── Pause automatique portrait (vidéos classiques YouTube uniquement) ──────────
+        // Shorts exclus — aucune interférence avec leur autoplay.
+        // Si pub en cours au chargement → attendre fin pub → pauser.
+        // Si pas de pub → pause directe.
+        // Injecté UNE SEULE FOIS après que le player YouTube soit prêt (~1.8s).
+        const PORTRAIT_AUTO_PAUSE_SCRIPT = `
+(function() {
+    if (window.__dualviewAutoPauseDone) return;
+    const url = location.href;
+    if (!url.includes('youtube.com')) return;
+    // Shorts : sortir immédiatement, aucune pause
+    if (url.includes('/shorts/') ||
+        !!document.getElementById('shorts-container') ||
+        !!document.querySelector('ytd-reel-video-renderer')) return;
+    const selectors = ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+    function findVideo() {
+        for (const s of selectors) {
+            const list = Array.from(document.querySelectorAll(s))
+                .filter(v => { const r = v.getBoundingClientRect(); return r.width > 50 && r.height > 50; });
+            if (list.length) return list[0];
+        }
+        return null;
+    }
+    function isAdPlaying() {
+        const player = document.getElementById('movie_player');
+        return player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'));
+    }
+    function doPause(attempts) {
+        if (window.__dualviewAutoPauseDone) return;
+        const video = findVideo();
+        if (video) {
+            if (isAdPlaying()) {
+                // Pub en cours : attendre sa fin puis pauser la vraie vidéo
+                let waited = 0;
+                const poll = setInterval(() => {
+                    waited += 500;
+                    if (!isAdPlaying() || waited > 120000) {
+                        clearInterval(poll);
+                        if (!window.__dualviewAutoPauseDone) {
+                            window.__dualviewAutoPauseDone = true;
+                            const v = findVideo();
+                            if (v) { v.muted = true; v.currentTime = 0; v.pause(); }
+                        }
+                    }
+                }, 500);
+            } else {
+                // Pas de pub : pause immédiate à currentTime=0
+                window.__dualviewAutoPauseDone = true;
+                video.muted = true;
+                video.currentTime = 0;
+                video.pause();
+            }
+            return;
+        }
+        // Retry toutes les 200ms pendant 10s max (50 tentatives)
+        if (attempts < 50) setTimeout(() => doPause(attempts + 1), 200);
+    }
+    doPause(0);
+    true;
+})()`;
+
         function attachWebviewListeners(wv, tabId) {
             wv.addEventListener('did-navigate', () => {
-                wv.executeJavaScript('window.__dualviewExecutorReady=false;window.__dualviewPendingCmd=null;true;').catch(() => { });
+                wv.executeJavaScript('window.__dualviewExecutorReady=false;window.__dualviewPendingCmd=null;window.__dualviewAutoPauseDone=false;true;').catch(() => { });
             });
             wv.addEventListener('did-navigate-in-page', () => {
-                wv.executeJavaScript('window.__dualviewExecutorReady=false;window.__dualviewPendingCmd=null;true;').catch(() => { });
+                wv.executeJavaScript('window.__dualviewExecutorReady=false;window.__dualviewPendingCmd=null;window.__dualviewAutoPauseDone=false;true;').catch(() => { });
             });
             wv.addEventListener('dom-ready', () => {
                 injectExecutor(wv);
+                // Pause auto injectée immédiatement — le script gère lui-même le retry
+                // toutes les 200ms jusqu'à trouver la vidéo (max 10s)
+                wv.executeJavaScript(PORTRAIT_AUTO_PAUSE_SCRIPT).catch(() => { });
+                // Filet de sécurité à 4s : ré-injection executor + pause auto
                 setTimeout(() => {
-                    if (webviewPool.has(tabId)) injectExecutor(wv);
-                }, 2000);
+                    if (!webviewPool.has(tabId)) return;
+                    injectExecutor(wv);
+                    wv.executeJavaScript(PORTRAIT_AUTO_PAUSE_SCRIPT).catch(() => { });
+                }, 4000);
             });
         }
 
@@ -460,16 +628,13 @@
             const wasOnSettings = activeTabId === SETTINGS_TAB_ID;
             activeTabId = tabId;
             if (tabId === SETTINGS_TAB_ID) {
-                // Landscape est sur l'onglet paramètres → afficher overlay
                 settingsOverlay.classList.add('show');
-                // Cacher toutes les webviews
                 webviewPool.forEach(wv => wv.classList.remove('active'));
                 emptyState.style.display = 'none';
             } else {
                 settingsOverlay.classList.remove('show');
                 if (!webviewPool.has(tabId)) createWebview(tabId, '');
                 showWebview(tabId);
-                // Si on revenait des paramètres, afficher le toast de reprise
                 if (wasOnSettings) showResumeToast();
             }
         });
@@ -489,13 +654,10 @@
             if (tabId === activeTabId) { emptyState.style.display = 'none'; wv.classList.add('active'); }
         });
 
-        // Quand la sync reprend : rejouer scroll + vidéo dans l'onglet actif
         window.dualview.on('sync-resume-state', ({ tabId, url }) => {
             const wv = webviewPool.get(tabId);
             if (!wv) return;
-            // Réinjecter le script vidéo pour reprendre la sync
             injectExecutor(wv);
-            // Scroll : remettre à zéro (le landscape enverra la position courante)
         });
 
         // ── Scroll ─────────────────────────────────────────────────────────────────────
@@ -512,8 +674,16 @@
         window.dualview.on('video-cmd', cmd => {
             const wv = getActiveWebview();
             if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
-            wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
-                .then(() => { const cmdStr = JSON.stringify(cmd); return wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + ');true;'); })
+            const cmdStr = JSON.stringify(cmd);
+            wv.executeJavaScript('typeof window.__dualviewApplyCmd')
+                .then(t => {
+                    if (t === 'function') {
+                        return wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + ');true;');
+                    } else {
+                        return wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
+                            .then(() => wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + ');true;'));
+                    }
+                })
                 .catch(() => { });
         });
 
@@ -527,15 +697,67 @@
 
         // ── Overlay login portrait ────────────────────────────────────────────────────
         const loginOverlay = document.getElementById('login-overlay');
+        window.dualview.on('show-login-popup', ({ url, tabId }) => { loginOverlay.classList.add('show'); });
+        window.dualview.on('login-page-cleared', () => { loginOverlay.classList.remove('show'); });
 
-        window.dualview.on('show-login-popup', ({ url, tabId }) => {
-            loginOverlay.classList.add('show');
+        // ── Overlay pub YouTube ───────────────────────────────────────────────────────
+        // Affiché quand une pub est détectée dans la fenêtre paysage.
+        // Masqué automatiquement à la fin de la pub.
+        const adOverlay    = document.getElementById('ad-overlay');
+        const adCountdown  = document.getElementById('ad-overlay-countdown');
+
+        window.dualview.on('ad-state', ({ isAd, remaining }) => {
+            if (isAd) {
+                adOverlay.classList.add('show');
+                if (remaining !== null && remaining > 0) {
+                    const m = Math.floor(remaining / 60);
+                    const s = String(remaining % 60).padStart(2, '0');
+                    adCountdown.textContent = m > 0
+                        ? `⏱ ${m}:${s} restantes`
+                        : `⏱ ${remaining}s restantes`;
+                    adCountdown.classList.add('show');
+                } else {
+                    adCountdown.classList.remove('show');
+                }
+            } else {
+                adOverlay.classList.remove('show');
+                adCountdown.classList.remove('show');
+            }
         });
 
-        // main.js confirme que l'URL n'est plus une page de login → masquer l'overlay
-        window.dualview.on('login-page-cleared', () => {
-            loginOverlay.classList.remove('show');
+        // ── Bouton remute ─────────────────────────────────────────────────────────────
+        const remuteBtn = document.getElementById('remute-btn');
+        let _muteCheckInterval = null;
+
+        function startMuteCheck() {
+            if (_muteCheckInterval) return;
+            _muteCheckInterval = setInterval(() => {
+                const wv = getActiveWebview();
+                if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+                wv.executeJavaScript(`
+                    (function(){
+                        const v = document.querySelector('video.html5-main-video,#movie_player video,video');
+                        return v ? !v.muted : false;
+                    })()
+                `).then(isUnmuted => {
+                    remuteBtn.classList.toggle('show', !!isUnmuted);
+                }).catch(() => { });
+            }, 2000);
+        }
+
+        remuteBtn.addEventListener('click', () => {
+            const wv = getActiveWebview();
+            if (!wv) return;
+            wv.executeJavaScript(`
+                (function(){
+                    const videos = document.querySelectorAll('video');
+                    videos.forEach(v => { v.muted = true; v.__dualviewMuteApplied = true; });
+                    return true;
+                })()
+            `).then(() => { remuteBtn.classList.remove('show'); }).catch(() => { });
         });
+
+        startMuteCheck();
     </script>
 </body>
 </html>

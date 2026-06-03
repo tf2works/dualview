@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('dualview', {
     sendVideoPlay: (t) => ipcRenderer.send('video-play', t),
     sendVideoPause: (t) => ipcRenderer.send('video-pause', t),
     sendVideoTimeUpdate: (t) => ipcRenderer.send('video-timeupdate', t),
+    sendAdState: (payload) => ipcRenderer.send('ad-state', payload),
     notifyNavState: (s) => ipcRenderer.send('notify-nav-state', s),
 
     // ── Contrôle sync ──────────────────────────────────────────
