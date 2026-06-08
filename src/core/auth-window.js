@@ -301,7 +301,7 @@ function openAuthWindow(opts) {
             width: 520,
             height: 700,
             title: `DualView — Connexion ${serviceLabel}`,
-            icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
+            icon: path.join(__dirname, '../..', 'assets', 'icon.ico'),
             parent: parentWin || null,
             modal: false,
             resizable: true,
@@ -312,7 +312,7 @@ function openAuthWindow(opts) {
                 webSecurity: true,
                 // preload-auth.js neutralise tous les signaux de détection
                 // Electron avant le chargement de la page (main world)
-                preload: path.join(__dirname, 'preload-auth.js'),
+                preload: path.join(__dirname, '../preload/preload-auth.js'),
             },
             autoHideMenuBar: true,
             show: false,

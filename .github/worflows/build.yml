@@ -1,0 +1,80 @@
+# DualView — Build & Release automatique
+#
+# Déclenché sur :
+#   - Chaque push de tag v* (ex. v0.4.4) → build + GitHub Release
+#   - Chaque push sur main               → build de vérification (sans release)
+#   - Pull Request vers main             → build de vérification
+#
+# Artefacts produits :
+#   - dist/DualView-Setup-<version>.exe  (Windows x64, NSIS)
+#
+# Prérequis secrets GitHub :
+#   Aucun secret requis pour le build.
+#   Pour signer le binaire (optionnel) : GH_TOKEN est fourni automatiquement
+#   par GitHub Actions pour créer la Release.
+
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build Windows x64
+    runs-on: windows-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js ───────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # ── 3. Dépendances ───────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 4. Build ─────────────────────────────────────────────────────────────
+      - name: Build installer
+        run: npm run build
+        env:
+          # Désactive la publication automatique d'electron-builder
+          # (on gère la release manuellement ci-dessous)
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 5. Lister les artefacts produits ─────────────────────────────────────
+      - name: List dist/
+        shell: bash
+        run: ls -lh dist/
+
+      # ── 6. Upload artefact (tous les builds) ─────────────────────────────────
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DualView-Setup-windows-x64
+          path: dist/DualView-Setup-*.exe
+          retention-days: 30
+
+      # ── 7. GitHub Release (tags v* uniquement) ────────────────────────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DualView-Setup-*.exe
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -83,18 +83,21 @@
 
 ## Structure open source
 
-- [ ] **CONTRIBUTING.md**
+> ✅ v0.4.4 : Refactoring CSS/JS (landscape + portrait), restructuration src/, i18n portrait.
+
+
+- [x] **CONTRIBUTING.md**
   Créer ce fichier (premier consulté par un contributeur potentiel) contenant :
   - Prérequis et lancement en mode dev (`npm start -- --dev`)
   - Convention de nommage des branches
   - Processus de Pull Request
 
-- [ ] **CHANGELOG.md**
+- [x] **CHANGELOG.md**
   Créer un changelog structuré au format [Keep a Changelog](https://keepachangelog.com)
   en reprenant les sections des versions existantes.
   Indexé par GitHub, facilite le suivi des versions pour les utilisateurs.
 
-- [ ] **GitHub Actions — build automatique**
+- [x] **GitHub Actions — build automatique**
   Créer `.github/workflows/build.yml` pour :
   - Lancer le build sur chaque tag `v*`
   - Publier le `.exe` (et à terme `.dmg` / `.AppImage`) en GitHub Release automatiquement
@@ -109,5 +112,6 @@
 | 🟡 | Valeur ajoutée significative |
 | 🟢 | Nice to have / différenciation |
 
-_G (cross-platform), CONTRIBUTING.md et CHANGELOG.md sont recommandés en priorité
-pour le meilleur ratio impact / effort sur un projet open source._
+_G (cross-platform) reste la priorité suivante pour le meilleur ratio impact / effort._
+
+_CONTRIBUTING.md, CHANGELOG.md et GitHub Actions ✅ livrés en v0.4.4._

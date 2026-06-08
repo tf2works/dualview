@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>DualView - Paysage</title>
+    <link rel="stylesheet" href="css/landscape.css">
+</head>
+<body>
+
+    <div id="tab-bar">
+        <button id="add-tab-btn" title="+">+</button>
+    </div>
+
+    <div id="toolbar">
+        <button id="back-btn" class="nav-btn" title="←" disabled>&#8592;</button>
+        <button id="forward-btn" class="nav-btn" title="→" disabled>&#8594;</button>
+        <button id="reload-btn" class="nav-btn" title="⟳">&#8635;</button>
+        <button id="home-btn" class="nav-btn" title="🏠">&#8962;</button>
+        <div id="omnibar-wrapper" style="flex:1;position:relative;min-width:0">
+            <input type="text" id="url-input" autocomplete="off" spellcheck="false" />
+            <div id="omnibar-dropdown"></div>
+        </div>
+        <button id="go-btn" title="▶">&#9654;</button>
+        <button id="resume-btn" title="✅" style="display:none">&#9989;</button>
+        <button id="screenshot-btn" title="📷 Capturer les deux vues">&#128247;</button>
+
+        <!-- Bouton sync -->
+        <button id="sync-btn" class="paused" title="Synchronisation">
+            <span class="sync-dot"></span>
+            <span id="sync-btn-label">Sync…</span>
+        </button>
+
+        <button id="gear-btn" title="⚙️">&#9881;&#65039;</button>
+
+        <!-- Dropdown nav-history (v0.4.0) — dans toolbar pour position:absolute -->
+        <div id="nav-history-dropdown"></div>
+
+        <!-- Menu sync -->
+        <div id="sync-menu">
+            <div class="sync-item" id="sync-pause-item">
+                <span class="sync-item-icon">⏸</span>
+                <span data-i18n="syncPauseAction">Mettre en pause</span>
+            </div>
+            <div class="sync-item" id="sync-resume-item">
+                <span class="sync-item-icon">▶</span>
+                <span data-i18n="syncResumeAction">Reprendre</span>
+            </div>
+            <div class="sync-separator"></div>
+            <div class="sync-item" id="sync-restart-item">
+                <span class="sync-item-icon">↺</span>
+                <span data-i18n="syncRestartAction">Redémarrer</span>
+            </div>
+        </div>
+
+        <!-- Menu ⚙️ -->
+        <div id="gear-menu">
+            <div class="gear-item" id="menu-resize">
+                <span>&#8596;</span>
+                <span data-i18n="resize">Redimensionner</span>
+            </div>
+            <div class="gear-separator"></div>
+            <div class="gear-item" id="menu-history">
+                <span>&#128336;</span>
+                <span data-i18n="history">Historique</span>
+            </div>
+            <div class="gear-separator"></div>
+            <div class="gear-item" id="menu-settings">
+                <span>&#9881;</span>
+                <span data-i18n="settings">Paramètres</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-bar">
+        <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
+        <span id="version-label">v0.4.0</span>
+        <button id="dev-btn" title="Inspecter webview active (Ctrl+F12)">🔧 DEV</button>
+    </div>
+
+    <div id="toast"></div>
+
+    <!-- Popup page de connexion -->
+    <div id="login-popup">
+        <div id="login-popup-backdrop"></div>
+        <div id="login-popup-box">
+            <div id="login-popup-icon">🔐</div>
+            <div id="login-popup-title" data-i18n="loginPopupTitle">Connexion requise</div>
+            <div id="login-popup-desc" data-i18n="loginPopupDesc">Pour continuer sans difficulté, il est recommandé d'enregistrer ce service dans Services connectés.</div>
+            <div class="login-popup-actions" id="login-popup-actions">
+                <button class="login-popup-btn secondary" id="login-popup-back" data-i18n="loginPopupBack">Retour</button>
+                <button class="login-popup-btn primary" id="login-popup-connect" style="display:none" data-i18n="loginPopupConnect">Se connecter</button>
+                <button class="login-popup-btn secondary" id="login-popup-services" data-i18n="loginPopupServices">Services connectés</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup confirmation ignorance -->
+    <div id="ignore-confirm">
+        <div id="ignore-confirm-backdrop"></div>
+        <div id="ignore-confirm-box">
+            <div id="ignore-confirm-title" data-i18n="ignoreConfirmTitle">Continuer sans connexion ?</div>
+            <div id="ignore-confirm-desc" data-i18n="ignoreConfirmDesc">Pour se connecter sans difficulté, il est recommandé d'ajouter un service connecté. Voulez-vous toujours ignorer ?</div>
+            <div class="ignore-confirm-actions">
+                <button class="restart-cancel" id="ignore-cancel" data-i18n="ignoreCancel">Annuler</button>
+                <button class="restart-confirm" id="ignore-ok" data-i18n="ignoreOk">Ignorer quand même</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup confirmation auth personnalisée -->
+    <div id="auth-confirm-dialog">
+        <div id="auth-confirm-backdrop"></div>
+        <div id="auth-confirm-box">
+            <div id="auth-confirm-title"></div>
+            <div id="auth-confirm-desc"></div>
+            <div class="auth-confirm-actions">
+                <button class="restart-cancel" id="auth-confirm-cancel" data-i18n="authConfirmCancel">Pas encore</button>
+                <button class="restart-confirm" id="auth-confirm-ok" data-i18n="authConfirmOk">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale redimensionnement Portrait (v0.4.0) -->
+    <div id="resize-modal-overlay">
+        <div id="resize-modal-box">
+            <div id="resize-modal-title">Redimensionner la fenêtre Portrait</div>
+            <div id="resize-modal-sub">Choisissez un préréglage ou redimensionnez manuellement la fenêtre Portrait (contour orange).</div>
+            <div class="resize-preset-list" id="resize-preset-list">
+                <!-- généré par JS -->
+            </div>
+            <div class="resize-modal-actions">
+                <button class="restart-cancel" id="resize-modal-cancel">Annuler</button>
+                <button class="restart-confirm" id="resize-modal-validate">✓ Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zone webviews -->
+    <div id="webview-container">
+        <div id="video-indicator" class="paused">
+            <span class="dot"></span>
+            <span id="video-indicator-text">Vidéo détectée</span>
+        </div>
+        <div id="empty-state">
+            <div class="icon">&#128421;</div>
+            <div class="text" data-i18n="landscapeView">Vue Paysage (Desktop)</div>
+            <div class="sub" data-i18n="enterUrl">Entrez une URL dans la barre d'adresse</div>
+        </div>
+    </div>
+
+    <!-- Panneau Paramètres -->
+    <div id="settings-panel">
+        <div id="restart-dialog">
+            <div class="restart-box">
+                <div class="restart-title" id="restart-title">Redémarrage requis</div>
+                <div class="restart-desc" id="restart-desc"></div>
+                <div class="restart-actions">
+                    <button class="restart-cancel" id="restart-cancel">Annuler</button>
+                    <button class="restart-confirm" id="restart-confirm">Redémarrer</button>
+                </div>
+            </div>
+        </div>
+        <div class="s-sidebar">
+            <div class="s-nav active" data-section="general"><span class="s-nav-icon">&#9783;</span><span data-i18n="settingsGeneral">Général</span></div>
+            <div class="s-nav" data-section="appearance"><span class="s-nav-icon">&#9680;</span><span data-i18n="settingsAppearance">Apparence</span></div>
+            <div class="s-nav" data-section="language"><span class="s-nav-icon">&#127760;</span><span data-i18n="settingsLanguage">Langue</span></div>
+            <div class="s-nav" data-section="services"><span class="s-nav-icon">&#128279;</span><span data-i18n="settingsServices">Services connectés</span></div>
+            <div class="s-nav" data-section="privacy"><span class="s-nav-icon">&#128274;</span><span data-i18n="settingsPrivacy">Confidentialité</span></div>
+            <div class="s-nav" data-section="obs"><span class="s-nav-icon">&#128250;</span><span data-i18n="settingsObs">OBS</span></div>
+        </div>
+        <div class="s-content">
+            <!-- Général -->
+            <div id="section-general" class="s-section active">
+                <div class="s-heading" data-i18n="settingsGeneral">Général</div>
+                <div class="s-row">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-restore" checked>
+                        <div>
+                            <label for="s-restore" class="s-check-label" data-i18n="restoreTabs">Ouvrir les fenêtres et onglets précédents</label>
+                            <div class="s-check-desc" data-i18n="restoreTabsDesc">Au démarrage, restaure les onglets et URL de la session précédente.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-auto-pause" checked>
+                        <div>
+                            <label for="s-auto-pause" class="s-check-label" data-i18n="autoPauseLabel">Pause automatique des vidéos YouTube</label>
+                            <div class="s-check-desc" data-i18n="autoPauseDesc">Pause la vidéo au lancement (classique et Shorts). La pub joue librement ; la vraie vidéo est pausée à la fin de la pub.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-auto-mute-portrait" checked>
+                        <div>
+                            <label for="s-auto-mute-portrait" class="s-check-label" data-i18n="autoMutePortraitLabel">Mute automatique portrait</label>
+                            <div class="s-check-desc" data-i18n="autoMutePortraitDesc">Force le silence dans la fenêtre portrait. Un bouton d'alerte s'affiche si le son s'active accidentellement.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="homepageLabel">Page d'accueil et nouvelles fenêtres</label>
+                    <div class="s-desc" data-i18n="homepageDesc">Page affichée au démarrage et sur le bouton accueil.</div>
+                    <select class="s-select" id="s-homepage">
+                        <option value="knack3" data-i18n="homepageKnack3">Page d'accueil Knack3 (par défaut)</option>
+                        <option value="custom" data-i18n="homepageCustom">Adresse web personnalisée</option>
+                        <option value="empty" data-i18n="homepageEmpty">Page vide</option>
+                    </select>
+                    <div id="s-custom-url" class="s-custom-url">
+                        <div class="s-url-row">
+                            <input type="text" id="s-custom-url-input" class="s-url-input" placeholder="https://exemple.com" />
+                            <button id="s-validate-url" class="s-validate-btn" data-i18n="validateBtn">Valider</button>
+                        </div>
+                        <div id="s-url-msg" class="s-msg"></div>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="newTabLabel">Nouveaux onglets</label>
+                    <select class="s-select" id="s-newtab">
+                        <option value="homepage" data-i18n="newTabHomepage">Page d'accueil sélectionnée</option>
+                        <option value="empty" data-i18n="newTabEmpty">Page vide</option>
+                    </select>
+                </div>
+                <div class="s-divider"></div>
+                <!-- Moteur de recherche (v0.4.0) -->
+                <div class="s-row">
+                    <label class="s-label" data-i18n="searchEngineLabel">Moteur de recherche</label>
+                    <div class="s-desc" data-i18n="searchEngineDesc">Utilisé quand le texte saisi n'est pas une adresse web.</div>
+                    <div class="search-engine-list" id="s-engine-list">
+                        <!-- généré par JS -->
+                    </div>
+                    <div class="search-engine-add-row">
+                        <input type="text" id="s-engine-name" class="s-url-input" style="max-width:110px" data-i18n-placeholder="searchEngineNamePlaceholder" placeholder="Nom" />
+                        <input type="text" id="s-engine-url" class="s-url-input" data-i18n-placeholder="searchEngineUrlPlaceholder" placeholder="https://moteur.com/search?q=" />
+                        <button id="s-engine-add-btn" class="s-validate-btn" data-i18n="searchEngineAdd">+ Ajouter</button>
+                    </div>
+                    <div id="s-engine-msg" class="s-msg"></div>
+                </div>
+                <div class="s-divider"></div>
+                <!-- Captures d'écran (v0.4.0) -->
+                <div class="s-row">
+                    <label class="s-label" data-i18n="screenshotLabel">Captures d'écran</label>
+                    <div class="s-desc" data-i18n="screenshotDesc">Dossier de sauvegarde des captures.</div>
+                    <div class="screenshot-dir-row">
+                        <span class="screenshot-dir-path" id="s-screenshot-dir">—</span>
+                        <button id="s-screenshot-browse" class="s-validate-btn" data-i18n="screenshotBrowse">Parcourir…</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apparence -->
+            <div id="section-appearance" class="s-section">
+                <div class="s-heading" data-i18n="settingsAppearance">Apparence</div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="appearanceLabel">Apparence des sites web</label>
+                    <div class="s-desc" data-i18n="appearanceDesc">Applique le thème aux sites visités et à l'interface DualView.</div>
+                    <select class="s-select" id="s-appearance">
+                        <option value="auto" data-i18n="appearanceAuto">Automatique (suit le système)</option>
+                        <option value="light" data-i18n="appearanceLight">Clair</option>
+                        <option value="dark" data-i18n="appearanceDark">Sombre</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Langue -->
+            <div id="section-language" class="s-section">
+                <div class="s-heading" data-i18n="settingsLanguage">Langue</div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="languageLabel">Langue de l'interface</label>
+                    <div class="s-desc" data-i18n="languageDesc">Langue utilisée pour l'interface DualView.</div>
+                    <select class="s-select" id="s-language">
+                        <option value="fr" data-i18n="langFr">Français</option>
+                        <option value="en" data-i18n="langEn">English</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Services connectés -->
+            <div id="section-services" class="s-section">
+                <div class="s-heading" data-i18n="settingsServices">Services connectés</div>
+                <div class="s-desc" data-i18n="servicesDesc">Connectez-vous à vos services pour naviguer sans interruption.</div>
+                <div id="svc-loading" class="svc-loading"><div class="spinner"></div><span data-i18n="servicesLoading">Vérification des connexions…</span></div>
+                <div id="svc-grid" class="svc-grid" style="display:none"></div>
+                <div class="s-divider"></div>
+                <div class="s-label" data-i18n="servicesCustom">Service personnalisé</div>
+                <div class="s-desc" data-i18n="servicesCustomDesc">Ajoutez un service non listé.</div>
+                <div id="svc-custom-list"></div>
+                <div class="svc-custom-add" id="svc-add-custom-btn">
+                    <span style="font-size:20px">+</span>
+                    <span style="font-size:12px" data-i18n="servicesAddCustom">Ajouter un service</span>
+                </div>
+                <div class="svc-custom-form" id="svc-custom-form">
+                    <div class="svc-custom-row">
+                        <input type="text" id="svc-custom-label" class="svc-custom-input" placeholder="Nom du service" />
+                        <input type="text" id="svc-custom-url" class="svc-custom-input" placeholder="https://..." />
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <button class="s-validate-btn" id="svc-custom-connect" data-i18n="servicesConnect">Connecter</button>
+                        <button class="restart-cancel" id="svc-custom-cancel">Annuler</button>
+                    </div>
+                    <div id="svc-custom-msg" class="s-msg" style="margin-top:6px"></div>
+                </div>
+            </div>
+
+            <!-- Confidentialité -->
+            <div id="section-privacy" class="s-section">
+                <div class="s-heading" data-i18n="settingsPrivacy">Confidentialité</div>
+                <div class="s-info-block">
+                    <div class="s-info-title" data-i18n="privacyDownloads">Téléchargements</div>
+                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. Exception : enregistrement d'image via clic droit.</div>
+                    <div class="s-badge">&#10003; Bloqué</div>
+                </div>
+                <div class="s-info-block">
+                    <div class="s-info-title" data-i18n="privacyPermissions">Permissions</div>
+                    <div class="s-info-desc" data-i18n="privacyPermissionsDesc">Caméra, microphone, géolocalisation et notifications sont bloqués.</div>
+                    <div class="s-badge">&#10003; Bloqué</div>
+                </div>
+                <div class="s-info-block">
+                    <div class="s-info-title" data-i18n="privacySchemes">Navigation sécurisée</div>
+                    <div class="s-info-desc" data-i18n="privacySchemesDesc">Seuls les protocoles http://, https:// et file:// sont autorisés.</div>
+                    <div class="s-badge">&#10003; Actif</div>
+                </div>
+                <div class="s-info-block">
+                    <div class="s-info-title" data-i18n="privacyShorts">YouTube Shorts</div>
+                    <div class="s-info-desc" data-i18n="privacyShortsDesc">Le bloqueur de publicités est désactivé sur YouTube Shorts (pas de pré-roll).</div>
+                    <div class="s-badge warn">&#9432; Exemption active</div>
+                </div>
+            </div>
+
+            <!-- OBS -->
+            <div id="section-obs" class="s-section">
+                <div class="s-heading" data-i18n="settingsObs">Contrôle depuis OBS</div>
+                <div class="s-row">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-obs-enabled" checked>
+                        <div>
+                            <label for="s-obs-enabled" class="s-check-label" data-i18n="obsEnabledLabel">Activer le contrôle depuis OBS</label>
+                            <div class="s-check-desc" data-i18n="obsEnabledDesc">Démarre un serveur local (127.0.0.1) permettant le dock OBS et les raccourcis clavier. Aucune donnée n'est exposée au réseau.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsPortLabel">Port du serveur</label>
+                    <div class="s-desc" data-i18n="obsPortDesc">0 = port choisi automatiquement. Fixez une valeur (ex. 49231) pour un port stable.</div>
+                    <div class="s-url-row">
+                        <input type="number" id="s-obs-port" class="s-url-input" min="0" max="65535" placeholder="0" style="max-width:140px;" />
+                        <button id="s-obs-port-apply" class="s-validate-btn" data-i18n="obsPortApply">Appliquer</button>
+                    </div>
+                    <div id="s-obs-port-msg" class="s-msg"></div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsStatusLabel">État du serveur</label>
+                    <div id="s-obs-status" class="s-info-desc">—</div>
+                </div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsDockUrlLabel">URL du dock OBS</label>
+                    <div class="s-desc" data-i18n="obsDockUrlDesc">À coller dans OBS : Affichage → Docks → Dock de navigateur personnalisé.</div>
+                    <div class="s-url-row">
+                        <input type="text" id="s-obs-dock-url" class="s-url-input" readonly />
+                        <button id="s-obs-dock-copy" class="s-validate-btn" data-i18n="copyBtn">Copier</button>
+                    </div>
+                </div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsPortValueLabel">Port (pour le script de hotkeys)</label>
+                    <div class="s-url-row">
+                        <input type="text" id="s-obs-port-value" class="s-url-input" readonly style="max-width:140px;" />
+                        <button id="s-obs-port-copy" class="s-validate-btn" data-i18n="copyBtn">Copier</button>
+                    </div>
+                </div>
+                <div class="s-row">
+                    <label class="s-label" data-i18n="obsTokenLabel">Token (pour le script de hotkeys)</label>
+                    <div class="s-desc" data-i18n="obsTokenDesc">Sécurise les commandes OBS. Ne le partagez pas.</div>
+                    <div class="s-url-row">
+                        <input type="text" id="s-obs-token" class="s-url-input" readonly />
+                        <button id="s-obs-token-copy" class="s-validate-btn" data-i18n="copyBtn">Copier</button>
+                    </div>
+                </div>
+                <div class="s-info-block">
+                    <div class="s-info-title" data-i18n="obsGuideTitle">Guide complet</div>
+                    <div class="s-info-desc" data-i18n="obsGuideDesc">Voir obs-integration/OBS_INTEGRATION.md pour la mise en place du dock et des raccourcis clavier.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panneau Historique (v0.4.0) -->
+    <div id="history-panel">
+        <div id="history-panel-header">
+            <span id="history-panel-title">🕐 Historique</span>
+            <button id="history-panel-close" title="Fermer">✕</button>
+        </div>
+        <div id="history-search-row">
+            <input type="text" id="history-search-input" placeholder="Rechercher dans l'historique…" autocomplete="off" spellcheck="false" />
+            <button id="history-clear-all-btn">Tout effacer</button>
+        </div>
+        <div id="history-list">
+            <div id="history-empty" style="display:none">
+                <span style="font-size:32px">🕐</span>
+                <span>Aucun historique</span>
+                <span style="font-size:11px;color:var(--fg-muted)">Les pages que vous visitez apparaîtront ici.</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/landscape-i18n.js"></script>
+    <script src="js/landscape-webview.js"></script>
+    <script src="js/landscape-ui.js"></script>
+    <script src="js/landscape-views.js"></script>
+    <script src="js/landscape-tabs.js"></script>
+    <script src="js/landscape-settings.js"></script>
+    <script src="js/landscape-pollers.js"></script>
+</body>
+</html>

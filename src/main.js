@@ -34,11 +34,11 @@
  */
 
 const { app, BrowserWindow, ipcMain, nativeTheme, screen, session, dialog, Menu, MenuItem, clipboard } = require('electron');
-const logger = require('./logger');
+const logger = require('./core/logger');
 const path = require('path');
 const fs = require('fs');
-const obsControl = require('./obs-control');
-const HistoryManager = require('./history-manager');
+const obsControl = require('./core/obs-control');
+const HistoryManager = require('./core/history-manager');
 const {
     KNOWN_SERVICES,
     authWindowEvents,
@@ -46,7 +46,7 @@ const {
     checkAllServicesStatus,
     disconnectService,
     openAuthWindow,
-} = require('./auth-window');
+} = require('./core/auth-window');
 
 // ── Mode dev ─────────────────────────────────────────────────────────────────
 // Activer avec : npm start -- --dev
@@ -519,7 +519,7 @@ async function startObsServerIfEnabled() {
     const port = configGet('settings.obsPort') || 0;
     const info = await obsControl.start({
         port,
-        dockHtmlPath: path.join(__dirname, 'obs-dock.html'),
+        dockHtmlPath: path.join(__dirname, 'renderer/obs-dock.html'),
         onCommand: handleObsCommand,
         logFn: (src, lvl, args) => logger.log(src, lvl, args),
     });
@@ -546,7 +546,7 @@ function createLandscapeWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload-landscape.js'),
+            preload: path.join(__dirname, 'preload/preload-landscape.js'),
             webviewTag: true,
             additionalArguments: logger.IS_DEV ? ['--dev-source=landscape'] : [],
         },
@@ -556,14 +556,14 @@ function createLandscapeWindow() {
         backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#f0f0f0',
     });
 
-    landscapeWin.loadFile(path.join(__dirname, 'landscape.html'));
+    landscapeWin.loadFile(path.join(__dirname, 'renderer/landscape.html'));
     landscapeWin.webContents.setMaxListeners(50);
     // Mode dev : injecter preload-dev.js comme second preload via session
     if (logger.IS_DEV) {
         landscapeWin.webContents.session.registerPreloadScript({
             id: 'dev-preload-landscape',
             type: 'frame',
-            filePath: path.join(__dirname, 'preload-dev.js'),
+            filePath: path.join(__dirname, 'preload/preload-dev.js'),
         });
     }
     landscapeWin.once('ready-to-show', () => {
@@ -636,7 +636,7 @@ function createPortraitWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload-view.js'),
+            preload: path.join(__dirname, 'preload/preload-view.js'),
             webviewTag: true,
             additionalArguments: logger.IS_DEV ? ['--dev-source=portrait'] : [],
         },
@@ -645,13 +645,13 @@ function createPortraitWindow() {
         backgroundColor: '#ffffff',
     });
 
-    portraitWin.loadFile(path.join(__dirname, 'portrait.html'));
+    portraitWin.loadFile(path.join(__dirname, 'renderer/portrait.html'));
     portraitWin.webContents.setMaxListeners(50);
     if (logger.IS_DEV) {
         portraitWin.webContents.session.registerPreloadScript({
             id: 'dev-preload-portrait',
             type: 'frame',
-            filePath: path.join(__dirname, 'preload-dev.js'),
+            filePath: path.join(__dirname, 'preload/preload-dev.js'),
         });
     }
     portraitWin.once('ready-to-show', () => {

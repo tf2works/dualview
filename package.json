@@ -1,6 +1,6 @@
 {
     "name": "dualview",
-    "version": "0.4.3",
+    "version": "0.4.4",
     "description": "Affichage dual paysage/portrait synchronise pour OBS, pilotable depuis OBS",
     "main": "src/main.js",
     "author": "DualView",
@@ -21,13 +21,21 @@
         "appId": "com.dualview.app",
         "productName": "DualView",
         "copyright": "Copyright 2026 DualView",
-        "directories": { "output": "dist" },
-        "files": [ "src/**/*", "assets/**/*", "package.json" ],
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "src/**/*",
+            "assets/**/*",
+            "package.json"
+        ],
         "win": {
             "target": [
                 {
                     "target": "nsis",
-                    "arch": [ "x64" ]
+                    "arch": [
+                        "x64"
+                    ]
                 }
             ],
             "icon": "assets/icon.ico"
@@ -41,7 +49,10 @@
             "createDesktopShortcut": false,
             "createStartMenuShortcut": true,
             "shortcutName": "DualView",
-            "installerLanguages": [ "fr_FR", "en_US" ],
+            "installerLanguages": [
+                "fr_FR",
+                "en_US"
+            ],
             "language": "1036"
         }
     }

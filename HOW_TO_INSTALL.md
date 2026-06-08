@@ -1,4 +1,10 @@
-# DualView v0.4.3 - Instructions d'installation
+# DualView v0.4.4 - Instructions d'installation
+
+## Nouveautés v0.4.4
+
+- **Refactoring open source** : `landscape.html` (4 441 → 419 lignes) et `portrait.html` (996 → 63 lignes) découpés en modules CSS et JS séparés
+- **i18n portrait** : indicateur sync, overlay pub et textes statiques traduits dynamiquement selon la langue sélectionnée dans Paramètres
+- **Restructuration `src/`** : dossiers `core/`, `preload/`, `renderer/` pour une meilleure lisibilité du code source
 
 ## Nouveautés v0.4.3
 
@@ -30,7 +36,7 @@
 - Connexion internet
 
 ### Procédure
-1. Double-cliquez sur **DualView-Setup-0.4.3.exe`**
+1. Double-cliquez sur **DualView-Setup-0.4.4.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur si demandée
 
@@ -167,4 +173,4 @@ Guide complet pas à pas : **obs-integration/OBS_INTEGRATION.md**.
 **Prérequis** : Node.js >= 22 (https://nodejs.org)
 
 Lancez **installer/build-installer.bat** depuis le dossier racine.
-Produit **dist/DualView-Setup-0.4.3.exe** (~150 Mo).
+Produit **dist/DualView-Setup-0.4.4.exe** (~150 Mo).

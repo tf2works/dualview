@@ -1,4 +1,4 @@
-# DualView - Architecture v0.4.3
+# DualView - Architecture v0.4.4
 
 ## Vue d'ensemble
 
@@ -291,6 +291,8 @@ ATTENTION : ne pas installer de handler onBeforeSendHeaders
 dualview/
 |-- package.json              v0.4.3
 |-- ARCHITECTURE.md           Ce fichier
+|-- CHANGELOG.md              Historique des versions (Keep a Changelog)
+|-- CONTRIBUTING.md           Guide de contribution (prérequis, branches, PR)
 |-- HOW_TO_INSTALL.md
 |-- README.md
 |-- TODO.md
@@ -306,6 +308,10 @@ dualview/
 |   |-- dualview-obs-hotkeys.lua
 |   |-- OBS_INTEGRATION.md
 |
+|-- .github/
+|   |-- workflows/
+|       |-- build.yml         CI/CD : build Windows + GitHub Release sur tag v*
+|
 |-- src/
     |-- main.js               Processus principal v0.4.3
     |   |                     + IPC vidéo séquencé : video-pause/video-play/video-drift-check
@@ -313,31 +319,62 @@ dualview/
     |   |                     + Séquençage pause : ①pause ②seek-to +50ms
     |   |                     + Séquençage play  : ①seek-to ②play +100ms
     |   |
-    |-- obs-control.js        Serveur HTTP + WebSocket OBS (v0.3.2)
-    |-- obs-dock.html         Page dock OBS
-    |-- auth-window.js        Fenêtres d'authentification
-    |-- history-manager.js    Historique persistant (history.json)
-    |-- logger.js             Système de debug --dev
-    |-- preload-auth.js       Anti-détection Electron (authWin)
-    |-- preload-dev.js        DevTools en mode --dev
-    |-- preload-landscape.js  API IPC renderer landscape v0.4.3
-    |   |                     + sendVideoDriftCheck() remplace sendVideoTimeUpdate()
-    |-- preload-view.js       API IPC renderer portrait v0.4.3
-    |   |                     + canal 'video-cmd' : nouvelles actions (seek-to, drift-check)
+    |-- core/                 Modules Node.js / Electron Main
+    |   |-- auth-window.js    Fenêtres d'authentification (services connectés)
+    |   |-- history-manager.js Historique persistant (history.json)
+    |   |-- logger.js         Système de debug --dev
+    |   |-- obs-control.js    Serveur HTTP + WebSocket OBS (v0.3.2)
     |
-    |-- landscape.html        Fenêtre paysage v0.4.3
-    |   |                     + pollVideoState() : sendVideoDriftCheck remplace sendVideoTimeUpdate
-    |   |                     + drift-check envoyé seulement si lecture en cours
-    |   |
-    |-- portrait.html         Fenêtre portrait v0.4.3 (refonte complète du script)
-        |                     + VIDEO_EXECUTOR_SCRIPT : 4 commandes atomiques
-        |                     |   pause / seek-to (si paused) / play / drift-check
-        |                     + resetPageFlags() : réinitialise les 3 flags à chaque navigation
-        |                     + __dualviewObserverActive : MutationObserver unique
-        |                     + pendingCmd avec TTL 5s
-        |                     + load-url : vérifie getURL() avant d'assigner src
-        |                     + sync-resume-state : scénario B (pas de rechargement)
+    |-- preload/              Scripts de pont IPC (main world → renderer)
+    |   |-- preload-auth.js   Anti-détection Electron (authWin)
+    |   |-- preload-dev.js    DevTools en mode --dev
+    |   |-- preload-landscape.js  API IPC renderer landscape v0.4.3
+    |   |                         + sendVideoDriftCheck() remplace sendVideoTimeUpdate()
+    |   |-- preload-view.js   API IPC renderer portrait v0.4.3
+    |                         + canal 'video-cmd' : nouvelles actions (seek-to, drift-check)
+    |
+    |-- renderer/             Fichiers chargés par BrowserWindow (UI)
+        |-- landscape.html    Fenêtre paysage v0.4.4
+        |   |                 + CSS externalisé → css/landscape.css
+        |   |                 + JS externalisé  → js/landscape-{i18n,webview,ui,views,tabs,settings,pollers}.js
+        |   |                 + pollVideoState() : sendVideoDriftCheck remplace sendVideoTimeUpdate
+        |   |                 + drift-check envoyé seulement si lecture en cours
+        |   |
+        |-- portrait.html     Fenêtre portrait v0.4.4
+        |   |                 + CSS externalisé → css/portrait.css
+        |   |                 + JS externalisé  → js/portrait-{i18n,app,webview}.js
+        |   |                 + data-i18n sur tous les textes statiques (option B)
+        |   |
+        |-- obs-dock.html     Page dock OBS
+        |
+        |-- css/
+        |   |-- landscape.css Styles fenêtre paysage (extrait de landscape.html v0.4.3)
+        |                     Thèmes light/dark, composants UI, animations
+        |
+        |-- js/
+            |-- landscape-i18n.js    Traductions FR/EN + t() + applyTranslations()
+            |-- landscape-webview.js Scripts injectés dans les webviews (VIDEO_WATCHER,
+            |                        SCROLL_INJECT, AUTO_PAUSE_SCRIPT) + helpers
+            |-- landscape-ui.js      État global, sync, thème, toast, nav, menu ⚙️, resize
+            |-- landscape-views.js   Pool de webviews + popup login
+            |-- landscape-tabs.js    Onglets, navigation URL, omnibar, screenshot
+            |-- landscape-settings.js Paramètres, services connectés, historique,
+            |                         dropdown nav hist, raccourcis, menu contextuel
+            |-- landscape-pollers.js Polling pub/vidéo/scroll + initialisation
+            |-- portrait-i18n.js     Traductions FR/EN portrait + tp() + applyPortraitTranslations()
+            |-- portrait-app.js      Logique portrait (pool, IPC handlers, remute, init)
+            |-- portrait-webview.js  Scripts injectés portrait (VIDEO_EXECUTOR, AUTO_PAUSE)
 ```
+
+### Principe de séparation (open source maintenability)
+
+| Dossier | Rôle | Process Electron |
+|---------|------|-----------------|
+| `src/core/` | Logique métier Node.js, accès filesystem, IPC handlers | Main |
+| `src/preload/` | Pont contextIsolation entre main et renderer | Preload (isolé) |
+| `src/renderer/` | HTML + CSS + JS UI, jamais d'accès Node.js direct | Renderer |
+| `src/renderer/css/` | Feuilles de style externalisées des fenêtres | Renderer |
+| `src/renderer/js/`  | Scripts applicatifs externalisés (landscape + portrait) | Renderer |
 
 ---
 

@@ -1,4 +1,4 @@
-# DualView v0.4.3
+# DualView v0.4.4
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.4.3.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.4.4.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -46,6 +46,41 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Nouveautés v0.4.4
+
+### 🗂️ Refactoring open source — séparation CSS / JS
+Découpage de `landscape.html` (4 441 lignes) et `portrait.html` (996 lignes) en fichiers indépendants pour faciliter la contribution :
+
+| Fichier original | Résultat | Réduction |
+|---|---|---|
+| `landscape.html` | `landscape.html` + `css/landscape.css` + 7 modules JS | 4 441 → 419 lignes (−91%) |
+| `portrait.html` | `portrait.html` + `css/portrait.css` + 3 modules JS | 996 → 63 lignes (−94%) |
+
+**Modules JS landscape** : `landscape-i18n.js` · `landscape-webview.js` · `landscape-ui.js` · `landscape-views.js` · `landscape-tabs.js` · `landscape-settings.js` · `landscape-pollers.js`
+
+**Modules JS portrait** : `portrait-i18n.js` · `portrait-app.js` · `portrait-webview.js`
+
+### 🌐 Internationalisation portrait (option B)
+La fenêtre portrait bénéficie maintenant du système i18n complet :
+- Attributs `data-i18n` sur tous les textes statiques des overlays
+- Indicateur sync (`● Sync active` / `⏸ Sync pausée`) traduit dynamiquement
+- Compte à rebours pub traduit via `tp()`
+- Mise à jour en temps réel quand la langue change dans Paramètres
+
+### 📁 Restructuration `src/`
+```
+src/
+├── main.js
+├── core/          auth-window.js · history-manager.js · logger.js · obs-control.js
+├── preload/       preload-auth.js · preload-dev.js · preload-landscape.js · preload-view.js
+└── renderer/
+    ├── css/       landscape.css · portrait.css
+    ├── js/        10 modules (landscape + portrait)
+    ├── landscape.html · portrait.html · obs-dock.html
+```
 
 ---
 
@@ -292,7 +327,7 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.4.3.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.4.4.exe` (~150 Mo).
 
 ---
 
@@ -327,3 +362,4 @@ Produit `dist/DualView-Setup-0.4.3.exe` (~150 Mo).
 | 0.4.1 | Raccourcis clavier. Boutons souris Retour/Avance. Liens externes → onglet DualView. Menu contextuel clic droit. Enregistrement image. |
 | 0.4.2 | Pause automatique vidéos YouTube classiques (+ paramètre). Overlay pub dans portrait (message + compte à rebours). Bouton remute portrait. Fermeture auto dropdown historique (500 ms unfocus). Bloqueur pub renforcé 3 niveaux (50+ domaines, CSS cosmétique, stub IMA). Sync vidéo : réalignement exact au play, pause à currentTime=0. |
 | 0.4.3 | Refonte sync vidéo anti-boucle : protocole séquencé atomique (pause→seek-to ; seek-to→play). Suppression du forçage currentTime sur play. drift-check conditionnel (portrait à l'arrêt seulement, seuil 2s). MutationObserver unique par webview. pendingCmd avec TTL 5s. Correction double-src sur load-url. |
+| 0.4.4 | Refactoring open source : séparation CSS/JS landscape et portrait. Restructuration src/ (core/, preload/, renderer/). i18n portrait (option B). |
