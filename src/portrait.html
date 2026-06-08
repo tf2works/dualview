@@ -305,30 +305,49 @@
             bottom: 16px;
             right: 14px;
             z-index: 9998;
-            background: rgba(220, 53, 69, 0.92);
+            background: #cc1a2e;
             color: white;
             border: none;
-            border-radius: 20px;
-            padding: 7px 14px;
-            font-size: 12px;
+            border-radius: 24px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            gap: 6px;
             align-items: center;
             white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.35);
             transition: opacity 0.25s, transform 0.25s;
             transform: translateY(10px);
             opacity: 0;
+            overflow: hidden;
         }
             #remute-btn.show {
                 display: flex;
                 opacity: 1;
                 transform: translateY(0);
             }
-            #remute-btn:hover {
-                background: rgba(185, 30, 45, 0.95);
-            }
+        #remute-action {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 16px;
+            transition: background 0.15s;
+        }
+            #remute-action:hover { background: rgba(255,255,255,0.12); }
+        #remute-divider {
+            width: 1px;
+            align-self: stretch;
+            background: rgba(255,255,255,0.3);
+        }
+        #remute-dismiss {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 13px;
+            transition: background 0.15s;
+            font-size: 15px;
+            line-height: 1;
+        }
+            #remute-dismiss:hover { background: rgba(255,255,255,0.12); }
     </style>
 </head>
 <body>
@@ -365,7 +384,11 @@
     </div>
 
     <!-- Bouton remute -->
-    <button id="remute-btn">🔇 Remettre en mute</button>
+    <div id="remute-btn" role="group" aria-label="Son portrait actif">
+        <div id="remute-action" title="Remettre en mute">🔇 Remettre en mute</div>
+        <div id="remute-divider"></div>
+        <div id="remute-dismiss" title="Masquer cette alerte">✕</div>
+    </div>
 
     <!-- Overlay pub YouTube -->
     <div id="ad-overlay">
@@ -376,7 +399,35 @@
     </div>
 
     <script>
+    // ============================================================
+    // DualView — portrait.html  v0.4.3
+    // ============================================================
+    // PRINCIPE FONDAMENTAL (v0.4.3)
+    // ──────────────────────────────
+    // Portrait est un webview INDÉPENDANT dans lequel landscape
+    // injecte des commandes via IPC. Il ne génère jamais d'événements
+    // vers landscape : le flux est UNIDIRECTIONNEL.
+    //
+    // Protocole de commandes vidéo reçues (action dans video-cmd) :
+    //
+    //   'pause'       → video.pause()      (exécution immédiate)
+    //   'seek-to'     → video.currentTime = t  SEULEMENT si vidéo à l'arrêt
+    //                   (évite de déclencher seeked → play loop)
+    //   'play'        → video.play()       (exécution immédiate, pas de currentTime forcé)
+    //   'drift-check' → correctif de drift : seek-to(t) SEULEMENT si
+    //                   |portrait.currentTime - t| > DRIFT_THRESHOLD ET vidéo à l'arrêt
+    //
+    // Un seul MutationObserver par webview, détruit à chaque navigation
+    // (flag __dualviewObserverActive). Aucun double-observer possible.
+    //
+    // pendingCmd expire après PENDING_CMD_TTL ms pour éviter l'application
+    // d'une commande obsolète sur une mauvaise vidéo.
+    // ============================================================
+
         const UA_MOBILE = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+        const DRIFT_THRESHOLD = 2.0;   // secondes — seuil pour drift-check
+        const PENDING_CMD_TTL = 5000;  // ms — durée de vie d'une commande en attente
+
         const webviewCont = document.getElementById('webview-container');
         const emptyState = document.getElementById('empty-state');
         const syncIndicator = document.getElementById('sync-indicator');
@@ -400,84 +451,215 @@
             }
         }
 
-        window.dualview.getSyncState().then(state => updateSyncIndicator(state));
-        window.dualview.on('sync-state-changed', state => updateSyncIndicator(state));
+        window.dualview.getSyncState().then(s => updateSyncIndicator(s));
+        window.dualview.on('sync-state-changed', s => updateSyncIndicator(s));
 
-        // ── Script vidéo exécuteur ─────────────────────────────────────────────────────
-        // Injecté UNE SEULE FOIS par dom-ready. Ne pas ré-injecter à chaque video-cmd.
+        // ══════════════════════════════════════════════════════════════════════════════
+        // VIDEO EXECUTOR SCRIPT — injecté UNE SEULE FOIS par webview (dom-ready)
+        // ══════════════════════════════════════════════════════════════════════════════
+        //
+        // Expose window.__dualviewApplyCmd(cmd) dans le contexte de la page web.
+        //
+        // Commandes supportées :
+        //   { action: 'pause' }        → video.pause()
+        //   { action: 'seek-to',  currentTime: t } → video.currentTime = t  (si paused)
+        //   { action: 'play' }         → video.play()
+        //   { action: 'drift-check', currentTime: t } → seek-to si drift > seuil ET paused
+        //
+        // Garanties anti-boucle :
+        //   1. 'seek-to' ne touche JAMAIS une vidéo en lecture → pas de seeked émis
+        //   2. 'play' ne force JAMAIS currentTime → pas de seeked émis
+        //   3. 'drift-check' conditionnel → idem
+        //   4. Un seul MutationObserver (flag __dualviewObserverActive)
+        //   5. pendingCmd expire après PENDING_CMD_TTL ms
+        // ══════════════════════════════════════════════════════════════════════════════
         const VIDEO_EXECUTOR_SCRIPT = `
 (function() {
-        if (window.__dualviewExecutorReady) return;
-        window.__dualviewExecutorReady = true;
-        window.__dualviewPendingCmd = null;
-        window.__dualviewCmdLockUntil = 0;
-        function detectPlatform() {
-            const host = location.hostname;
-            if (host.includes('youtube.com'))   return 'youtube';
-            if (host.includes('tiktok.com'))    return 'tiktok';
-            if (host.includes('instagram.com')) return 'instagram';
-            return 'generic';
-        }
-        function getVideoSelectors(platform) {
-            switch (platform) {
-                case 'youtube':   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
-                case 'tiktok':    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
-                case 'instagram': return ['video[playsinline]','article video','[role="presentation"] video','video'];
-                default:          return ['video'];
+    if (window.__dualviewExecutorReady) return;
+    window.__dualviewExecutorReady = true;
+    const DRIFT_THRESHOLD = ${DRIFT_THRESHOLD};
+    const PENDING_TTL     = ${PENDING_CMD_TTL};
+
+    // ── Sélecteurs par plateforme ──────────────────────────────────────────────
+    function detectPlatform() {
+        const h = location.hostname;
+        if (h.includes('youtube.com'))   return 'youtube';
+        if (h.includes('tiktok.com'))    return 'tiktok';
+        if (h.includes('instagram.com')) return 'instagram';
+        return 'generic';
+    }
+    function getSelectors(p) {
+        if (p === 'youtube')   return ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+        if (p === 'tiktok')    return ['video[class*="video"]','.video-player video','[class*="player"] video','video'];
+        if (p === 'instagram') return ['video[playsinline]','article video','[role="presentation"] video','video'];
+        return ['video'];
+    }
+    function findBestVideo(sels) {
+        for (const s of sels) {
+            const list = Array.from(document.querySelectorAll(s)).filter(v => {
+                const r = v.getBoundingClientRect();
+                return r.width > 100 && r.height > 100;
+            });
+            if (list.length) {
+                list.sort((a, b) => {
+                    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+                    return (rb.width * rb.height) - (ra.width * ra.height);
+                });
+                return list[0];
             }
         }
-        function findBestVideo(selectors) {
-            for (const sel of selectors) {
-                const videos = Array.from(document.querySelectorAll(sel));
-                const visible = videos.filter(v => { const r=v.getBoundingClientRect(); return r.width>100&&r.height>100; });
-                if (visible.length>0) { visible.sort((a,b)=>{ const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect(); return(rb.width*rb.height)-(ra.width*ra.height); }); return visible[0]; }
+        return null;
+    }
+
+    const platform = detectPlatform();
+    const sels     = getSelectors(platform);
+
+    // ── Mute forcé (portrait toujours muet si autoMuteEnabled) ───────────────
+    function ensureMuted(v) {
+        if (!window.__dualviewAutoMuteEnabled) return;
+        if (!v.__dualviewMuteApplied) { v.muted = true; v.__dualviewMuteApplied = true; }
+    }
+
+    // ── Commande en attente (avec TTL) ────────────────────────────────────────
+    let pendingCmd   = null;
+    let pendingExpiry = 0;
+
+    function storePending(cmd) {
+        pendingCmd    = cmd;
+        pendingExpiry = Date.now() + PENDING_TTL;
+    }
+    function consumePending() {
+        if (!pendingCmd) return null;
+        if (Date.now() > pendingExpiry) { pendingCmd = null; return null; }
+        const c = pendingCmd; pendingCmd = null; return c;
+    }
+
+    // ── Application d'une commande ────────────────────────────────────────────
+    // RÈGLES ANTI-BOUCLE :
+    //   'pause'       → video.pause()  (pas de currentTime → pas de seeked)
+    //   'seek-to'     → currentTime = t SEULEMENT si paused
+    //   'play'        → video.play()   (pas de currentTime → pas de seeked)
+    //   'drift-check' → currentTime = t SEULEMENT si paused ET drift > seuil
+    window.__dualviewApplyCmd = function(cmd) {
+        const video = findBestVideo(sels);
+        if (!video) { storePending(cmd); return false; }
+        ensureMuted(video);
+
+        if (cmd.action === 'pause') {
+            video.pause();
+
+        } else if (cmd.action === 'seek-to') {
+            // Ne jamais toucher currentTime si la vidéo est en cours de lecture.
+            // Un seeked sur une vidéo en lecture déclencherait landscape → play → boucle.
+            if (video.paused) {
+                video.currentTime = cmd.currentTime;
             }
-            return null;
-        }
-        const platform=detectPlatform(), selectors=getVideoSelectors(platform);
-        function ensureMuted(video) {
-            if (!video.__dualviewMuteApplied) { video.muted = true; video.__dualviewMuteApplied = true; }
-        }
-        new MutationObserver(function() {
-            const video = findBestVideo(selectors);
-            if (video) ensureMuted(video);
-        }).observe(document.body, {childList:true, subtree:true});
-        window.__dualviewApplyCmd = function(cmd) {
-            const video = findBestVideo(selectors);
-            if (!video) { window.__dualviewPendingCmd = cmd; return false; }
-            ensureMuted(video);
-            window.__dualviewCmdLockUntil = Date.now() + 1500;
-            const drift = Math.abs(video.currentTime - cmd.currentTime);
-            if (cmd.action === 'pause') {
-                // Réalignement exact avant pause (pas de seuil)
-                video.currentTime = cmd.currentTime;
-                video.pause();
-            } else if (cmd.action === 'play') {
-                // Réalignement TOUJOURS forcé avant play — élimine la seconde d'avance.
-                // On ne pose pas de seuil : même un drift de 0.1s est corrigé.
-                video.currentTime = cmd.currentTime;
-                const p = video.play();
-                if (p && p.catch) p.catch(() => {});
-            } else if (cmd.action === 'seek') {
-                // Seek périodique : seuil conservé pour éviter les micro-corrections
-                if (drift > 4) {
+
+        } else if (cmd.action === 'play') {
+            // Lancer la lecture SANS forcer currentTime.
+            // Le seek-to a déjà été envoyé 100 ms avant par main.js.
+            const p = video.play();
+            if (p && p.catch) p.catch(() => {});
+
+        } else if (cmd.action === 'drift-check') {
+            // Correctif périodique : ne corriger que si la vidéo est à l'arrêt
+            // ET que l'écart dépasse le seuil.
+            if (video.paused) {
+                const drift = Math.abs(video.currentTime - cmd.currentTime);
+                if (drift > DRIFT_THRESHOLD) {
                     video.currentTime = cmd.currentTime;
-                    if (!video.paused) { const p = video.play(); if (p && p.catch) p.catch(() => {}); }
                 }
             }
-            return true;
-        };
+        }
+        return true;
+    };
+
+    // ── MutationObserver pour les commandes en attente ────────────────────────
+    // Un seul observer, protégé par le flag __dualviewObserverActive.
+    if (!window.__dualviewObserverActive) {
+        window.__dualviewObserverActive = true;
         new MutationObserver(function() {
-            if (window.__dualviewPendingCmd) {
-                const ok = window.__dualviewApplyCmd(window.__dualviewPendingCmd);
-                if (ok) window.__dualviewPendingCmd = null;
-            }
-        }).observe(document.body, {childList:true, subtree:true});
-        true;
+            // Mute toute nouvelle vidéo insérée dans le DOM
+            const v = findBestVideo(sels);
+            if (v) ensureMuted(v);
+            // Rejouer la commande en attente si elle n'a pas expiré
+            const cmd = consumePending();
+            if (cmd) window.__dualviewApplyCmd(cmd);
+        }).observe(document.body, { childList: true, subtree: true });
+    }
+    true;
 })();`;
 
-        // ── Pause automatique portrait (miroir paysage, corrigé) ──────────────────────
-        // ── Pool de webviews ───────────────────────────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════════════════════
+        // AUTO-PAUSE SCRIPT — YouTube uniquement, injecté après dom-ready
+        // ══════════════════════════════════════════════════════════════════════════════
+        //
+        // Pause la vidéo YouTube classique au chargement (Shorts exclus).
+        // Si une pub est en cours, attend sa fin avant de pauser.
+        // Retry toutes les 200 ms pendant 10 s max (50 tentatives).
+        //
+        // Différences vs landscape :
+        //   - Force video.muted = true (portrait doit toujours être muet)
+        //   - currentTime = 0 après pause (portrait repart de zéro, landscape sync ensuite)
+        // ══════════════════════════════════════════════════════════════════════════════
+        const AUTO_PAUSE_SCRIPT = `
+(function() {
+    if (window.__dualviewAutoPauseDone) return;
+    const url = location.href;
+    if (!url.includes('youtube.com')) return;
+    if (url.includes('/shorts/') ||
+        !!document.getElementById('shorts-container') ||
+        !!document.querySelector('ytd-reel-video-renderer')) return;
+
+    const sels = ['video.html5-main-video','#movie_player video','ytd-player video','video'];
+    function findVideo() {
+        for (const s of sels) {
+            const list = Array.from(document.querySelectorAll(s))
+                .filter(v => { const r = v.getBoundingClientRect(); return r.width > 50 && r.height > 50; });
+            if (list.length) return list[0];
+        }
+        return null;
+    }
+    function isAdPlaying() {
+        const p = document.getElementById('movie_player');
+        return p && (p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting'));
+    }
+    function doPause(attempts) {
+        if (window.__dualviewAutoPauseDone) return;
+        const video = findVideo();
+        if (video) {
+            video.muted = true;
+            if (isAdPlaying()) {
+                let waited = 0;
+                const poll = setInterval(() => {
+                    waited += 500;
+                    if (!isAdPlaying() || waited > 120000) {
+                        clearInterval(poll);
+                        if (!window.__dualviewAutoPauseDone) {
+                            window.__dualviewAutoPauseDone = true;
+                            const v = findVideo();
+                            if (v) { v.muted = true; v.currentTime = 0; v.pause(); }
+                        }
+                    }
+                }, 500);
+            } else {
+                window.__dualviewAutoPauseDone = true;
+                video.muted = true;
+                video.currentTime = 0;
+                video.pause();
+            }
+            return;
+        }
+        if (attempts < 50) setTimeout(() => doPause(attempts + 1), 200);
+    }
+    doPause(0);
+    true;
+})();`;
+
+        // ══════════════════════════════════════════════════════════════════════════════
+        // POOL DE WEBVIEWS
+        // ══════════════════════════════════════════════════════════════════════════════
+
         function createWebview(tabId, url) {
             if (webviewPool.has(tabId)) return webviewPool.get(tabId);
             const wv = document.createElement('webview');
@@ -486,12 +668,14 @@
             wv.setAttribute('allowpopups', '');
             wv.className = 'wv-portrait';
             wv.dataset.tabId = tabId;
+            // Attacher les listeners AVANT appendChild
             attachWebviewListeners(wv, tabId);
             webviewCont.appendChild(wv);
+            // Assigner src APRÈS l'attachement au DOM
             wv.src = url || 'about:blank';
             webviewPool.set(tabId, wv);
             wv.addEventListener('did-fail-load', (e) => {
-                if (e.errorCode === -3) return;
+                if (e.errorCode === -3) return; // ERR_ABORTED ignoré (navigation annulée)
                 console.warn('[portrait] did-fail-load', e.errorCode, e.errorDescription, e.validatedURL);
             });
             return wv;
@@ -514,104 +698,78 @@
 
         function getActiveWebview() { return webviewPool.get(activeTabId) || null; }
 
+        // ── Injection de l'executor ────────────────────────────────────────────────
+        // Appelée depuis dom-ready. Réinitialise les flags de page SANS mettre
+        // __dualviewExecutorReady à false avant de ré-injecter — cela éviterait
+        // de créer un double MutationObserver si le script s'exécute deux fois.
+        // Le script lui-même sort immédiatement si le flag est déjà true.
         function injectExecutor(wv) {
-            wv.executeJavaScript('window.__dualviewExecutorReady=false;true;')
-                .then(() => wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT))
-                .catch(() => { });
+            wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT).catch(() => { });
         }
 
-        // ── Pause automatique portrait (vidéos classiques YouTube uniquement) ──────────
-        // Shorts exclus — aucune interférence avec leur autoplay.
-        // Si pub en cours au chargement → attendre fin pub → pauser.
-        // Si pas de pub → pause directe.
-        // Injecté UNE SEULE FOIS après que le player YouTube soit prêt (~1.8s).
-        const PORTRAIT_AUTO_PAUSE_SCRIPT = `
-(function() {
-    if (window.__dualviewAutoPauseDone) return;
-    const url = location.href;
-    if (!url.includes('youtube.com')) return;
-    // Shorts : sortir immédiatement, aucune pause
-    if (url.includes('/shorts/') ||
-        !!document.getElementById('shorts-container') ||
-        !!document.querySelector('ytd-reel-video-renderer')) return;
-    const selectors = ['video.html5-main-video','#movie_player video','ytd-player video','video'];
-    function findVideo() {
-        for (const s of selectors) {
-            const list = Array.from(document.querySelectorAll(s))
-                .filter(v => { const r = v.getBoundingClientRect(); return r.width > 50 && r.height > 50; });
-            if (list.length) return list[0];
+        // Réinitialise les flags de navigation (dom-ready ou did-navigate).
+        // NE touche PAS __dualviewExecutorReady : le script le gère lui-même.
+        function resetPageFlags(wv) {
+            wv.executeJavaScript(
+                'window.__dualviewAutoPauseDone=false;' +
+                'window.__dualviewObserverActive=false;' +
+                'window.__dualviewExecutorReady=false;' +
+                'window.__dualviewAutoMuteEnabled=' + autoMutePortrait + ';' +
+                'true;'
+            ).catch(() => { });
         }
-        return null;
-    }
-    function isAdPlaying() {
-        const player = document.getElementById('movie_player');
-        return player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'));
-    }
-    function doPause(attempts) {
-        if (window.__dualviewAutoPauseDone) return;
-        const video = findVideo();
-        if (video) {
-            if (isAdPlaying()) {
-                // Pub en cours : attendre sa fin puis pauser la vraie vidéo
-                let waited = 0;
-                const poll = setInterval(() => {
-                    waited += 500;
-                    if (!isAdPlaying() || waited > 120000) {
-                        clearInterval(poll);
-                        if (!window.__dualviewAutoPauseDone) {
-                            window.__dualviewAutoPauseDone = true;
-                            const v = findVideo();
-                            if (v) { v.muted = true; v.currentTime = 0; v.pause(); }
-                        }
-                    }
-                }, 500);
-            } else {
-                // Pas de pub : pause immédiate à currentTime=0
-                window.__dualviewAutoPauseDone = true;
-                video.muted = true;
-                video.currentTime = 0;
-                video.pause();
-            }
-            return;
-        }
-        // Retry toutes les 200ms pendant 10s max (50 tentatives)
-        if (attempts < 50) setTimeout(() => doPause(attempts + 1), 200);
-    }
-    doPause(0);
-    true;
-})()`;
 
+        // ── Listeners de webview ───────────────────────────────────────────────────
         function attachWebviewListeners(wv, tabId) {
-            wv.addEventListener('did-navigate', () => {
-                wv.executeJavaScript('window.__dualviewExecutorReady=false;window.__dualviewPendingCmd=null;window.__dualviewAutoPauseDone=false;true;').catch(() => { });
-            });
-            wv.addEventListener('did-navigate-in-page', () => {
-                wv.executeJavaScript('window.__dualviewExecutorReady=false;window.__dualviewPendingCmd=null;window.__dualviewAutoPauseDone=false;true;').catch(() => { });
-            });
             wv.addEventListener('dom-ready', () => {
+                // 1. Réinitialiser les flags (nouvelle page = nouvel executor)
+                resetPageFlags(wv);
+                // 2. Réinitialiser le dismiss du bouton remute
+                resetRemuteDismiss();
+                // 3. Injecter l'executor (garde interne : sort si déjà présent)
                 injectExecutor(wv);
-                // Pause auto injectée immédiatement — le script gère lui-même le retry
-                // toutes les 200ms jusqu'à trouver la vidéo (max 10s)
-                wv.executeJavaScript(PORTRAIT_AUTO_PAUSE_SCRIPT).catch(() => { });
-                // Filet de sécurité à 4s : ré-injection executor + pause auto
+                // 4. Pause auto YouTube
+                wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+                // 5. Filet de sécurité à 3s (pages lentes ou SPAs)
                 setTimeout(() => {
                     if (!webviewPool.has(tabId)) return;
                     injectExecutor(wv);
-                    wv.executeJavaScript(PORTRAIT_AUTO_PAUSE_SCRIPT).catch(() => { });
-                }, 4000);
+                    wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+                }, 3000);
+            });
+
+            // SPA navigation (YouTube, etc.) : dom-ready ne se redéclenche pas
+            wv.addEventListener('did-navigate-in-page', () => {
+                resetPageFlags(wv);
+                resetRemuteDismiss();
+                injectExecutor(wv);
+                wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+            });
+
+            // Navigation complète : même chose
+            wv.addEventListener('did-navigate', () => {
+                resetPageFlags(wv);
+                resetRemuteDismiss();
+                injectExecutor(wv);
             });
         }
 
-        // ── Thème ──────────────────────────────────────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════════════════════
+        // IPC HANDLERS
+        // ══════════════════════════════════════════════════════════════════════════════
+
+        // ── Thème ──────────────────────────────────────────────────────────────────
         window.dualview.getTheme().then(t => document.documentElement.setAttribute('data-theme', t));
         window.dualview.on('theme-changed', t => document.documentElement.setAttribute('data-theme', t));
 
-        // ── IPC pool onglets ──────────────────────────────────────────────────────────
+        // ── Pool d'onglets ─────────────────────────────────────────────────────────
         window.dualview.on('tab-created', ({ tabId, url }) => {
             if (!webviewPool.has(tabId)) createWebview(tabId, url || '');
         });
+
+        // ── Settings overlay ───────────────────────────────────────────────────────
         const settingsOverlay = document.getElementById('settings-overlay');
-        const resumeToast = document.getElementById('resume-toast');
+        const resumeToast     = document.getElementById('resume-toast');
         const SETTINGS_TAB_ID = '__settings__';
         let _resumeToastTimer = null;
 
@@ -638,73 +796,95 @@
                 if (wasOnSettings) showResumeToast();
             }
         });
+
         window.dualview.on('tab-closed', tabId => { destroyWebview(tabId); });
 
-        // ── IPC navigation ────────────────────────────────────────────────────────────
+        // ── Navigation URL ─────────────────────────────────────────────────────────
         window.dualview.on('load-url', payload => {
             let tabId, url;
             if (typeof payload === 'string') { tabId = activeTabId; url = payload; }
             else { tabId = payload.tabId; url = payload.url; }
             if (!url || url === 'about:blank') return;
-            if (!webviewPool.has(tabId)) { createWebview(tabId, url); if (tabId === activeTabId) showWebview(tabId); return; }
+            // Créer le webview si nécessaire AVANT d'assigner src
+            if (!webviewPool.has(tabId)) {
+                createWebview(tabId, url);
+                if (tabId === activeTabId) showWebview(tabId);
+                return;
+            }
             const wv = webviewPool.get(tabId);
-            try { wv.src = url; } catch (e) {
+            // Assigner src seulement si l'URL change réellement
+            try {
+                if (wv.getURL() !== url) wv.src = url;
+            } catch (e) {
                 wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
             }
-            if (tabId === activeTabId) { emptyState.style.display = 'none'; wv.classList.add('active'); }
+            if (tabId === activeTabId) {
+                emptyState.style.display = 'none';
+                wv.classList.add('active');
+            }
         });
 
-        window.dualview.on('sync-resume-state', ({ tabId, url }) => {
+        // Reprise de sync (scénario B) : l'executor est déjà présent,
+        // on attend simplement la prochaine commande vidéo de landscape.
+        window.dualview.on('sync-resume-state', ({ tabId }) => {
             const wv = webviewPool.get(tabId);
             if (!wv) return;
+            // Ré-injecter l'executor au cas où la page aurait été rechargée
+            // pendant la pause. Ne crée pas de double observer (flag interne).
             injectExecutor(wv);
         });
 
-        // ── Scroll ─────────────────────────────────────────────────────────────────────
+        // ── Scroll ─────────────────────────────────────────────────────────────────
         window.dualview.on('apply-scroll', scrollPct => {
             const wv = getActiveWebview();
             if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
             wv.executeJavaScript(`
-            (function(){const el=document.documentElement,max=el.scrollHeight-el.clientHeight;
-            if(max>0)window.scrollTo({top:${scrollPct}*max,behavior:'smooth'});})();true;
-        `).catch(() => { });
+                (function(){
+                    const el = document.documentElement;
+                    const max = el.scrollHeight - el.clientHeight;
+                    if (max > 0) window.scrollTo({ top: ${+scrollPct} * max, behavior: 'smooth' });
+                })(); true;
+            `).catch(() => { });
         });
 
-        // ── Vidéo sync ─────────────────────────────────────────────────────────────────
+        // ── Commandes vidéo ────────────────────────────────────────────────────────
+        // Reçoit { action, currentTime } depuis main.js.
+        // L'executor dans la webview implémente la logique anti-boucle.
         window.dualview.on('video-cmd', cmd => {
             const wv = getActiveWebview();
             if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
             const cmdStr = JSON.stringify(cmd);
-            wv.executeJavaScript('typeof window.__dualviewApplyCmd')
-                .then(t => {
-                    if (t === 'function') {
-                        return wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + ');true;');
+            // Vérifier que l'executor est prêt avant d'appeler la commande.
+            // Si non, l'injecter d'abord. La commande en attente sera reprise
+            // par le MutationObserver de l'executor.
+            wv.executeJavaScript('!!window.__dualviewExecutorReady')
+                .then(ready => {
+                    if (ready) {
+                        return wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + '); true;');
                     } else {
                         return wv.executeJavaScript(VIDEO_EXECUTOR_SCRIPT)
-                            .then(() => wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + ');true;'));
+                            .then(() => wv.executeJavaScript('window.__dualviewApplyCmd(' + cmdStr + '); true;'));
                     }
                 })
                 .catch(() => { });
         });
 
-        // ── Nav ────────────────────────────────────────────────────────────────────────
-        window.dualview.on('webview-go-back', () => { const wv = getActiveWebview(); if (wv && wv.canGoBack && wv.canGoBack()) wv.goBack(); });
+        // ── Navigation (back / forward / reload) ───────────────────────────────────
+        window.dualview.on('webview-go-back',    () => { const wv = getActiveWebview(); if (wv && wv.canGoBack    && wv.canGoBack())    wv.goBack();    });
         window.dualview.on('webview-go-forward', () => { const wv = getActiveWebview(); if (wv && wv.canGoForward && wv.canGoForward()) wv.goForward(); });
-        window.dualview.on('reload-webview', () => { const wv = getActiveWebview(); if (wv && wv.getURL && wv.getURL() !== 'about:blank') wv.reload(); });
+        window.dualview.on('reload-webview',     () => { const wv = getActiveWebview(); if (wv && wv.getURL && wv.getURL() !== 'about:blank') wv.reload(); });
 
-        // ── Resize ─────────────────────────────────────────────────────────────────────
+        // ── Resize ─────────────────────────────────────────────────────────────────
         window.dualview.on('resize-mode', active => { document.body.classList.toggle('resize-mode', active); });
 
-        // ── Overlay login portrait ────────────────────────────────────────────────────
+        // ── Login overlay ──────────────────────────────────────────────────────────
         const loginOverlay = document.getElementById('login-overlay');
-        window.dualview.on('show-login-popup', ({ url, tabId }) => { loginOverlay.classList.add('show'); });
+        window.dualview.on('show-login-popup', () => { loginOverlay.classList.add('show'); });
         window.dualview.on('login-page-cleared', () => { loginOverlay.classList.remove('show'); });
 
-        // ── Overlay pub YouTube ───────────────────────────────────────────────────────
-        // Affiché quand une pub est détectée dans la fenêtre paysage.
-        // Masqué automatiquement à la fin de la pub.
-        const adOverlay    = document.getElementById('ad-overlay');
-        const adCountdown  = document.getElementById('ad-overlay-countdown');
+        // ── Pub YouTube overlay ────────────────────────────────────────────────────
+        const adOverlay   = document.getElementById('ad-overlay');
+        const adCountdown = document.getElementById('ad-overlay-countdown');
 
         window.dualview.on('ad-state', ({ isAd, remaining }) => {
             if (isAd) {
@@ -712,9 +892,7 @@
                 if (remaining !== null && remaining > 0) {
                     const m = Math.floor(remaining / 60);
                     const s = String(remaining % 60).padStart(2, '0');
-                    adCountdown.textContent = m > 0
-                        ? `⏱ ${m}:${s} restantes`
-                        : `⏱ ${remaining}s restantes`;
+                    adCountdown.textContent = m > 0 ? `⏱ ${m}:${s} restantes` : `⏱ ${remaining}s restantes`;
                     adCountdown.classList.add('show');
                 } else {
                     adCountdown.classList.remove('show');
@@ -725,36 +903,92 @@
             }
         });
 
-        // ── Bouton remute ─────────────────────────────────────────────────────────────
-        const remuteBtn = document.getElementById('remute-btn');
-        let _muteCheckInterval = null;
+        // ── Bouton remute ──────────────────────────────────────────────────────────
+        // Conditions d'affichage (toutes requises) :
+        //   1. autoMutePortrait === true  (paramètre Paramètres → Général)
+        //   2. Une vidéo est en cours de lecture dans le webview actif  (!video.paused)
+        //   3. Cette vidéo n'est pas en mute  (!video.muted)
+        //
+        // Bouton X : masque définitivement jusqu'au prochain rechargement de page
+        //   (flag _remuteUserDismissed remis à false à chaque dom-ready)
+        //
+        // autoMutePortrait désactivé : arrête de forcer muted dans l'executor
+        //   (la vidéo reste dans son état actuel, pas de démute forcé)
+
+        const remuteBtn     = document.getElementById('remute-btn');
+        const remuteAction  = document.getElementById('remute-action');
+        const remuteDismiss = document.getElementById('remute-dismiss');
+
+        let autoMutePortrait    = true;  // valeur par défaut, corrigée au démarrage
+        let _remuteUserDismissed = false; // remis à false à chaque dom-ready
+        let _muteCheckInterval   = null;
+
+        // Lire le paramètre initial
+        window.dualview.getAutoMutePortrait().then(v => { autoMutePortrait = v; });
+
+        // Réagir aux changements en temps réel depuis Paramètres
+        window.dualview.on('auto-mute-portrait-changed', enabled => {
+            autoMutePortrait = enabled;
+            if (!enabled) {
+                // Désactivé : masquer le bouton, ne plus forcer le mute
+                remuteBtn.classList.remove('show');
+                _remuteUserDismissed = false;
+            }
+            // Mettre à jour l'executor dans le webview actif
+            const wv = getActiveWebview();
+            if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+            wv.executeJavaScript(
+                'window.__dualviewAutoMuteEnabled = ' + enabled + '; true;'
+            ).catch(() => { });
+        });
+
+        // Réinitialiser le flag de dismiss à chaque navigation
+        // (appelé depuis attachWebviewListeners → dom-ready)
+        function resetRemuteDismiss() { _remuteUserDismissed = false; }
+
+        // Script de détection injecté dans le webview pour lire l'état vidéo
+        const MUTE_CHECK_SCRIPT =
+            '(function(){' +
+            '  const sels=["video.html5-main-video","#movie_player video","[class*=\'player\'] video","video"];' +
+            '  for(const s of sels){' +
+            '    const list=Array.from(document.querySelectorAll(s))' +
+            '      .filter(v=>{const r=v.getBoundingClientRect();return r.width>100&&r.height>100;});' +
+            '    if(list.length){' +
+            '      const v=list[0];' +
+            '      return {playing:!v.paused,muted:v.muted};' +
+            '    }' +
+            '  }' +
+            '  return null;' +
+            '})()';
 
         function startMuteCheck() {
             if (_muteCheckInterval) return;
             _muteCheckInterval = setInterval(() => {
+                if (!autoMutePortrait) return;
+                if (_remuteUserDismissed) return;
                 const wv = getActiveWebview();
                 if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
-                wv.executeJavaScript(`
-                    (function(){
-                        const v = document.querySelector('video.html5-main-video,#movie_player video,video');
-                        return v ? !v.muted : false;
-                    })()
-                `).then(isUnmuted => {
-                    remuteBtn.classList.toggle('show', !!isUnmuted);
+                wv.executeJavaScript(MUTE_CHECK_SCRIPT).then(state => {
+                    // Afficher seulement si : vidéo en lecture ET non mute
+                    const shouldShow = state && state.playing && !state.muted;
+                    remuteBtn.classList.toggle('show', !!shouldShow);
                 }).catch(() => { });
             }, 2000);
         }
 
-        remuteBtn.addEventListener('click', () => {
+        // Zone gauche : remettre en mute
+        remuteAction.addEventListener('click', () => {
             const wv = getActiveWebview();
             if (!wv) return;
-            wv.executeJavaScript(`
-                (function(){
-                    const videos = document.querySelectorAll('video');
-                    videos.forEach(v => { v.muted = true; v.__dualviewMuteApplied = true; });
-                    return true;
-                })()
-            `).then(() => { remuteBtn.classList.remove('show'); }).catch(() => { });
+            wv.executeJavaScript(
+                '(function(){ document.querySelectorAll("video").forEach(v => { v.muted = true; v.__dualviewMuteApplied = true; }); return true; })()'
+            ).then(() => { remuteBtn.classList.remove('show'); }).catch(() => { });
+        });
+
+        // Zone droite (X) : masquer définitivement jusqu'au prochain chargement
+        remuteDismiss.addEventListener('click', () => {
+            _remuteUserDismissed = true;
+            remuteBtn.classList.remove('show');
         });
 
         startMuteCheck();

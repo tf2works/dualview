@@ -1,12 +1,17 @@
-# DualView v0.4.1 - Instructions d'installation
+# DualView v0.4.3 - Instructions d'installation
 
-## Nouveautés v0.4.1
+## Nouveautés v0.4.3
 
-- **Raccourcis clavier** : `Alt+←/→` (navigation), `F5`/`Ctrl+R` (recharger), `Ctrl+T/W/Tab` (onglets), `Ctrl+L`/`F6` (barre d'adresse)
-- **Boutons souris** : boutons latéraux (3 et 4) pour Retour/Avance
-- **Liens externes** : tout lien `target="_blank"` ou `window.open()` s'ouvre en onglet DualView
-- **Menu contextuel clic droit** : lien, image, texte sélectionné, page (sans "Ouvrir dans une nouvelle fenêtre")
-- **Enregistrement d'image** : clic droit → "Enregistrer l'image sous…" via dialogue système natif
+- **Correction boucle vidéo YouTube** : la vidéo portrait ne tourne plus en boucle sur les 5 premières secondes au lancement, après une pause, ou après repositionnement de la timeline
+- **Protocole sync séquencé** : `pause → seek-to` et `seek-to → play` avec délais garantis
+- **Drift-check conditionnel** : la correction périodique de dérive ne s'applique plus que si la vidéo portrait est à l'arrêt
+
+## Nouveautés v0.4.2
+
+- **Pause automatique YouTube** : vidéos classiques pausées au chargement dans les deux fenêtres (option désactivable dans Paramètres)
+- **Overlay pub** : message "Publicité en cours" + compte à rebours dans la fenêtre portrait pendant les pubs
+- **Bouton remute** : bouton rouge dans portrait si la vidéo a été démutée accidentellement
+- **Bloqueur pub renforcé** : 3 niveaux (réseau 50+ domaines, CSS cosmétique, stub IMA)
 
 ## Nouveautés v0.4.0
 
@@ -25,7 +30,7 @@
 - Connexion internet
 
 ### Procédure
-1. Double-cliquez sur **DualView-Setup-0.4.2.exe`**
+1. Double-cliquez sur **DualView-Setup-0.4.3.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur si demandée
 
@@ -162,4 +167,4 @@ Guide complet pas à pas : **obs-integration/OBS_INTEGRATION.md**.
 **Prérequis** : Node.js >= 22 (https://nodejs.org)
 
 Lancez **installer/build-installer.bat** depuis le dossier racine.
-Produit **dist/DualView-Setup-0.4.2.exe** (~150 Mo).
+Produit **dist/DualView-Setup-0.4.3.exe** (~150 Mo).

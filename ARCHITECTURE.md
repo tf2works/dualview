@@ -1,4 +1,4 @@
-# DualView - Architecture v0.4.2
+# DualView - Architecture v0.4.3
 
 ## Vue d'ensemble
 
@@ -41,7 +41,7 @@ main.js
   |     Overlay pub (semi-transparent, message + compte à rebours)
   |     Bouton remute (polling 2s, visible si video.muted=false)
   |     Pause auto vidéos classiques YouTube (dom-ready → retry 200ms)
-  |     Réalignement exact timeline au play (sans seuil de drift)
+  |     Protocole vidéo séquencé v0.4.3 : pause/seek-to/play/drift-check atomiques
   |
   |-- État synchronisation
   |     syncState : 'paused' | 'active'
@@ -103,7 +103,7 @@ Bouton [● Sync active / ⏸ Sync pausée]
 ```
 Channels ignorés si syncState !== 'active' :
   sync-scroll, sync-navigate, nav-back, nav-forward,
-  reload-views, video-play, video-pause, video-timeupdate
+  reload-views, video-play, video-pause, video-drift-check
 
 URLs bloquées vers portrait si isAuthUrl(url) :
   navigate, sync-navigate, sync-resume-state
@@ -114,67 +114,86 @@ Canal ad-state : toujours relayé (indépendant de syncState)
 
 ---
 
-## Synchronisation vidéo v0.4.2
+## Synchronisation vidéo v0.4.3
 
-### Flux landscape → portrait
+### Protocole anti-boucle (refonte complète)
+
+**Problème résolu** : l'ancienne implémentation forçait `currentTime` dans `play()`,
+déclenchant `seeked` dans landscape → renvoi `play` → boucle infinie.
+
+**Principe** : chaque action utilisateur génère une séquence ordonnée de commandes
+atomiques. `seek-to` ne s'exécute jamais sur une vidéo en lecture → pas de `seeked`.
+
+### Flux landscape → main.js
 ```
-landscape.html (webview paysage)
-  VIDEO_WATCHER_SCRIPT injecté au dom-ready
-    video.addEventListener('play')   → window.__dualviewVideoEvent = {type:'play',  time}
-    video.addEventListener('pause')  → window.__dualviewVideoEvent = {type:'pause', time}
-    video.addEventListener('seeked') → window.__dualviewVideoEvent = {type:'seek',  time}
+pollVideoState() — setInterval 150ms dans landscape.html
+  VIDEO_WATCHER_SCRIPT injecté au dom-ready de la webview paysage
+    video.addEventListener('play')   → __dualviewVideoEvent = {type:'play',  time}
+    video.addEventListener('pause')  → __dualviewVideoEvent = {type:'pause', time}
+    video.addEventListener('seeked') → __dualviewVideoEvent = {type:'seek',  time}
 
-  pollVideoState() — setInterval 150ms
-    → executeJavaScript '__dualviewVideoEvent'
-    → si play  : sendVideoPlay(time)   → IPC 'video-play'
-    → si pause : sendVideoPause(time)  → IPC 'video-pause'
-    → si seek  : sendVideoPlay/Pause selon état courant
+  Événement 'play' détecté  → sendVideoPlay(t)   → IPC 'video-play'
+  Événement 'pause' détecté → sendVideoPause(t)  → IPC 'video-pause'
+  Événement 'seek' détecté  → lit l'état playing → sendVideoPlay ou sendVideoPause
 
-main.js
-  ipcMain.on('video-play')  → portraitWin.send('video-cmd', {action:'play',  currentTime})
-  ipcMain.on('video-pause') → portraitWin.send('video-cmd', {action:'pause', currentTime})
-
-portrait.html (webview portrait)
-  VIDEO_EXECUTOR_SCRIPT injecté UNE SEULE FOIS au dom-ready
-    __dualviewApplyCmd(cmd) :
-      'pause' → video.currentTime = cmd.currentTime (exact, sans seuil)
-                video.pause()
-      'play'  → video.currentTime = cmd.currentTime (exact, sans seuil)
-                video.play()
-      'seek'  → si drift > 4s : video.currentTime = cmd.currentTime
+  Drift guard toutes les 5s (si lecture en cours) :
+    → sendVideoDriftCheck(t) → IPC 'video-drift-check'
+    (remplace sendVideoTimeUpdate — ne déclenche plus de boucle)
 ```
 
-### Détection pub YouTube (v0.4.2)
+### Flux main.js → portrait (séquençage)
 ```
-landscape.html
-  pollAdState() — exécuté dans pollVideoState (150ms)
-    AD_POLL_SCRIPT → vérifie player.classList.contains('ad-showing'|'ad-interrupting')
-                   → extrait compte à rebours (.ytp-ad-duration-remaining)
-    → si changement état : sendAdState({isAd, remaining})
+IPC 'video-pause' reçu (t) :
+  ① portraitWin.send('video-cmd', {action:'pause',   currentTime:t})   ← immédiat
+  ② portraitWin.send('video-cmd', {action:'seek-to', currentTime:t})   ← +50ms
+  → pause d'abord, alignement ensuite (vidéo déjà à l'arrêt → pas de seeked)
 
-main.js
-  ipcMain.on('ad-state') → portraitWin.send('ad-state', {isAd, remaining})
-  (toujours relayé, indépendant de syncState)
+IPC 'video-play' reçu (t) :
+  ① portraitWin.send('video-cmd', {action:'seek-to', currentTime:t})   ← immédiat
+  ② portraitWin.send('video-cmd', {action:'play',    currentTime:t})   ← +100ms
+  → position fixée avant lecture (vidéo à l'arrêt → pas de seeked)
 
-portrait.html
-  window.dualview.on('ad-state', ({isAd, remaining}))
-    → isAd=true  : affiche #ad-overlay + compte à rebours si remaining != null
-    → isAd=false : masque #ad-overlay
+IPC 'video-drift-check' reçu (t) :
+  portraitWin.send('video-cmd', {action:'drift-check', currentTime:t})
+  → portrait corrige seulement si vidéo.paused ET |drift| > DRIFT_THRESHOLD (2s)
 ```
 
-### Pause automatique YouTube (v0.4.2)
+### VIDEO_EXECUTOR_SCRIPT dans portrait.html
+```
+window.__dualviewApplyCmd(cmd) — règles anti-boucle :
+
+  'pause'       → video.pause()
+                  (pas de currentTime → pas de seeked émis)
+
+  'seek-to'     → video.currentTime = t  SEULEMENT si video.paused
+                  (vidéo en lecture → ignoré → pas de seeked émis)
+
+  'play'        → video.play()
+                  (pas de currentTime → pas de seeked émis)
+
+  'drift-check' → si video.paused ET |video.currentTime - t| > 2s :
+                      video.currentTime = t
+                  (conditionnel doublement → jamais de seeked intempestif)
+
+Garanties supplémentaires :
+  __dualviewObserverActive : un seul MutationObserver par webview (pas de doublon)
+  pendingCmd + TTL 5s      : commandes obsolètes ignorées après navigation
+  resetPageFlags()         : remet __dualviewExecutorReady=false à chaque navigation
+                             → executor réinjecté proprement sans double-observer
+```
+
+### Pause automatique YouTube (inchangée depuis v0.4.2)
 ```
 Vidéos classiques uniquement (Shorts exclus explicitement)
 
 landscape.html
   AUTO_PAUSE_SCRIPT injecté à 2s et 5s après dom-ready, et après did-navigate
-    → détecte isAdPlaying() (ad-showing/ad-interrupting)
     → si pub : poll 500ms jusqu'à fin pub → pause
     → sinon  : pause immédiate à currentTime=0
   Flag __dualviewAutoPauseDone : remis à false à chaque navigation
 
-portrait.html (miroir)
-  PORTRAIT_AUTO_PAUSE_SCRIPT injecté immédiatement au dom-ready
+portrait.html
+  AUTO_PAUSE_SCRIPT injecté immédiatement au dom-ready (+ filet 3s)
     → même logique, retry toutes les 200ms pendant 10s max (50 tentatives)
     → video.muted = true + video.currentTime = 0 + video.pause()
 ```
@@ -270,7 +289,7 @@ ATTENTION : ne pas installer de handler onBeforeSendHeaders
 
 ```
 dualview/
-|-- package.json              v0.4.2
+|-- package.json              v0.4.3
 |-- ARCHITECTURE.md           Ce fichier
 |-- HOW_TO_INSTALL.md
 |-- README.md
@@ -288,10 +307,11 @@ dualview/
 |   |-- OBS_INTEGRATION.md
 |
 |-- src/
-    |-- main.js               Processus principal v0.4.2
-    |   |                     + Bloqueur pub 3 niveaux (réseau renforcé, CSS, IMA stub)
-    |   |                     + IPC ad-state (relay landscape → portrait)
-    |   |                     + Injection CSS cosmétique + stub IMA via did-attach-webview
+    |-- main.js               Processus principal v0.4.3
+    |   |                     + IPC vidéo séquencé : video-pause/video-play/video-drift-check
+    |   |                     + Suppression video-timeupdate (remplacé par video-drift-check)
+    |   |                     + Séquençage pause : ①pause ②seek-to +50ms
+    |   |                     + Séquençage play  : ①seek-to ②play +100ms
     |   |
     |-- obs-control.js        Serveur HTTP + WebSocket OBS (v0.3.2)
     |-- obs-dock.html         Page dock OBS
@@ -300,27 +320,23 @@ dualview/
     |-- logger.js             Système de debug --dev
     |-- preload-auth.js       Anti-détection Electron (authWin)
     |-- preload-dev.js        DevTools en mode --dev
-    |-- preload-landscape.js  API IPC renderer landscape
-    |   |                     + v0.4.2 : sendAdState({isAd, remaining})
-    |-- preload-view.js       API IPC renderer portrait
-    |   |                     + v0.4.2 : canal 'ad-state' ajouté
+    |-- preload-landscape.js  API IPC renderer landscape v0.4.3
+    |   |                     + sendVideoDriftCheck() remplace sendVideoTimeUpdate()
+    |-- preload-view.js       API IPC renderer portrait v0.4.3
+    |   |                     + canal 'video-cmd' : nouvelles actions (seek-to, drift-check)
     |
-    |-- landscape.html        Fenêtre paysage v0.4.2
-    |   |                     + Bloqueur pub niveaux 2 & 3 (CSS cosmétique, stub IMA)
-    |   |                     + pollAdState() → sendAdState IPC
-    |   |                     + AUTO_PAUSE_SCRIPT (vidéos classiques, Shorts exclus)
-    |   |                     + SHORT_CHANGE_WATCHER supprimé (Shorts non gérés)
-    |   |                     + Dropdown historique : fermeture 500ms après unfocus
-    |   |                       (navHistCloseTimer partagé boutons + dropdown)
-    |   |                     + Paramètre autoPauseVideo dans Settings → Général
+    |-- landscape.html        Fenêtre paysage v0.4.3
+    |   |                     + pollVideoState() : sendVideoDriftCheck remplace sendVideoTimeUpdate
+    |   |                     + drift-check envoyé seulement si lecture en cours
     |   |
-    |-- portrait.html         Fenêtre portrait v0.4.2
-        |                     + Overlay pub (#ad-overlay) : message + compte à rebours
-        |                     + Bouton remute (#remute-btn) : polling muted 2s
-        |                     + PORTRAIT_AUTO_PAUSE_SCRIPT : retry 200ms, currentTime=0
-        |                     + VIDEO_EXECUTOR_SCRIPT : réalignement exact au play
-        |                     + Overlay login plein écran (non ignorable)
-        |                     + Indicateur sync (badge discret)
+    |-- portrait.html         Fenêtre portrait v0.4.3 (refonte complète du script)
+        |                     + VIDEO_EXECUTOR_SCRIPT : 4 commandes atomiques
+        |                     |   pause / seek-to (si paused) / play / drift-check
+        |                     + resetPageFlags() : réinitialise les 3 flags à chaque navigation
+        |                     + __dualviewObserverActive : MutationObserver unique
+        |                     + pendingCmd avec TTL 5s
+        |                     + load-url : vérifie getURL() avant d'assigner src
+        |                     + sync-resume-state : scénario B (pas de rechargement)
 ```
 
 ---
@@ -357,7 +373,7 @@ Session persist:dualview — UN SEUL handler par événement webRequest
 
 ---
 
-## Paramètres v0.4.2
+## Paramètres v0.4.3 (inchangés depuis v0.4.2)
 
 ```
 Clé               | Valeurs                         | Effet
@@ -392,6 +408,7 @@ customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 | 0.4.0 | Redimensionnement Portrait via modale (préréglages + taille libre). Capture PNG (📷). Omnibar (suggestions + Échap + sélection auto). Détection URL vs recherche. Moteur de recherche configurable. Historique de navigation persistant. Dropdown ← →. |
 | 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris retour/avance. Liens externes → onglet DualView. Menu contextuel clic droit. Enregistrement image via clic droit. |
 | 0.4.2 | Bloqueur pub 3 niveaux (réseau 50+ domaines + ctier=A, CSS cosmétique, stub IMA complet). IPC ad-state (pub YouTube → overlay portrait avec compte à rebours). Pause auto vidéos classiques YouTube dans les deux fenêtres (retry 200ms, currentTime=0, gestion pub). Paramètre autoPauseVideo (Settings → Général). Bouton remute portrait (polling muted). Sync vidéo : réalignement exact au play sans seuil de drift. Dropdown historique : fermeture auto 500ms après unfocus (timer partagé boutons + dropdown). |
+| 0.4.3 | Refonte sync vidéo — protocole séquencé anti-boucle. Nouvelles commandes atomiques : pause / seek-to / play / drift-check. IPC video-drift-check remplace video-timeupdate. seek-to conditionnel (uniquement si paused). MutationObserver unique par webview (__dualviewObserverActive). pendingCmd avec TTL 5s. resetPageFlags() séparée de injectExecutor(). load-url : vérification getURL() avant assignation src. |
 
 ---
 

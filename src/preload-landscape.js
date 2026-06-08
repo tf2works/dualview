@@ -1,6 +1,12 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.4.1
+ * Version: 0.4.3
+ *
+ * Changements v0.4.3 :
+ * - sendVideoDriftCheck() remplace sendVideoTimeUpdate()
+ *   Nouveau protocole de sync vidéo séquencé (pause → seek-to ; seek-to → play).
+ *   Le drift-check ne force la position portrait que si sa vidéo est à l'arrêt,
+ *   ce qui élimine la boucle de rétroaction landscape ↔ portrait.
  *
  * Changements v0.4.1 :
  * - Canaux entrants 'mouse-nav', 'context-menu-action'
@@ -26,9 +32,13 @@ contextBridge.exposeInMainWorld('dualview', {
     getTheme: () => ipcRenderer.invoke('get-theme'),
     sendScroll: (p) => ipcRenderer.send('sync-scroll', p),
     sendNavigate: (u) => ipcRenderer.send('sync-navigate', u),
+    // v0.4.3 — séquençage strict des commandes vidéo
+    // sendVideoPlay  : landscape vient de passer en lecture
+    // sendVideoPause : landscape vient de se mettre en pause
+    // sendVideoDriftCheck : sync périodique (portrait n'applique que si sa vidéo est à l'arrêt)
     sendVideoPlay: (t) => ipcRenderer.send('video-play', t),
     sendVideoPause: (t) => ipcRenderer.send('video-pause', t),
-    sendVideoTimeUpdate: (t) => ipcRenderer.send('video-timeupdate', t),
+    sendVideoDriftCheck: (t) => ipcRenderer.send('video-drift-check', t),
     sendAdState: (payload) => ipcRenderer.send('ad-state', payload),
     notifyNavState: (s) => ipcRenderer.send('notify-nav-state', s),
 

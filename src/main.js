@@ -1,6 +1,14 @@
 /**
  * DualView - Main Process
- * Version: 0.4.1
+ * Version: 0.4.3
+ *
+ * Changements v0.4.3 :
+ * - Protocole vidéo séquencé anti-boucle :
+ *   PAUSE  → ① video-cmd{pause}   ② video-cmd{seek-to}  [+50ms]
+ *   PLAY   → ① video-cmd{seek-to} ② video-cmd{play}     [+100ms]
+ *   DRIFT  → video-cmd{drift-check} (portrait corrige seulement si paused)
+ *   Nouveau canal IPC : 'video-drift-check' (remplace 'video-timeupdate')
+ *   Suppression du forçage currentTime dans play → élimine la boucle portrait.
  *
  * Changements v0.4.1 :
  * - Menu contextuel natif sur clic droit dans les webviews (paysage)
@@ -68,6 +76,8 @@ const SETTINGS_DEFAULTS = {
     screenshotDir: '',   // '' = dossier Images utilisateur par défaut
     // Portrait preset (v0.4.0)
     portraitPreset: 'iphone15', // id du preset sélectionné
+    // Mute automatique portrait (v0.4.3)
+    autoMutePortrait: true,     // force video.muted=true dans portrait
 };
 
 const KNACK3_URL = 'https://marketplace.atlassian.com/vendors/920480808/';
@@ -796,18 +806,54 @@ ipcMain.on('reload-views', () => {
 
 ipcMain.on('relaunch-app', () => { app.relaunch(); app.exit(0); });
 
-// ── IPC : Vidéo sync ──────────────────────────────────────────────────────────
-ipcMain.on('video-play', (e, t) => {
-    if (syncState !== 'active') return;
-    if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('video-cmd', { action: 'play', currentTime: t });
-});
+// ── IPC : Vidéo sync (v0.4.3 — séquençage strict) ────────────────────────────
+//
+// Principe : chaque action utilisateur génère une SÉQUENCE ordonnée de
+// commandes atomiques, avec délai forcé entre elles.
+//
+// PAUSE  → ① pause()           ② seek-to(t) [+50 ms]
+// PLAY   → ① seek-to(t)        ② play()     [+100 ms]
+// DRIFT  → seek-to(t) SEULEMENT si vidéo portrait est à l'arrêt
+//
+// Ceci brise la boucle de rétroaction :
+//   - portrait ne force JAMAIS currentTime pendant une lecture
+//   - aucun seeked ne peut donc être déclenché depuis portrait vers landscape
+//
+// Les délais garantissent l'ordre d'exécution même si l'IPC est légèrement
+// asynchrone. Les valeurs (50 ms / 100 ms) sont des minimums conservateurs.
+
 ipcMain.on('video-pause', (e, t) => {
     if (syncState !== 'active') return;
-    if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('video-cmd', { action: 'pause', currentTime: t });
+    const p = portraitWin;
+    if (!p || p.isDestroyed()) return;
+    // ① Mettre en pause immédiatement
+    p.webContents.send('video-cmd', { action: 'pause', currentTime: t });
+    // ② Aligner la position 50 ms après (vidéo déjà à l'arrêt, sans risque de seeked)
+    setTimeout(() => {
+        if (!p.isDestroyed()) p.webContents.send('video-cmd', { action: 'seek-to', currentTime: t });
+    }, 50);
 });
-ipcMain.on('video-timeupdate', (e, t) => {
+
+ipcMain.on('video-play', (e, t) => {
     if (syncState !== 'active') return;
-    if (portraitWin && !portraitWin.isDestroyed()) portraitWin.webContents.send('video-cmd', { action: 'seek', currentTime: t });
+    const p = portraitWin;
+    if (!p || p.isDestroyed()) return;
+    // ① Aligner la position AVANT de lancer la lecture
+    p.webContents.send('video-cmd', { action: 'seek-to', currentTime: t });
+    // ② Lancer la lecture 100 ms après (seek-to terminé, aucun play en cours)
+    setTimeout(() => {
+        if (!p.isDestroyed()) p.webContents.send('video-cmd', { action: 'play', currentTime: t });
+    }, 100);
+});
+
+// Sync périodique (drift guard) — envoyée seulement quand landscape est en lecture.
+// Portrait n'applique ce seek-to QUE si sa propre vidéo est à l'arrêt (paused).
+// Cela évite toute boucle de rétroaction quand les deux fenêtres lisent normalement.
+ipcMain.on('video-drift-check', (e, t) => {
+    if (syncState !== 'active') return;
+    const p = portraitWin;
+    if (!p || p.isDestroyed()) return;
+    p.webContents.send('video-cmd', { action: 'drift-check', currentTime: t });
 });
 
 // ── IPC : Pub YouTube détectée dans le paysage ────────────────────────────────
@@ -1148,6 +1194,12 @@ ipcMain.handle('get-store', () => ({
     settings: configGet('settings') || Object.assign({}, SETTINGS_DEFAULTS),
 }));
 
+// Paramètre mute auto portrait — accessible depuis portrait au démarrage
+ipcMain.handle('get-auto-mute-portrait', () => {
+    const settings = configGet('settings') || {};
+    return settings.autoMutePortrait !== false; // défaut true
+});
+
 ipcMain.on('save-tabs', (event, data) => {
     if (!data || !Array.isArray(data.tabs)) return;
     configSet('tabs', data.tabs);
@@ -1179,6 +1231,7 @@ ipcMain.on('save-settings', (event, settings) => {
         customSearchEngines: v => Array.isArray(v),
         screenshotDir: v => typeof v === 'string',
         portraitPreset: v => typeof v === 'string',
+        autoMutePortrait: v => typeof v === 'boolean',
     };
     const current = configGet('settings') || Object.assign({}, SETTINGS_DEFAULTS);
     const prevObsEnabled = current.obsEnabled;
@@ -1191,6 +1244,10 @@ ipcMain.on('save-settings', (event, settings) => {
     configSet('settings', current);
     applyAppearance();
     broadcastTheme();
+    // Notifier portrait si autoMutePortrait a changé (effet immédiat)
+    if (settings.autoMutePortrait !== undefined && portraitWin && !portraitWin.isDestroyed()) {
+        portraitWin.webContents.send('auto-mute-portrait-changed', current.autoMutePortrait);
+    }
     // Redémarrer le serveur OBS si son activation ou son port a changé.
     if (current.obsEnabled !== prevObsEnabled || current.obsPort !== prevObsPort) {
         obsControl.stop();

@@ -1966,6 +1966,16 @@
                 </div>
                 <div class="s-divider"></div>
                 <div class="s-row">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-auto-mute-portrait" checked>
+                        <div>
+                            <label for="s-auto-mute-portrait" class="s-check-label" data-i18n="autoMutePortraitLabel">Mute automatique portrait</label>
+                            <div class="s-check-desc" data-i18n="autoMutePortraitDesc">Force le silence dans la fenêtre portrait. Un bouton d'alerte s'affiche si le son s'active accidentellement.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
+                <div class="s-row">
                     <label class="s-label" data-i18n="homepageLabel">Page d'accueil et nouvelles fenêtres</label>
                     <div class="s-desc" data-i18n="homepageDesc">Page affichée au démarrage et sur le bouton accueil.</div>
                     <select class="s-select" id="s-homepage">
@@ -2189,6 +2199,8 @@
                 restoreTabsDesc: 'Au démarrage, restaure les onglets et URL de la session précédente.',
                 autoPauseLabel: 'Pause automatique des vidéos YouTube',
                 autoPauseDesc: 'Pause la vidéo au lancement (classique et Shorts). La pub joue librement ; la vraie vidéo est pausée à la fin de la pub.',
+                autoMutePortraitLabel: 'Mute automatique portrait',
+                autoMutePortraitDesc: 'Force le silence dans la fenêtre portrait. Un bouton d\'alerte s\'affiche si le son s\'active accidentellement.',
                 homepageLabel: "Page d'accueil et nouvelles fenêtres", homepageDesc: "Page affichée au démarrage et sur le bouton accueil.",
                 homepageKnack3: "Page d'accueil Knack3 (par défaut)", homepageCustom: 'Adresse web personnalisée', homepageEmpty: 'Page vide',
                 newTabLabel: 'Nouveaux onglets', newTabHomepage: "Page d'accueil sélectionnée", newTabEmpty: 'Page vide',
@@ -2261,6 +2273,8 @@
                 restoreTabsDesc: 'On startup, restores tabs and URLs from the previous session.',
                 autoPauseLabel: 'Auto-pause YouTube videos',
                 autoPauseDesc: 'Pauses the video on launch (classic and Shorts). Ads play freely; the real video is paused once the ad ends.',
+                autoMutePortraitLabel: 'Auto-mute portrait',
+                autoMutePortraitDesc: 'Forces silence in the portrait window. An alert button appears if sound is accidentally enabled.',
                 homepageLabel: 'Homepage and new windows', homepageDesc: 'Page shown on startup and when clicking the home button.',
                 homepageKnack3: 'Knack3 homepage (default)', homepageCustom: 'Custom web address', homepageEmpty: 'Empty page',
                 newTabLabel: 'New tabs', newTabHomepage: 'Selected homepage', newTabEmpty: 'Empty page',
@@ -3419,6 +3433,7 @@
             currentLang = s.language || 'fr';
             document.getElementById('s-restore').checked = s.restoreTabs !== false;
             document.getElementById('s-auto-pause').checked = s.autoPauseVideo !== false;
+            document.getElementById('s-auto-mute-portrait').checked = s.autoMutePortrait !== false;
             document.getElementById('s-homepage').value = s.homepageMode || 'knack3';
             document.getElementById('s-newtab').value = s.newTabMode || 'homepage';
             document.getElementById('s-appearance').value = s.appearance || 'auto';
@@ -3518,6 +3533,7 @@
         document.getElementById('s-newtab').addEventListener('change', e => { currentSettings.newTabMode = e.target.value; saveCurrentSettings(); });
         document.getElementById('s-restore').addEventListener('change', e => { currentSettings.restoreTabs = e.target.checked; saveCurrentSettings(); });
         document.getElementById('s-auto-pause').addEventListener('change', e => { currentSettings.autoPauseVideo = e.target.checked; saveCurrentSettings(); });
+        document.getElementById('s-auto-mute-portrait').addEventListener('change', e => { currentSettings.autoMutePortrait = e.target.checked; saveCurrentSettings(); });
 
         let restartPendingSave = null, restartRevertFn = null;
         function showRestartDialog(titleKey, descKey, onConfirm, onCancel) {
@@ -4278,12 +4294,25 @@
             }).catch(() => { });
         }
 
+        // ── Polling vidéo (v0.4.3 — séquençage strict) ────────────────────────────
+        //
+        // Trois chemins distincts selon l'action détectée :
+        //
+        //  play  → sendVideoPlay(t)   main.js envoie ① seek-to(t) puis ② play() +100ms
+        //  pause → sendVideoPause(t)  main.js envoie ① pause()    puis ② seek-to(t) +50ms
+        //  seek  → on lit l'état courant (playing/paused) et on dispatche en play ou pause
+        //          (identique à avant mais sans jamais envoyer un play supplémentaire sur seek)
+        //
+        // Drift guard (toutes les 5s, lecture en cours) :
+        //  → sendVideoDriftCheck(t)   portrait n'applique ce seek QUE si sa vidéo est à l'arrêt
+        //    Ainsi la correction de drift ne peut jamais déclencher seeked dans landscape.
+
         function pollVideoState() {
             if (currentSyncState !== 'active') return;
             const wv = getActiveWebview();
             if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
 
-            // Polling pub (toutes les 150ms comme pollVideoState, léger car script court)
+            // Polling pub (toutes les 150ms, script léger)
             pollAdState(wv);
 
             wv.executeJavaScript('window.__dualviewVideoEvent||null').then(evt => {
@@ -4292,26 +4321,40 @@
                 if (key === lastVideoEvent) return;
                 lastVideoEvent = key;
                 wv.executeJavaScript('window.__dualviewVideoEvent=null;true;').catch(() => { });
-                if (evt.type === 'play') { showIndicator('Lecture (' + evt.platform + ')', false); window.dualview.sendVideoPlay(evt.time); }
-                if (evt.type === 'pause') { showIndicator('Pause (' + evt.platform + ')', true); window.dualview.sendVideoPause(evt.time); }
-                // seek : envoyer l'état courant (pause ou lecture) plutôt que toujours play
+
+                if (evt.type === 'play') {
+                    showIndicator('Lecture (' + evt.platform + ')', false);
+                    window.dualview.sendVideoPlay(evt.time);
+                }
+                if (evt.type === 'pause') {
+                    showIndicator('Pause (' + evt.platform + ')', true);
+                    window.dualview.sendVideoPause(evt.time);
+                }
+                // seek SPA (YouTube navigation entre vidéos) :
+                // on lit l'état réel du player avant d'envoyer la commande
                 if (evt.type === 'seek') {
                     wv.executeJavaScript('(window.__dualviewVideoState&&window.__dualviewVideoState.playing)||false')
                         .then(isPlaying => {
                             if (isPlaying) window.dualview.sendVideoPlay(evt.time);
                             else window.dualview.sendVideoPause(evt.time);
-                        }).catch(() => window.dualview.sendVideoPlay(evt.time));
+                        }).catch(() => { });
                 }
             }).catch(() => { });
-            
+
+            // Drift guard toutes les 5s (seulement si lecture en cours dans landscape)
             const now = Date.now();
             if (now - lastTimeSyncAt >= 5000) {
                 lastTimeSyncAt = now;
                 wv.executeJavaScript('window.__dualviewVideoState||null').then(s => {
-                    if (s && s.hasVideo && s.playing) showIndicator('Lecture (' + s.platform + ')', false);
-                    else if (s && s.hasVideo) showIndicator('Pause (' + s.platform + ')', true);
-                    else hideIndicator();
-                    if (s && s.hasVideo && s.playing) window.dualview.sendVideoTimeUpdate(s.currentTime);
+                    if (s && s.hasVideo && s.playing) {
+                        showIndicator('Lecture (' + s.platform + ')', false);
+                        // drift-check : portrait corrige seulement si sa vidéo est à l'arrêt
+                        window.dualview.sendVideoDriftCheck(s.currentTime);
+                    } else if (s && s.hasVideo) {
+                        showIndicator('Pause (' + s.platform + ')', true);
+                    } else {
+                        hideIndicator();
+                    }
                 }).catch(() => { });
             }
         }

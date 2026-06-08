@@ -1,4 +1,4 @@
-# DualView v0.4.2
+# DualView v0.4.3
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.4.2.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.4.3.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -46,6 +46,31 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Nouveautés v0.4.3
+
+### 🔁 Synchronisation vidéo — refonte anti-boucle
+Correction du bug de boucle sur YouTube : la vidéo portrait ne tournait plus en boucle sur les 5 premières secondes au lancement, ni après une pause, ni après un repositionnement de la timeline.
+
+**Cause** : l'ancienne implémentation forçait `currentTime` à chaque commande `play`, ce qui déclenchait `seeked` dans landscape, qui renvoyait un `play`, etc. — boucle infinie.
+
+**Solution** : protocole de commandes séquencées atomiques :
+
+| Action utilisateur | Séquence envoyée à portrait |
+|---|---|
+| Pause | ① `pause()` → ② `seek-to(t)` après 50 ms |
+| Lecture | ① `seek-to(t)` → ② `play()` après 100 ms |
+| Sync périodique (5s) | `drift-check(t)` — appliqué uniquement si portrait est à l'arrêt ET écart > 2s |
+
+**Règle fondamentale** : portrait ne force jamais `currentTime` sur une vidéo en lecture. L'événement `seeked` ne peut donc plus être déclenché depuis portrait vers landscape.
+
+**Autres corrections incluses** :
+- Un seul `MutationObserver` par webview (flag `__dualviewObserverActive`) — plus d'accumulation à chaque navigation
+- Commandes en attente (`pendingCmd`) avec TTL de 5s — les commandes obsolètes expirent
+- `load-url` vérifie que l'URL change réellement avant de recharger la webview portrait
+- `sync-resume-state` ré-injecte l'executor sans double observer (scénario B : garde l'état courant)
 
 ---
 
@@ -206,8 +231,9 @@ Le bouton **● Sync** dans la toolbar : ⏸ Pause / ▶ Reprendre / ↺ Redéma
 Paysage → Portrait en pourcentage.
 
 ### Vidéo
-play/pause/seek détectés dans Paysage → appliqués au Portrait.
-Réalignement exact de la timeline au play. Seuil de correction sur seek : ±4s.
+play/pause/seek détectés dans Paysage → appliqués au Portrait via séquences atomiques.
+Protocole anti-boucle v0.4.3 : seek-to avant play, seek-to après pause, drift-check conditionnel.
+Seuil de correction drift : ±2s (portrait à l'arrêt seulement).
 Plateformes : YouTube, TikTok, Instagram, générique.
 
 ---
@@ -266,7 +292,7 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 installer/build-installer.bat
 ```
 
-Produit `dist/DualView-Setup-0.4.2.exe` (~150 Mo).
+Produit `dist/DualView-Setup-0.4.3.exe` (~150 Mo).
 
 ---
 
@@ -300,3 +326,4 @@ Produit `dist/DualView-Setup-0.4.2.exe` (~150 Mo).
 | 0.4.0 | Redimensionnement Portrait via modale (préréglages + taille libre). Capture instantanée PNG (📷). Omnibar. Moteur de recherche configurable. Historique de navigation persistant. Dropdown ← →. |
 | 0.4.1 | Raccourcis clavier. Boutons souris Retour/Avance. Liens externes → onglet DualView. Menu contextuel clic droit. Enregistrement image. |
 | 0.4.2 | Pause automatique vidéos YouTube classiques (+ paramètre). Overlay pub dans portrait (message + compte à rebours). Bouton remute portrait. Fermeture auto dropdown historique (500 ms unfocus). Bloqueur pub renforcé 3 niveaux (50+ domaines, CSS cosmétique, stub IMA). Sync vidéo : réalignement exact au play, pause à currentTime=0. |
+| 0.4.3 | Refonte sync vidéo anti-boucle : protocole séquencé atomique (pause→seek-to ; seek-to→play). Suppression du forçage currentTime sur play. drift-check conditionnel (portrait à l'arrêt seulement, seuil 2s). MutationObserver unique par webview. pendingCmd avec TTL 5s. Correction double-src sur load-url. |
