@@ -7,9 +7,30 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.4.5] — 2025
+
+### Ajouté
+- **Support macOS** : build `.dmg` (x64 + arm64), icône `.icns`, lifecycle `activate` + `window-all-closed` macOS-compatible
+- **Support Linux** : build `.AppImage` + `.deb` (x64), icône `.png`
+- `installer/build-installer.sh` : script shell cross-platform (macOS DMG + Linux AppImage/deb)
+- `assets/README.txt` : instructions de génération de `icon.icns` (macOS) et `icon.png` (Linux)
+- `package.json` : scripts `build:win` / `build:mac` / `build:linux` + cibles electron-builder macOS et Linux
+- `.github/workflows/build.yml` : 3 jobs de build parallèles (windows/macos/linux) + job release agrégateur
+
+### Modifié
+- `src/main.js` : fonction `getAppIcon()` cross-platform (`.ico` / `.icns` / `.png` selon OS) ; `sec-ch-ua-platform` dynamique (`Windows` / `macOS` / `Linux`) ; `window-all-closed` conditionnel sur macOS
+- `src/core/auth-window.js` : fonction `getDesktopUA()` — User-Agent adapté à l'OS réel (Windows NT / Macintosh / X11 Linux) ; icône cross-platform
+- `obs-integration/dualview-obs-hotkeys.lua` : détection OS via `package.config` ; commande curl cross-platform (`start /B` Windows, `&` macOS/Linux)
+- `CONTRIBUTING.md` : prérequis et section build mis à jour pour les 3 plateformes
+- `OBS_INTEGRATION.md` : note curl cross-platform ajoutée
+
+---
+
 ## [0.4.4] — 2025
 
 ### Ajouté
+- Support **macOS** : build `.dmg` (x64 + arm64), cible `electron-builder` configurée
+- Support **Linux** : build `.AppImage` (x64), cible `electron-builder` configurée
 - `CONTRIBUTING.md` : guide complet pour les contributeurs (prérequis, structure, nommage branches, PR, points de vigilance)
 - `CHANGELOG.md` : ce fichier, au format Keep a Changelog
 - `.github/workflows/build.yml` : GitHub Actions — build automatique sur chaque tag `v*` et publication GitHub Release
@@ -31,6 +52,11 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 - Écoute IPC `language-changed` dans portrait : mise à jour en temps réel sans redémarrage
 
 ### Modifié
+- `src/main.js` : `sec-ch-ua-platform` adapté dynamiquement selon `process.platform` (`Windows` / `macOS` / `Linux`)
+- `src/core/logger.js` : commentaire mis à jour avec les chemins userData cross-platform
+- `obs-integration/dualview-obs-hotkeys.lua` : `send_command()` cross-platform — `start /B` (Windows), `nohup &` (macOS/Linux)
+- `package.json` : ajout des scripts `build:win`, `build:mac`, `build:linux` et des sections `mac`/`linux` dans la config electron-builder
+- `.github/workflows/build.yml` : 3 jobs parallèles (Windows, macOS, Linux) + job `release` agrégeant les 3 artefacts
 - `landscape.html` : 4 441 → 419 lignes (−91%) — HTML squelette uniquement, `<link>` CSS + 7 `<script src>`
 - `portrait.html` : 996 → 63 lignes (−94%) — HTML squelette avec `data-i18n` + 3 `<script src>`
 - `src/main.js` : chemins mis à jour vers `core/`, `preload/`, `renderer/`

@@ -16,6 +16,24 @@ const path = require('path');
 const { EventEmitter } = require('events');
 const logger = require('./logger');
 
+// ── User-Agent desktop cross-platform ─────────────────────────────────────────
+// Les services web (Google, Microsoft…) adaptent leur UI selon l'OS déclaré.
+// On utilise le vrai OS pour éviter les incompatibilités de rendu.
+function getDesktopUA() {
+    const { platform } = process;
+    if (platform === 'darwin') {
+        return 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+    }
+    if (platform === 'linux') {
+        return 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+    }
+    return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+}
+
+const UA_DESKTOP = getDesktopUA();
+
+
+
 // Émetteur d'événements pour notifier main.js de la fin d'auth
 // (évite un import circulaire)
 const authWindowEvents = new EventEmitter();
@@ -25,7 +43,7 @@ const KNOWN_SERVICES = {
     google: {
         label: 'Google',
         url: 'https://accounts.google.com/signin',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['accounts.google.com'],
         cookieNames: ['SID', 'HSID', 'SSID', 'APISID', 'SAPISID', '__Secure-1PSID'],
         cookieDomains: ['.google.com'],
@@ -33,7 +51,7 @@ const KNOWN_SERVICES = {
     microsoft: {
         label: 'Microsoft',
         url: 'https://login.microsoftonline.com/',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         // authDomains : uniquement les pages intermédiaires du flux auth.
         // login.microsoftonline.com/common/oauth2/* reste dans ce domaine
         // mais on tolère la fin de flux via détection cookies (stratégie A).
@@ -57,7 +75,7 @@ const KNOWN_SERVICES = {
     instagram: {
         label: 'Instagram',
         url: 'https://www.instagram.com/accounts/login/',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['www.instagram.com'],
         cookieNames: ['sessionid', 'ds_user_id', 'csrftoken'],
         cookieDomains: ['.instagram.com'],
@@ -65,7 +83,7 @@ const KNOWN_SERVICES = {
     facebook: {
         label: 'Facebook',
         url: 'https://www.facebook.com/login',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['www.facebook.com'],
         cookieNames: ['c_user', 'xs', 'fr'],
         cookieDomains: ['.facebook.com'],
@@ -73,7 +91,7 @@ const KNOWN_SERVICES = {
     twitch: {
         label: 'Twitch',
         url: 'https://www.twitch.tv/login',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['www.twitch.tv', 'passport.twitch.tv'],
         cookieNames: ['auth-token', 'twilight-user', 'persistent'],
         cookieDomains: ['.twitch.tv'],
@@ -81,7 +99,7 @@ const KNOWN_SERVICES = {
     tiktok: {
         label: 'TikTok',
         url: 'https://www.tiktok.com/login',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['www.tiktok.com'],
         cookieNames: ['sessionid', 'sid_guard', 'uid_tt'],
         cookieDomains: ['.tiktok.com'],
@@ -89,7 +107,7 @@ const KNOWN_SERVICES = {
     twitter: {
         label: 'X / Twitter',
         url: 'https://twitter.com/i/flow/login',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['twitter.com', 'x.com'],
         cookieNames: ['auth_token', 'ct0', 'twid'],
         cookieDomains: ['.twitter.com', '.x.com'],
@@ -97,7 +115,7 @@ const KNOWN_SERVICES = {
     discord: {
         label: 'Discord',
         url: 'https://discord.com/login',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['discord.com'],
         cookieNames: ['__dcfduid', '__sdcfduid', 'OptanonConsent'],
         cookieDomains: ['.discord.com'],
@@ -105,7 +123,7 @@ const KNOWN_SERVICES = {
     steam: {
         label: 'Steam',
         url: 'https://store.steampowered.com/login/',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['store.steampowered.com', 'login.steampowered.com'],
         cookieNames: ['steamLoginSecure', 'steamRememberLogin', 'sessionid'],
         cookieDomains: ['.steampowered.com'],
@@ -113,7 +131,7 @@ const KNOWN_SERVICES = {
     github: {
         label: 'GitHub',
         url: 'https://github.com/login',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['github.com'],
         cookieNames: ['user_session', '__Host-user_session_same_site', 'dotcom_user', 'logged_in'],
         cookieDomains: ['.github.com'],
@@ -121,7 +139,7 @@ const KNOWN_SERVICES = {
     gitlab: {
         label: 'GitLab',
         url: 'https://gitlab.com/users/sign_in',
-        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ua: UA_DESKTOP,
         authDomains: ['gitlab.com'],
         cookieNames: ['_gitlab_session', 'known_sign_in', 'event_filter'],
         cookieDomains: ['.gitlab.com'],
@@ -292,7 +310,7 @@ function openAuthWindow(opts) {
     const svc = isCustom ? null : KNOWN_SERVICES[serviceKey];
     const startUrl = isCustom ? customUrl : svc.url;
     const ua = isCustom
-        ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        ? UA_DESKTOP
         : svc.ua;
     const serviceLabel = isCustom ? (customLabel || 'Service personnalisé') : svc.label;
 
@@ -301,7 +319,11 @@ function openAuthWindow(opts) {
             width: 520,
             height: 700,
             title: `DualView — Connexion ${serviceLabel}`,
-            icon: path.join(__dirname, '../..', 'assets', 'icon.ico'),
+            icon: process.platform === 'darwin'
+                ? path.join(__dirname, '../..', 'assets', 'icon.icns')
+                : process.platform === 'linux'
+                    ? path.join(__dirname, '../..', 'assets', 'icon.png')
+                    : path.join(__dirname, '../..', 'assets', 'icon.ico'),
             parent: parentWin || null,
             modal: false,
             resizable: true,

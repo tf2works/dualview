@@ -1,4 +1,4 @@
-# DualView v0.4.4
+# DualView v0.4.5
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.4.4.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.4.5.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -49,6 +49,34 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 ---
 
+## Nouveautés v0.4.5
+
+### 🖥️ Support macOS et Linux
+DualView est désormais disponible sur les trois grandes plateformes :
+
+| Plateforme | Installeur | Prérequis |
+|---|---|---|
+| Windows 11 | `.exe` (NSIS) | — |
+| macOS 12+ | `.dmg` (x64 + arm64) | Xcode Command Line Tools |
+| Linux x64 | `.AppImage` + `.deb` | FUSE (`libfuse2`) |
+
+**Installation macOS** : télécharger le `.dmg`, glisser DualView dans `/Applications`, au premier lancement faire clic droit → Ouvrir (Gatekeeper).
+
+**Installation Linux** :
+```bash
+chmod +x DualView-*.AppImage
+./DualView-*.AppImage
+```
+
+### 🔧 Script OBS Lua cross-platform
+`dualview-obs-hotkeys.lua` détecte automatiquement l'OS et adapte la commande curl :
+- Windows → `start "" /B curl ...`
+- macOS / Linux → `curl ... &`
+
+curl est natif sur Windows 10+ et macOS. Sur Linux : `sudo apt install curl`.
+
+---
+
 ## Nouveautés v0.4.4
 
 ### 🗂️ Refactoring open source — séparation CSS / JS
@@ -69,6 +97,22 @@ La fenêtre portrait bénéficie maintenant du système i18n complet :
 - Indicateur sync (`● Sync active` / `⏸ Sync pausée`) traduit dynamiquement
 - Compte à rebours pub traduit via `tp()`
 - Mise à jour en temps réel quand la langue change dans Paramètres
+
+### 🖥️ Support macOS / Linux
+
+DualView tourne maintenant sur les trois plateformes :
+
+| Plateforme | Format | Architecture |
+|---|---|---|
+| Windows | `.exe` (NSIS) | x64 |
+| macOS | `.dmg` | x64 + arm64 (Apple Silicon) |
+| Linux | `.AppImage` | x64 |
+
+Le script Lua OBS est également cross-platform (`curl` sous Windows, macOS et Linux).
+
+> **Icônes requises** pour les builds non-Windows : `assets/icon.icns` (macOS) et `assets/icon.png` 512×512 (Linux). Voir `assets/README.txt`.
+
+---
 
 ### 📁 Restructuration `src/`
 ```
@@ -323,11 +367,11 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 
 **Prérequis** : Node.js >= 22 ([nodejs.org](https://nodejs.org))
 
-```
-installer/build-installer.bat
-```
-
-Produit `dist/DualView-Setup-0.4.4.exe` (~150 Mo).
+| Plateforme | Commande | Artefact |
+|---|---|---|
+| Windows | `installer\build-installer.bat` | `DualView-Setup-<version>.exe` |
+| macOS | `./installer/build-installer.sh --mac` | `DualView-<version>.dmg` |
+| Linux | `./installer/build-installer.sh --linux` | `DualView-<version>.AppImage` |
 
 ---
 
@@ -339,7 +383,7 @@ Produit `dist/DualView-Setup-0.4.4.exe` (~150 Mo).
 - **Contrôle OBS** : serveur local HTTP+WebSocket (`obs-control.js`, 127.0.0.1 + token), dock `obs-dock.html`, script Lua hotkeys
 - **Cookies** : `persist:dualview` partagé entre webviews et fenêtres auth
 - **Persistance** : `fs` + JSON natif
-- **Installeur** : electron-builder NSIS
+- **Installeur** : electron-builder — NSIS (Windows), DMG (macOS), AppImage + deb (Linux) (Windows) · DMG (macOS) · AppImage (Linux)
 
 ---
 
@@ -361,5 +405,6 @@ Produit `dist/DualView-Setup-0.4.4.exe` (~150 Mo).
 | 0.4.0 | Redimensionnement Portrait via modale (préréglages + taille libre). Capture instantanée PNG (📷). Omnibar. Moteur de recherche configurable. Historique de navigation persistant. Dropdown ← →. |
 | 0.4.1 | Raccourcis clavier. Boutons souris Retour/Avance. Liens externes → onglet DualView. Menu contextuel clic droit. Enregistrement image. |
 | 0.4.2 | Pause automatique vidéos YouTube classiques (+ paramètre). Overlay pub dans portrait (message + compte à rebours). Bouton remute portrait. Fermeture auto dropdown historique (500 ms unfocus). Bloqueur pub renforcé 3 niveaux (50+ domaines, CSS cosmétique, stub IMA). Sync vidéo : réalignement exact au play, pause à currentTime=0. |
+| 0.4.5 | Support macOS (.dmg x64+arm64) et Linux (.AppImage + .deb). Script OBS Lua cross-platform. Build CI 3 plateformes. |
+| 0.4.4 | Refactoring open source : séparation CSS/JS landscape et portrait. Restructuration src/ (core/, preload/, renderer/). i18n portrait (option B). CONTRIBUTING.md, CHANGELOG.md, GitHub Actions. |
 | 0.4.3 | Refonte sync vidéo anti-boucle : protocole séquencé atomique (pause→seek-to ; seek-to→play). Suppression du forçage currentTime sur play. drift-check conditionnel (portrait à l'arrêt seulement, seuil 2s). MutationObserver unique par webview. pendingCmd avec TTL 5s. Correction double-src sur load-url. |
-| 0.4.4 | Refactoring open source : séparation CSS/JS landscape et portrait. Restructuration src/ (core/, preload/, renderer/). i18n portrait (option B). |

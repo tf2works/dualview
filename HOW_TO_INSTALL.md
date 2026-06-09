@@ -1,4 +1,11 @@
-# DualView v0.4.4 - Instructions d'installation
+# DualView v0.4.5 - Instructions d'installation
+
+## Nouveautés v0.4.5
+
+- **Support macOS** : installeur `.dmg` (x64 + arm64), compatible macOS 12 Monterey et supérieur
+- **Support Linux** : installeur `.AppImage` + `.deb` (x64), compatible Ubuntu 20.04+, Fedora 36+, Arch…
+- **Script OBS Lua cross-platform** : le script `dualview-obs-hotkeys.lua` fonctionne sur Windows, macOS et Linux
+- **Build cross-platform** : script `installer/build-installer.sh` pour macOS et Linux ; GitHub Actions génère automatiquement les 3 plateformes sur chaque release
 
 ## Nouveautés v0.4.4
 
@@ -31,27 +38,55 @@
 
 ## Installation (utilisateurs)
 
-### Prérequis
-- Windows 11 (Build 22000+)
-- Connexion internet
+### Windows
 
-### Procédure
-1. Double-cliquez sur **DualView-Setup-0.4.4.exe`**
+**Prérequis** : Windows 11 (Build 22000+)
+
+1. Téléchargez **`DualView-Setup-0.4.5.exe`** depuis les [Releases GitHub](https://github.com/<org>/dualview/releases)
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur si demandée
 
 Durée estimée : 5 à 15 minutes.
 
+### macOS
+
+**Prérequis** : macOS 12 Monterey ou supérieur
+
+1. Téléchargez **`DualView-x.x.x.dmg`** depuis les [Releases GitHub](https://github.com/<org>/dualview/releases)
+2. Ouvrez le `.dmg` et glissez **DualView** dans `/Applications`
+3. Au premier lancement : clic droit → **Ouvrir** (contournement Gatekeeper)
+
+### Linux
+
+**Prérequis** : distribution x64 avec FUSE (Ubuntu 20.04+, Fedora 36+, Arch…)
+
+1. Téléchargez **`DualView-x.x.x.AppImage`** depuis les [Releases GitHub](https://github.com/<org>/dualview/releases)
+2. Rendez le fichier exécutable :
+   ```bash
+   chmod +x DualView-*.AppImage
+   ./DualView-*.AppImage
+   ```
+
+> Sur certaines distributions, FUSE doit être installé : `sudo apt install libfuse2` (Ubuntu/Debian)
+
 ### Lancer DualView
-Cherchez **DualView** dans le Menu Démarrer.
+
+**Windows** : Menu Démarrer → DualView  
+**macOS** : `/Applications/DualView.app`  
+**Linux** : double-clic sur le `.AppImage` ou `./DualView-*.AppImage`
 
 ---
 
 ## Désinstallation
 
-**Paramètres Windows → Applications → DualView → Désinstaller**
-
+**Windows** : Paramètres → Applications → DualView → Désinstaller  
 Les données (`%APPDATA%\DualView\`) sont conservées. Supprimez ce dossier pour tout effacer.
+
+**macOS** : Glissez `/Applications/DualView.app` dans la Corbeille  
+Les données (`~/Library/Application Support/DualView/`) sont conservées. Supprimez ce dossier pour tout effacer.
+
+**Linux** : Supprimez simplement le fichier `.AppImage`  
+Les données (`~/.config/DualView/`) sont conservées. Supprimez ce dossier pour tout effacer.
 
 ---
 
@@ -172,5 +207,15 @@ Guide complet pas à pas : **obs-integration/OBS_INTEGRATION.md**.
 
 **Prérequis** : Node.js >= 22 (https://nodejs.org)
 
-Lancez **installer/build-installer.bat** depuis le dossier racine.
-Produit **dist/DualView-Setup-0.4.4.exe** (~150 Mo).
+| Plateforme | Commande | Artefact produit |
+|---|---|---|
+| Windows | `installer\build-installer.bat` | `dist/DualView-Setup-0.4.5.exe` (~150 Mo) |
+| macOS | `./installer/build-installer.sh --mac` | `dist/DualView-0.4.5.dmg` |
+| Linux | `./installer/build-installer.sh --linux` | `dist/DualView-0.4.5.AppImage` + `.deb` |
+
+Voir `assets/README.txt` pour générer les icônes `icon.icns` (macOS) et `icon.png` (Linux) avant le premier build.
+
+En mode développement (toutes plateformes) :
+```bash
+npm start -- --dev
+```

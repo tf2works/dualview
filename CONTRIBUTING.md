@@ -15,8 +15,9 @@ fonctionnalité ou améliorer la documentation.
 | Git | — | https://git-scm.com |
 | Windows | 11 Build 22000+ | (pour le build NSIS) |
 
-> macOS et Linux : le projet tourne en mode dev, mais le build installeur
-> (NSIS) est Windows uniquement pour l'instant. Voir TODO item G.
+> Le build de vérification (`npm start`) fonctionne sur Windows, macOS et Linux.
+> La production des installeurs natifs nécessite l'OS correspondant
+> (ou GitHub Actions — voir `.github/workflows/build.yml`).
 
 ---
 
@@ -143,11 +144,25 @@ Exemples : `feat/mode-focus-toolbar`, `fix/youtube-shorts-autopause`, `docs/cont
 ## Construire l'installeur
 
 ```bash
-# Windows uniquement
-installer/build-installer.bat
+# Windows
+npm run build:win      # → dist/DualView-Setup-<version>.exe
+
+# macOS  (nécessite assets/icon.icns)
+npm run build:mac      # → dist/DualView-<version>.dmg
+
+# Linux
+npm run build:linux    # → dist/DualView-<version>.AppImage
+
+# Toutes les plateformes (CI uniquement)
+npm run build
 ```
 
-Produit `dist/DualView-Setup-0.4.4.exe` (~150 Mo).
+> Le script `installer/build-installer.bat` reste disponible pour les contributeurs Windows
+> qui préfèrent l'ancienne méthode.
+
+**Icônes requises pour les builds non-Windows :**
+- `assets/icon.icns` — macOS (à générer depuis `icon.ico` avec `iconutil` ou `png2icns`)
+- `assets/icon.png` — Linux (512×512 px minimum)
 
 ---
 

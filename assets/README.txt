@@ -1,8 +1,24 @@
-Placez ici l'icône de l'application : icon.ico (256x256 recommandé)
+assets/
+=======
 
-Si absent, Windows utilisera l'icône par défaut.
+Icônes requises par plateforme :
 
-Outils pour créer un .ico :
-- https://www.icoconverter.com
-- Photoshop (Exporter en .ico)
-- GIMP (plugin .ico)
+  icon.ico    Windows  — 256×256 px minimum, format ICO multi-tailles
+  icon.icns   macOS    — format ICNS (généré depuis icon.png via iconutil)
+  icon.png    Linux    — 512×512 px, fond transparent recommandé
+
+Générer icon.icns depuis icon.png (macOS) :
+  mkdir icon.iconset
+  sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
+  sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
+  sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
+  sips -z 64 64     icon.png --out icon.iconset/icon_32x32@2x.png
+  sips -z 128 128   icon.png --out icon.iconset/icon_128x128.png
+  sips -z 256 256   icon.png --out icon.iconset/icon_128x128@2x.png
+  sips -z 256 256   icon.png --out icon.iconset/icon_256x256.png
+  sips -z 512 512   icon.png --out icon.iconset/icon_256x256@2x.png
+  cp icon.png            icon.iconset/icon_512x512.png
+  iconutil -c icns icon.iconset -o icon.icns
+  rm -rf icon.iconset
+
+Outil alternatif (toutes plateformes) : https://www.electron.build/icons

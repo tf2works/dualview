@@ -39,6 +39,14 @@ const path = require('path');
 const fs = require('fs');
 const obsControl = require('./core/obs-control');
 const HistoryManager = require('./core/history-manager');
+
+// ── Icône cross-platform ──────────────────────────────────────────────────────
+function getAppIcon() {
+    const { platform } = process;
+    if (platform === 'darwin') return path.join(__dirname, '..', 'assets', 'icon.icns');
+    if (platform === 'linux')  return path.join(__dirname, '..', 'assets', 'icon.png');
+    return path.join(__dirname, '..', 'assets', 'icon.ico'); // win32
+}
 const {
     KNOWN_SERVICES,
     authWindowEvents,
@@ -319,7 +327,10 @@ function setupSessionSecurity() {
         const v = process.versions.chrome.split('.')[0];
         h['sec-ch-ua'] = `"Google Chrome";v="${v}", "Chromium";v="${v}", "Not=A?Brand";v="99"`;
         h['sec-ch-ua-mobile'] = '?0';
-        h['sec-ch-ua-platform'] = '"Windows"';
+
+    // Adapter le header platform à l'OS réel
+    const platformName = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform] || 'Windows';
+    h['sec-ch-ua-platform'] = `"${platformName}"`;
         callback({ requestHeaders: h });
     });
 
@@ -542,7 +553,7 @@ function createLandscapeWindow() {
         width: w, height: h, x, y,
         minWidth: 700, minHeight: 480,
         title: 'DualView - Paysage',
-        icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
+        icon: getAppIcon(),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -631,7 +642,7 @@ function createPortraitWindow() {
     portraitWin = new BrowserWindow({
         width: w, height: h, x, y,
         title: 'DualView - Portrait',
-        icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
+        icon: getAppIcon(),
         resizable: false,
         webPreferences: {
             nodeIntegration: false,
@@ -1300,9 +1311,12 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
     if (history) history.saveNow();
     obsControl.stop();
-    app.quit();
+    // Sur macOS, convention : l'app reste dans le dock jusqu'à Cmd+Q explicite
+    if (process.platform !== 'darwin') app.quit();
 });
+
 app.on('activate', () => {
+    // Sur macOS : recréer les fenêtres si l'app est réactivée sans fenêtre ouverte
     if (BrowserWindow.getAllWindows().length === 0) {
         createLandscapeWindow();
         createPortraitWindow();

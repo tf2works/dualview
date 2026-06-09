@@ -41,12 +41,13 @@
 
 ## Priorité 3 — Robustesse et écosystème open source
 
-- [ ] **G. Support macOS / Linux**
+- [x] **G. Support macOS / Linux**
   Electron supporte nativement les trois plateformes. Travail nécessaire :
-  - Vérifier que `app.getPath('userData')` est utilisé partout (pas de chemins Windows codés en dur)
-  - Remplacer `curl` dans le script Lua OBS par une solution cross-platform
-  - Ajouter les targets `electron-builder` pour `.dmg` (macOS) et `.AppImage` (Linux)
-  - Adapter `build-installer.bat` / `.ps1` ou créer des scripts équivalents
+  - ✅ `app.getPath('userData')` utilisé partout — aucun chemin Windows en dur
+  - ✅ Script Lua OBS rendu cross-platform (détection OS, curl natif macOS/Linux)
+  - ✅ Cibles electron-builder ajoutées : `.dmg` (macOS x64+arm64), `.AppImage` + `.deb` (Linux)
+  - ✅ `installer/build-installer.sh` créé (macOS + Linux)
+  - ✅ GitHub Actions mis à jour : 3 jobs séparés (windows/macos/linux) + job release
 
 - [ ] **H. Export / Import de configuration**
   Bouton "Exporter ma config" (onglets, services, paramètres OBS) en JSON et

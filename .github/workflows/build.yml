@@ -1,0 +1,154 @@
+# DualView — Build & Release automatique
+#
+# Déclenché sur :
+#   - Push de tag v* (ex. v0.4.5) → build toutes plateformes + GitHub Release
+#   - Push sur main               → build de vérification (sans release)
+#   - Pull Request vers main      → build de vérification
+#
+# Artefacts produits :
+#   - dist/DualView-Setup-<version>.exe          (Windows x64, NSIS)
+#   - dist/DualView-<version>.dmg                (macOS x64 + arm64, DMG)
+#   - dist/DualView-<version>.AppImage           (Linux x64)
+#   - dist/DualView-<version>.deb                (Linux x64, Debian/Ubuntu)
+
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  # ────────────────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (Windows)
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DualView-windows-x64
+          path: dist/DualView-Setup-*.exe
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  build-macos:
+    name: macOS (x64 + arm64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # electron-builder peut nécessiter Python pour certains modules natifs
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build (macOS)
+        run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pour signer l'app (optionnel — nécessite un certificat Apple Developer)
+          # CSC_LINK: ${{ secrets.MAC_CERT_P12 }}
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DualView-macos
+          path: dist/DualView-*.dmg
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            rpm \
+            dpkg \
+            fakeroot \
+            libarchive-tools
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (Linux)
+        run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DualView-linux-x64
+          path: |
+            dist/DualView-*.AppImage
+            dist/DualView-*.deb
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    # Uniquement sur les tags v*
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-all/
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh dist-all/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-all/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

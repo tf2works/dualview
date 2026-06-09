@@ -5,7 +5,9 @@
  * Système de logs centralisé.
  * Actif uniquement si l'argument --dev est passé : npm start -- --dev
  *
- * - Écrit dans %AppData%/DualView/dualview.log (remis à zéro à chaque démarrage)
+ * - Écrit dans le dossier userData Electron (cross-platform) : dualview.log
+ *     Windows : %AppData%/DualView/  |  macOS : ~/Library/Application Support/DualView/
+ *     Linux   : ~/.config/DualView/
  * - Chaque entrée est horodatée et préfixée par la source :
  *     [main] [landscape] [portrait] [auth]
  * - Redirige console.log/warn/error de main.js vers le fichier

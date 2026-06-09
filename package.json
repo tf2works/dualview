@@ -1,14 +1,17 @@
 {
     "name": "dualview",
-    "version": "0.4.4",
+    "version": "0.4.5",
     "description": "Affichage dual paysage/portrait synchronise pour OBS, pilotable depuis OBS",
     "main": "src/main.js",
     "author": "DualView",
     "license": "MIT",
     "scripts": {
         "start": "electron .",
-        "build": "electron-builder --win --x64",
-        "start-dev": "electron . --dev"
+        "build": "electron-builder",
+        "start-dev": "electron . --dev",
+        "build:win": "electron-builder --win",
+        "build:mac": "electron-builder --mac",
+        "build:linux": "electron-builder --linux"
     },
     "dependencies": {
         "@cliqz/adblocker-electron": "^1.31.0"
@@ -54,6 +57,61 @@
                 "en_US"
             ],
             "language": "1036"
+        },
+        "mac": {
+            "target": [
+                {
+                    "target": "dmg",
+                    "arch": [
+                        "x64",
+                        "arm64"
+                    ]
+                }
+            ],
+            "icon": "assets/icon.icns",
+            "category": "public.app-category.utilities",
+            "darkModeSupport": true
+        },
+        "linux": {
+            "target": [
+                {
+                    "target": "AppImage",
+                    "arch": [
+                        "x64"
+                    ]
+                },
+                {
+                    "target": "deb",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "assets/icon.png",
+            "category": "Network",
+            "maintainer": "DualView Contributors <dualview@users.noreply.github.com>",
+            "description": "Dual-window synchronized web browser (Desktop + Mobile view)"
+        },
+        "dmg": {
+            "title": "DualView ${version}",
+            "background": null,
+            "window": {
+                "width": 540,
+                "height": 380
+            },
+            "contents": [
+                {
+                    "x": 130,
+                    "y": 220,
+                    "type": "file"
+                },
+                {
+                    "x": 410,
+                    "y": 220,
+                    "type": "link",
+                    "path": "/Applications"
+                }
+            ]
         }
     }
 }

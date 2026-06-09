@@ -15,8 +15,10 @@
     4. Dans Paramètres → Raccourcis clavier, attribuer une touche à chaque
        action "DualView : ...".
 
-  Ce script n'utilise aucune bibliothèque externe : il appelle curl, présent
-  sur Windows 10/11 (C:\Windows\System32\curl.exe).
+  Ce script n'utilise aucune bibliothèque externe : il appelle curl.
+    - Windows 10/11 : curl est inclus dans le système (C:\Windows\System32\curl.exe)
+    - macOS          : curl est inclus par défaut
+    - Linux          : installer curl si absent (ex. : apt install curl)
 ]]
 
 obs = obslua
@@ -41,22 +43,36 @@ local ACTIONS = {
 -- Stockage des identifiants de hotkey enregistrés
 local hotkey_ids = {}
 
--- Envoie une commande à DualView via curl (non bloquant)
+-- Détection de l'OS (évalué une seule fois au chargement du script)
+local IS_WINDOWS = package.config:sub(1,1) == '\\'
+
+-- Envoie une commande à DualView via curl (non bloquant, cross-platform)
 local function send_command(action)
     if settings_port == "0" or settings_token == "" then
         obs.script_log(obs.LOG_WARNING, "DualView : port ou token non configuré.")
         return
     end
-    local url = string.format("http://127.0.0.1:%s/command", settings_port)
+    local url  = string.format("http://127.0.0.1:%s/command", settings_port)
     local body = string.format('{"action":"%s"}', action)
-    -- start "" lance curl en arrière-plan sous Windows, sans fenêtre bloquante
-    local cmd = string.format(
-        'start "" /B curl -s -X POST -H "Content-Type: application/json" '
-        .. '-H "X-DualView-Token: %s" -d "%s" "%s"',
-        settings_token,
-        body:gsub('"', '\\"'),
-        url
-    )
+    local escaped_body  = body:gsub('"', IS_WINDOWS and '\\"' or '\\"')
+    local escaped_token = settings_token
+
+    local cmd
+    if IS_WINDOWS then
+        -- start "" /B : lance curl en arrière-plan sans fenêtre bloquante
+        cmd = string.format(
+            'start "" /B curl -s -X POST -H "Content-Type: application/json" '
+            .. '-H "X-DualView-Token: %s" -d "%s" "%s"',
+            escaped_token, escaped_body, url
+        )
+    else
+        -- macOS / Linux : & en fin de commande pour lancer en arrière-plan
+        cmd = string.format(
+            'curl -s -X POST -H "Content-Type: application/json" '
+            .. "-H 'X-DualView-Token: %s' -d '%s' '%s' &",
+            escaped_token, body, url
+        )
+    end
     os.execute(cmd)
 end
 

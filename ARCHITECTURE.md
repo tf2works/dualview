@@ -289,7 +289,7 @@ ATTENTION : ne pas installer de handler onBeforeSendHeaders
 
 ```
 dualview/
-|-- package.json              v0.4.3
+|-- package.json              v0.4.4 (build:win / build:mac / build:linux)
 |-- ARCHITECTURE.md           Ce fichier
 |-- CHANGELOG.md              Historique des versions (Keep a Changelog)
 |-- CONTRIBUTING.md           Guide de contribution (prérequis, branches, PR)
@@ -301,11 +301,12 @@ dualview/
 |   |-- README.txt
 |
 |-- installer/
-|   |-- build-installer.bat
-|   |-- build-installer.ps1
+|   |-- build-installer.bat   Build Windows (NSIS)
+|   |-- build-installer.ps1   Script PowerShell sous-jacent
+|   |-- build-installer.sh    Build macOS (DMG) et Linux (AppImage + deb)
 |
 |-- obs-integration/
-|   |-- dualview-obs-hotkeys.lua
+|   |-- dualview-obs-hotkeys.lua  Script Lua OBS v0.4.4 (cross-platform : Windows/macOS/Linux)
 |   |-- OBS_INTEGRATION.md
 |
 |-- .github/
