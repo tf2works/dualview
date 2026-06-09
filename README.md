@@ -1,4 +1,4 @@
-# DualView v0.4.5
+# DualView v0.4.6
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.4.5.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.4.6.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -46,6 +46,38 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Paramètres |
+
+---
+
+## Nouveautés v0.4.6
+
+### 🔧 Refactoring open source — découpage de `main.js`
+`main.js` passe de **1 323 à 815 lignes (−38%)** par extraction de 4 modules dans `src/core/` :
+
+| Module | Contenu |
+|--------|---------|
+| `core/config-manager.js` | Constantes, `loadConfig` / `saveConfig`, `configGet` / `configSet` |
+| `core/url-guard.js` | `sanitizeUrl`, `isLoginPage`, `isAuthUrl`, `detectServiceKeyFromUrl` |
+| `core/session-security.js` | Bloqueur pub réseau, `setupSessionSecurity` |
+| `core/context-menu.js` | Menu contextuel natif clic droit (`buildAndShowContextMenu`) |
+
+`main.js` conserve uniquement l'état global, la création des fenêtres, les IPC handlers et le lifecycle Electron.
+
+### 🐛 Corrections AUTO_PAUSE_SCRIPT
+
+**Pause automatique YouTube landscape ne fonctionnait pas sans publicité**
+Le flag `__dualviewAutoPauseDone` était posé avant même de trouver la vidéo, bloquant tous les retries si le player YouTube n'était pas encore dans le DOM au moment du `dom-ready`. La pause ne fonctionnait qu'en présence de pub (par accident). Corrigé dans `landscape-webview.js` — le flag est désormais posé uniquement quand la vidéo est effectivement trouvée.
+
+Ajout d'un appel `injectAutoPause` immédiat au `dom-ready` (en plus des timers à 2s et 5s) pour couvrir les rechargements où le player est déjà présent (`landscape-views.js`).
+
+**YouTube Shorts pausés à tort dans le portrait**
+La détection Shorts dans le script injecté (`location.href`) pouvait être périmée lors des navigations SPA — l'URL d'une vidéo classique précédente était encore présente au moment de l'évaluation. La garde est désormais effectuée côté renderer Electron (`isYouTubeShort(wv.getURL())`) avant toute injection, ce qui est toujours fiable (`portrait-app.js`).
+
+**Retries orphelins et MaxListenersExceededWarning**
+Le timer de sécurité portrait n'était pas annulé entre navigations, accumulant des listeners `did-stop-loading`. Corrigé avec `clearTimeout` à chaque `dom-ready` / `did-navigate`, et ajout du flag `__dualviewAutoPauseAborted` pour couper les `setTimeout` en vol.
+
+### 🎨 Fix thème portrait au démarrage
+Quand l'OS est en mode sombre mais que l'utilisateur a sélectionné le thème clair dans les paramètres, la fenêtre portrait restait sombre après redémarrage. Corrigé à trois niveaux : `backgroundColor` basé sur `getTheme()` (non plus hardcodé), et `initialTheme` exposé via `contextBridge` pour une application synchrone avant le premier rendu (sans flash).
 
 ---
 
@@ -408,3 +440,4 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.4.3 | Refonte sync vidéo anti-boucle : protocole séquencé atomique (pause→seek-to ; seek-to→play). Suppression du forçage currentTime sur play. drift-check conditionnel (portrait à l'arrêt seulement, seuil 2s). MutationObserver unique par webview. pendingCmd avec TTL 5s. Correction double-src sur load-url. |
 | 0.4.4 | Refactoring open source : séparation CSS/JS landscape et portrait. Restructuration src/ (core/, preload/, renderer/). i18n portrait (option B). CONTRIBUTING.md, CHANGELOG.md, GitHub Actions. |
 | 0.4.5 | Support macOS (.dmg x64+arm64) et Linux (.AppImage + .deb). Script OBS Lua cross-platform. Build CI 3 plateformes. |
+| 0.4.6 | Refactoring `main.js` (1323 → 815 lignes) : extraction de 4 modules core/ (config-manager, url-guard, session-security, context-menu). Fix AUTO_PAUSE_SCRIPT landscape (retries bloqués sans pub). Fix Shorts portrait pausés à tort (garde renderer). Fix retries orphelins + MaxListenersExceededWarning. Fix thème portrait au démarrage (flash de fond). |
