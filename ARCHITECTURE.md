@@ -1,4 +1,4 @@
-# DualView - Architecture v0.4.4
+# DualView - Architecture v0.4.6
 
 ## Vue d'ensemble
 
@@ -182,20 +182,38 @@ Garanties supplémentaires :
                              → executor réinjecté proprement sans double-observer
 ```
 
-### Pause automatique YouTube (inchangée depuis v0.4.2)
+### Pause automatique YouTube (mise à jour v0.4.6)
 ```
-Vidéos classiques uniquement (Shorts exclus explicitement)
+Vidéos classiques uniquement — Shorts exclus à deux niveaux de garde.
 
-landscape.html
-  AUTO_PAUSE_SCRIPT injecté à 2s et 5s après dom-ready, et après did-navigate
-    → si pub : poll 500ms jusqu'à fin pub → pause
-    → sinon  : pause immédiate à currentTime=0
-  Flag __dualviewAutoPauseDone : remis à false à chaque navigation
+Garde primaire (renderer Electron) — landscape-views.js / portrait-app.js
+  isYouTubeShort(url) sur wv.getURL() ou e.url
+  → toujours fiable : URL résolue par Electron après navigation
+  → AUTO_PAUSE_SCRIPT non injecté si Short détecté
 
-portrait.html
-  AUTO_PAUSE_SCRIPT injecté immédiatement au dom-ready (+ filet 3s)
-    → même logique, retry toutes les 200ms pendant 10s max (50 tentatives)
-    → video.muted = true + video.currentTime = 0 + video.pause()
+Garde secondaire (script injecté) — landscape-webview.js / portrait-webview.js
+  url.includes('/shorts/') dans AUTO_PAUSE_SCRIPT
+  → filet de sécurité uniquement
+
+landscape (landscape-views.js + landscape-webview.js)
+  AUTO_PAUSE_SCRIPT injecté :
+    - immédiatement au dom-ready (player déjà présent sur rechargement)
+    - à 2s (player YouTube chargé en JS après dom-ready)
+    - à 5s (filet pour connexions lentes)
+    - après did-navigate (navigation complète) à 1.5s
+    - après did-navigate-in-page (SPA) à 1.2s
+  Flag __dualviewAutoPauseDone posé UNIQUEMENT quand la vidéo est trouvée
+    → les retries (setTimeout 300ms × 20) fonctionnent si le player est absent
+
+portrait (portrait-app.js + portrait-webview.js)
+  AUTO_PAUSE_SCRIPT injecté au dom-ready + did-navigate-in-page + did-navigate
+    → seulement si !isYouTubeShort(url) côté renderer
+    → retry toutes les 200ms pendant 10s max (50 tentatives)
+    → video.muted = true ; currentTime = 0 sauf si executor déjà actif
+  Flag __dualviewAutoPauseAborted posé par resetPageFlags() à chaque navigation
+    → coupe tous les setTimeout en vol (évite l'application sur la mauvaise page)
+  Timer de sécurité 3s stocké et annulé (clearTimeout) à chaque dom-ready / did-navigate
+    → évite l'accumulation de listeners did-stop-loading (MaxListenersExceededWarning)
 ```
 
 ---
@@ -447,6 +465,8 @@ customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 | 0.4.1 | Raccourcis clavier (Alt+←/→, F5/Ctrl+R, Ctrl+T/W/Tab, Ctrl+L/F6). Boutons souris retour/avance. Liens externes → onglet DualView. Menu contextuel clic droit. Enregistrement image via clic droit. |
 | 0.4.2 | Bloqueur pub 3 niveaux (réseau 50+ domaines + ctier=A, CSS cosmétique, stub IMA complet). IPC ad-state (pub YouTube → overlay portrait avec compte à rebours). Pause auto vidéos classiques YouTube dans les deux fenêtres (retry 200ms, currentTime=0, gestion pub). Paramètre autoPauseVideo (Settings → Général). Bouton remute portrait (polling muted). Sync vidéo : réalignement exact au play sans seuil de drift. Dropdown historique : fermeture auto 500ms après unfocus (timer partagé boutons + dropdown). |
 | 0.4.3 | Refonte sync vidéo — protocole séquencé anti-boucle. Nouvelles commandes atomiques : pause / seek-to / play / drift-check. IPC video-drift-check remplace video-timeupdate. seek-to conditionnel (uniquement si paused). MutationObserver unique par webview (__dualviewObserverActive). pendingCmd avec TTL 5s. resetPageFlags() séparée de injectExecutor(). load-url : vérification getURL() avant assignation src. |
+| 0.4.5 | Refactoring open source de main.js (1323 → 815 lignes, −38%). Extraction de 4 modules dans core/ : config-manager.js, url-guard.js, session-security.js, context-menu.js. |
+| 0.4.6 | Fix AUTO_PAUSE_SCRIPT landscape (flag posé avant de trouver la vidéo → retries bloqués). Fix AUTO_PAUSE_SCRIPT Shorts portrait (garde primaire déplacée côté renderer Electron, isYouTubeShort). Fix retries orphelins portrait (__dualviewAutoPauseAborted). Fix MaxListenersExceededWarning (timer de sécurité annulable). Fix thème portrait au démarrage (initialTheme via contextBridge, backgroundColor dynamique). |
 
 ---
 

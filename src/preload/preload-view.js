@@ -1,35 +1,46 @@
 /**
  * DualView - Preload View Windows (portrait)
- * Version: 0.4.3
+ * Version: 0.4.6
+ *
+ * Changements v0.4.6 :
+ * - Fix thème portrait au démarrage : initialTheme exposé via contextBridge
+ *   (document est null dans le preload avec contextIsolation:true).
+ *   Le renderer applique data-theme en toute première ligne de portrait-app.js.
+ *   Corrige le bug "portrait reste sombre apres switch vers theme clair
+ *   quand l'OS est en mode sombre".
  *
  * Changements v0.4.3 :
- * - Protocole vidéo séquencé : 'video-cmd' reçoit désormais les actions
- *   'pause', 'seek-to', 'play', 'drift-check' (au lieu de 'pause'/'play'/'seek').
- *   La logique anti-boucle est dans VIDEO_EXECUTOR_SCRIPT (portrait.html).
+ * - Protocole video sequenced : 'video-cmd' recoit les actions
+ *   'pause', 'seek-to', 'play', 'drift-check'.
  *
  * Changements v0.3.1 :
  * - Canaux : sync-state-changed, show-login-popup, sync-resume-state
  */
 const { contextBridge, ipcRenderer } = require('electron');
 
+// ── Thème initial ─────────────────────────────────────────────────────────────
+// Passé par main.js via additionalArguments '--initial-theme=light|dark'.
+// document est null ici (contextIsolation:true) → on expose la valeur via
+// contextBridge ; le renderer l'applique synchroniquement en première ligne.
+const _themeArg = process.argv.find(a => a.startsWith('--initial-theme='));
+const _initialTheme = (_themeArg && (_themeArg.split('=')[1] === 'light' || _themeArg.split('=')[1] === 'dark'))
+    ? _themeArg.split('=')[1]
+    : null;
+
 contextBridge.exposeInMainWorld('dualview', {
+    initialTheme: _initialTheme,
     getTheme: () => ipcRenderer.invoke('get-theme'),
     getSyncState: () => ipcRenderer.invoke('get-sync-state'),
     getAutoMutePortrait: () => ipcRenderer.invoke('get-auto-mute-portrait'),
 
     on: (channel, callback) => {
         const valid = [
-            // Canaux existants
             'load-url', 'apply-scroll', 'theme-changed', 'resize-mode',
             'video-cmd', 'webview-go-back', 'webview-go-forward',
             'reload-webview',
-            // Pool d'onglets
             'tab-switched', 'tab-closed', 'tab-created',
-            // v0.3.0
             'sync-state-changed', 'show-login-popup', 'login-page-cleared', 'sync-resume-state',
-            // v0.4.2
             'ad-state',
-            // v0.4.3
             'auto-mute-portrait-changed',
         ];
         if (valid.includes(channel)) {

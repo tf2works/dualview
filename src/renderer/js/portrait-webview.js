@@ -138,66 +138,74 @@ new MutationObserver(function() {
 })();`;
 
 // ══════════════════════════════════════════════════════════════════════════════
-// AUTO-PAUSE SCRIPT — YouTube uniquement, injecté après dom-ready
+// AUTO-PAUSE SCRIPT — YouTube classique uniquement (Shorts exclus)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Pause la vidéo YouTube classique au chargement (Shorts exclus).
+// Pause la vidéo YouTube classique au chargement.
 // Si une pub est en cours, attend sa fin avant de pauser.
 // Retry toutes les 200 ms pendant 10 s max (50 tentatives).
 //
-// Différences vs landscape :
-//   - Force video.muted = true (portrait doit toujours être muet)
-//   - currentTime = 0 après pause (portrait repart de zéro, landscape sync ensuite)
+// Garde primaire : portrait-app.js ne l'injecte PAS si isYouTubeShort(url)
+// est vrai côté renderer (URL toujours fiable avant injection).
+// Ce script contient uniquement un filet de sécurité URL minimal.
+//
+// v0.4.6 — Corrections :
+//   - Ne force PLUS currentTime = 0 si l'executor a déjà reçu une commande
+//     (évite le conflit avec le protocole seek-to de la sync vidéo)
+//   - Flag d'abandon __dualviewAutoPauseAborted : annule les retries en vol
+//     quand resetPageFlags() est appelé sur la navigation suivante
 // ══════════════════════════════════════════════════════════════════════════════
 const AUTO_PAUSE_SCRIPT = `
 (function() {
     if (window.__dualviewAutoPauseDone) return;
+    if (window.__dualviewAutoPauseAborted) return;
+
     const url = location.href;
-    if (!url.includes('youtube.com')) return;
-    if (url.includes('/shorts/') ||
-!!document.getElementById('shorts-container') ||
-!!document.querySelector('ytd-reel-video-renderer')) return;
+    // Filet de sécurité : ne jamais s'exécuter sur un Short
+    // (la garde principale est dans portrait-app.js avant injection)
+    if (!url.includes('youtube.com') || url.includes('/shorts/')) return;
 
     const sels = ['video.html5-main-video','#movie_player video','ytd-player video','video'];
     function findVideo() {
-for (const s of sels) {
-    const list = Array.from(document.querySelectorAll(s))
-        .filter(v => { const r = v.getBoundingClientRect(); return r.width > 50 && r.height > 50; });
-    if (list.length) return list[0];
-}
-return null;
+        for (const s of sels) {
+            const list = Array.from(document.querySelectorAll(s))
+                .filter(v => { const r = v.getBoundingClientRect(); return r.width > 50 && r.height > 50; });
+            if (list.length) return list[0];
+        }
+        return null;
     }
     function isAdPlaying() {
-const p = document.getElementById('movie_player');
-return p && (p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting'));
+        const p = document.getElementById('movie_player');
+        return p && (p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting'));
     }
     function doPause(attempts) {
-if (window.__dualviewAutoPauseDone) return;
-const video = findVideo();
-if (video) {
-    video.muted = true;
-    if (isAdPlaying()) {
-        let waited = 0;
-        const poll = setInterval(() => {
-            waited += 500;
-            if (!isAdPlaying() || waited > 120000) {
-                clearInterval(poll);
-                if (!window.__dualviewAutoPauseDone) {
-                    window.__dualviewAutoPauseDone = true;
-                    const v = findVideo();
-                    if (v) { v.muted = true; v.currentTime = 0; v.pause(); }
-                }
+        if (window.__dualviewAutoPauseDone || window.__dualviewAutoPauseAborted) return;
+        const video = findVideo();
+        if (video) {
+            video.muted = true;
+            if (isAdPlaying()) {
+                let waited = 0;
+                const poll = setInterval(() => {
+                    waited += 500;
+                    if (window.__dualviewAutoPauseAborted) { clearInterval(poll); return; }
+                    if (!isAdPlaying() || waited > 120000) {
+                        clearInterval(poll);
+                        if (!window.__dualviewAutoPauseDone && !window.__dualviewAutoPauseAborted) {
+                            window.__dualviewAutoPauseDone = true;
+                            const v = findVideo();
+                            if (v) { v.muted = true; if (!window.__dualviewExecutorReady) v.currentTime = 0; v.pause(); }
+                        }
+                    }
+                }, 500);
+            } else {
+                window.__dualviewAutoPauseDone = true;
+                video.muted = true;
+                if (!window.__dualviewExecutorReady) video.currentTime = 0;
+                video.pause();
             }
-        }, 500);
-    } else {
-        window.__dualviewAutoPauseDone = true;
-        video.muted = true;
-        video.currentTime = 0;
-        video.pause();
-    }
-    return;
-}
-if (attempts < 50) setTimeout(() => doPause(attempts + 1), 200);
+            return;
+        }
+        if (attempts < 50) setTimeout(() => doPause(attempts + 1), 200);
     }
     doPause(0);
     true;

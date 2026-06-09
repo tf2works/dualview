@@ -1,41 +1,44 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.4.3
+ * Version: 0.4.6
+ *
+ * Changements v0.4.6 :
+ * - Fix theme au demarrage : initialTheme expose via contextBridge
+ *   (document est null dans le preload avec contextIsolation:true).
+ *   Le renderer applique data-theme en toute premiere ligne de landscape-ui.js.
  *
  * Changements v0.4.3 :
  * - sendVideoDriftCheck() remplace sendVideoTimeUpdate()
- *   Nouveau protocole de sync vidéo séquencé (pause → seek-to ; seek-to → play).
- *   Le drift-check ne force la position portrait que si sa vidéo est à l'arrêt,
- *   ce qui élimine la boucle de rétroaction landscape ↔ portrait.
  *
  * Changements v0.4.1 :
  * - Canaux entrants 'mouse-nav', 'context-menu-action'
  *
  * Changements v0.4.0 :
- * - getPortraitPresets()            : liste des préréglages portrait
- * - startPortraitResize()           : démarre le mode redimensionnement
- * - applyPortraitPreset(presetId)   : applique un preset via IPC
- * - finishPortraitResize()          : valide et verrouille la taille
- * - cancelPortraitResize()          : annule sans modifier la taille
- * - takeScreenshot()                : capture les deux vues en PNG
- * - chooseScreenshotDir()           : sélectionne un dossier de capture
- * - historyAdd/GetAll/GetByTab/Search/DeleteUrl/ClearAll/ClearTab
+ * - getPortraitPresets, startPortraitResize, applyPortraitPreset,
+ *   finishPortraitResize, cancelPortraitResize, takeScreenshot,
+ *   chooseScreenshotDir, history*
  *
  * Changements v0.3.2 :
- * - getObsInfo()                  : infos serveur de contrôle OBS
- * - Canal entrant 'obs-command'   : commandes provenant du dock/hotkeys OBS
+ * - getObsInfo(), canal entrant 'obs-command'
  */
 const { contextBridge, ipcRenderer } = require('electron');
 
+// ── Thème initial ─────────────────────────────────────────────────────────────
+// Passé par main.js via additionalArguments '--initial-theme=light|dark'.
+// document est null ici (contextIsolation:true) → on expose la valeur via
+// contextBridge ; le renderer l'applique synchroniquement en premiere ligne.
+const _themeArg = process.argv.find(a => a.startsWith('--initial-theme='));
+const _initialTheme = (_themeArg && (_themeArg.split('=')[1] === 'light' || _themeArg.split('=')[1] === 'dark'))
+    ? _themeArg.split('=')[1]
+    : null;
+
 contextBridge.exposeInMainWorld('dualview', {
+    initialTheme: _initialTheme,
+
     // ── Sync vue ───────────────────────────────────────────────
     getTheme: () => ipcRenderer.invoke('get-theme'),
     sendScroll: (p) => ipcRenderer.send('sync-scroll', p),
     sendNavigate: (u) => ipcRenderer.send('sync-navigate', u),
-    // v0.4.3 — séquençage strict des commandes vidéo
-    // sendVideoPlay  : landscape vient de passer en lecture
-    // sendVideoPause : landscape vient de se mettre en pause
-    // sendVideoDriftCheck : sync périodique (portrait n'applique que si sa vidéo est à l'arrêt)
     sendVideoPlay: (t) => ipcRenderer.send('video-play', t),
     sendVideoPause: (t) => ipcRenderer.send('video-pause', t),
     sendVideoDriftCheck: (t) => ipcRenderer.send('video-drift-check', t),
@@ -110,12 +113,9 @@ contextBridge.exposeInMainWorld('dualview', {
             'load-url', 'theme-changed', 'update-addressbar',
             'nav-state-changed', 'webview-go-back', 'webview-go-forward',
             'download-blocked',
-            // v0.3.0
             'sync-state-changed', 'show-login-popup', 'login-page-cleared',
             'auth-custom-confirm', 'sync-resume-state',
-            // v0.3.2
             'obs-command',
-            // v0.4.1
             'mouse-nav', 'context-menu-action',
         ];
         if (valid.includes(channel)) {

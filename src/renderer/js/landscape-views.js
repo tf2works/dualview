@@ -53,9 +53,13 @@ function getActiveWebview() { return webviewPool.get(activeTabId) || null; }
 
 function attachWebviewListeners(wv, tabId) {
     wv.addEventListener('dom-ready', () => {
+        // resetWatcherFlags remet __dualviewAutoPauseDone=false → injectAutoPause
+        // peut s'exécuter immédiatement (flag propre).
         resetWatcherFlags(wv);
         injectWatcher(wv);
         wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
+        // Tentative immédiate : player peut déjà être présent sur rechargement
+        injectAutoPause(wv);
         // Réinjection à 2s : couvre les pages lentes à initialiser leur player
         setTimeout(() => {
             if (!webviewPool.has(tabId)) return;
@@ -262,4 +266,3 @@ document.getElementById('auth-confirm-backdrop').addEventListener('click', () =>
     document.getElementById('auth-confirm-dialog').classList.remove('show');
     window.dualview.cancelCustomAuth();
 });
-

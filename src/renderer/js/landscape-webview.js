@@ -79,6 +79,9 @@ window.addEventListener('scroll',()=>{
 // ── Pause automatique YouTube (vidéos classiques uniquement) ──────────────────
 // Shorts exclus — aucune interférence avec leur autoplay.
 // Si pub en cours → attendre fin pub → pauser. Sinon → pause directe.
+// v0.4.6 : flag __dualviewAutoPauseDone posé UNIQUEMENT quand la vidéo est
+// trouvée, pas avant — sinon les retries sont bloqués si le player n'est
+// pas encore dans le DOM au premier appel (cas sans pub).
 const AUTO_PAUSE_SCRIPT = `
 (function() {
     if (window.__dualviewAutoPauseDone) return;
@@ -88,7 +91,6 @@ const AUTO_PAUSE_SCRIPT = `
     if (url.includes('/shorts/') ||
 !!document.getElementById('shorts-container') ||
 !!document.querySelector('ytd-reel-video-renderer')) return;
-    window.__dualviewAutoPauseDone = true;
     const selectors = ['video.html5-main-video','#movie_player video','ytd-player video','video'];
     function findVideo() {
 for (const s of selectors) {
@@ -103,8 +105,10 @@ const player = document.getElementById('movie_player');
 return player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'));
     }
     function doPause(attempts) {
+if (window.__dualviewAutoPauseDone) return;
 const video = findVideo();
 if (video) {
+    window.__dualviewAutoPauseDone = true;
     if (isAdPlaying()) {
         let waited = 0;
         const poll = setInterval(() => {
@@ -135,6 +139,6 @@ function injectAutoPause(wv) {
     if (currentSettings.autoPauseVideo === false) return;
     const url = wv.getURL ? wv.getURL() : '';
     if (!url || !url.includes('youtube.com')) return;
+    if (url.includes('/shorts/')) return;
     wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
 }
-

@@ -111,7 +111,14 @@ window.dualview.on('sync-resume-state', ({ tabId, url }) => {
 });
 
 // ── Thème ──────────────────────────────────────────────────────────────────────
-window.dualview.getTheme().then(th => document.documentElement.setAttribute('data-theme', th));
+// initialTheme est fourni synchroniquement par le preload (process.argv),
+// ce qui evite le flash de fond lors du demarrage quand l'OS est en mode
+// sombre mais que l'utilisateur a selectionne le theme clair.
+if (window.dualview.initialTheme) {
+    document.documentElement.setAttribute('data-theme', window.dualview.initialTheme);
+} else {
+    window.dualview.getTheme().then(th => document.documentElement.setAttribute('data-theme', th));
+}
 window.dualview.on('theme-changed', th => {
     document.documentElement.setAttribute('data-theme', th);
     webviewPool.forEach(wv => applyWebviewTheme(wv));
@@ -237,5 +244,3 @@ document.getElementById('resize-modal-cancel').addEventListener('click', () => {
     resizeModalOverlay.classList.remove('show');
     window.dualview.cancelPortraitResize();
 });
-
-

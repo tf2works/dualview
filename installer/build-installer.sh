@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # DualView — Build macOS (.dmg) et Linux (.AppImage + .deb)
+# Version : lue dynamiquement depuis package.json
 #
 # Usage :
 #   ./installer/build-installer.sh           # build pour la plateforme courante

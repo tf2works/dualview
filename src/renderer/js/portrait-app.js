@@ -137,6 +137,18 @@ function showWebview(tabId) {
 
 function getActiveWebview() { return webviewPool.get(activeTabId) || null; }
 
+// ── Helper : détecte si une URL est un YouTube Short ──────────────────────
+// Utilisé côté renderer (URL toujours fiable ici, contrairement au script
+// injecté dans la page où le DOM Shorts peut ne pas être encore construit).
+function isYouTubeShort(url) {
+    if (!url || typeof url !== 'string') return false;
+    try {
+        const u = new URL(url);
+        return (u.hostname === 'www.youtube.com' || u.hostname === 'youtube.com')
+            && u.pathname.startsWith('/shorts/');
+    } catch (_) { return false; }
+}
+
 // ── Injection de l'executor ────────────────────────────────────────────────
 // Appelée depuis dom-ready. Réinitialise les flags de page SANS mettre
 // __dualviewExecutorReady à false avant de ré-injecter — cela éviterait
@@ -150,46 +162,73 @@ function injectExecutor(wv) {
 // NE touche PAS __dualviewExecutorReady : le script le gère lui-même.
 function resetPageFlags(wv) {
     wv.executeJavaScript(
+        // __dualviewAutoPauseAborted : annule les retries setTimeout en vol
+        // (evite qu'un doPause() lance sur la page suivante apres navigation rapide).
+        'window.__dualviewAutoPauseAborted=true;' +
         'window.__dualviewAutoPauseDone=false;' +
         'window.__dualviewObserverActive=false;' +
         'window.__dualviewExecutorReady=false;' +
         'window.__dualviewAutoMuteEnabled=' + autoMutePortrait + ';' +
+        // Remettre à false pour que le prochain AUTO_PAUSE_SCRIPT puisse s'exécuter
+        'window.__dualviewAutoPauseAborted=false;' +
         'true;'
     ).catch(() => { });
 }
 
 // ── Listeners de webview ───────────────────────────────────────────────────
 function attachWebviewListeners(wv, tabId) {
+    let _safetyTimer = null;  // référence au timer de sécurité, pour annulation
+
     wv.addEventListener('dom-ready', () => {
+        // Annuler le timer précédent si une nouvelle dom-ready arrive
+        // (navigation rapide) avant que le timer ait tiré.
+        if (_safetyTimer) { clearTimeout(_safetyTimer); _safetyTimer = null; }
+
+        const currentUrl = (() => { try { return wv.getURL(); } catch (_) { return ''; } })();
+
         // 1. Réinitialiser les flags (nouvelle page = nouvel executor)
         resetPageFlags(wv);
         // 2. Réinitialiser le dismiss du bouton remute
         resetRemuteDismiss();
         // 3. Injecter l'executor (garde interne : sort si déjà présent)
         injectExecutor(wv);
-        // 4. Pause auto YouTube
-        wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+        // 4. Pause auto YouTube — exclure les Shorts (détection côté renderer,
+        //    plus fiable que le test DOM/URL injecté dans la page).
+        if (!isYouTubeShort(currentUrl)) {
+            wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+        }
         // 5. Filet de sécurité à 3s (pages lentes ou SPAs)
-        setTimeout(() => {
+        _safetyTimer = setTimeout(() => {
+            _safetyTimer = null;
             if (!webviewPool.has(tabId)) return;
             injectExecutor(wv);
-            wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+            const urlNow = (() => { try { return wv.getURL(); } catch (_) { return ''; } })();
+            if (!isYouTubeShort(urlNow)) {
+                wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+            }
         }, 3000);
     });
 
     // SPA navigation (YouTube, etc.) : dom-ready ne se redéclenche pas
-    wv.addEventListener('did-navigate-in-page', () => {
+    wv.addEventListener('did-navigate-in-page', (e) => {
         resetPageFlags(wv);
         resetRemuteDismiss();
         injectExecutor(wv);
-        wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+        // e.url contient la nouvelle URL SPA — fiable ici
+        if (!isYouTubeShort(e.url)) {
+            wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+        }
     });
 
-    // Navigation complète : même chose
-    wv.addEventListener('did-navigate', () => {
+    // Navigation complète : même chose + AUTO_PAUSE (nouvelle vraie page)
+    wv.addEventListener('did-navigate', (e) => {
+        if (_safetyTimer) { clearTimeout(_safetyTimer); _safetyTimer = null; }
         resetPageFlags(wv);
         resetRemuteDismiss();
         injectExecutor(wv);
+        if (!isYouTubeShort(e.url)) {
+            wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
+        }
     });
 }
 

@@ -7,6 +7,28 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.4.6] — 2025
+
+### Corrigé
+- **`AUTO_PAUSE_SCRIPT` landscape ne pausait pas sans pub** : le flag `__dualviewAutoPauseDone` était posé avant même de trouver la vidéo, bloquant tous les retries si le player YouTube n'était pas encore dans le DOM (`landscape-webview.js`)
+- **`AUTO_PAUSE_SCRIPT` landscape pas déclenché immédiatement** : ajout d'un appel `injectAutoPause` au `dom-ready` (en plus des timers à 2s et 5s existants) — couvre les rechargements où le player est déjà présent (`landscape-views.js`)
+- **`AUTO_PAUSE_SCRIPT` pausait les YouTube Shorts dans portrait** : la détection Shorts déplacée côté renderer Electron (`isYouTubeShort(url)` sur `wv.getURL()` / `e.url`) — toujours fiable vs `location.href` dans le script injecté qui peut être périmé lors des navigations SPA (`portrait-app.js`)
+- **Retries `AUTO_PAUSE_SCRIPT` portrait orphelins** : ajout du flag `__dualviewAutoPauseAborted` dans `resetPageFlags()` pour couper les `setTimeout` en vol lors d'une navigation rapide (`portrait-app.js`, `portrait-webview.js`)
+- **`MaxListenersExceededWarning`** : timer de sécurité portrait stocké et annulé (`clearTimeout`) à chaque nouveau `dom-ready` ou `did-navigate` pour éviter l'accumulation de listeners `did-stop-loading` (`portrait-app.js`)
+- **Thème portrait au démarrage** : `backgroundColor` portrait hardcodé `#ffffff` remplacé par `getTheme()` ; `initialTheme` exposé via `contextBridge` (synchrone) pour éviter le flash de fond quand l'OS est sombre mais le thème sauvegardé est clair (`main.js`, `preload-landscape.js`, `preload-view.js`, `landscape-ui.js`, `portrait-app.js`)
+
+### Modifié
+- `src/renderer/js/landscape-webview.js` : `AUTO_PAUSE_SCRIPT` — flag `__dualviewAutoPauseDone` posé uniquement quand la vidéo est trouvée ; guard Shorts ajouté dans `injectAutoPause`
+- `src/renderer/js/landscape-views.js` : `injectAutoPause` appelée immédiatement en `dom-ready`
+- `src/renderer/js/portrait-app.js` : helper `isYouTubeShort(url)` ; guard côté renderer avant injection `AUTO_PAUSE_SCRIPT` dans les 3 événements (`dom-ready`, `did-navigate-in-page`, `did-navigate`) ; timer de sécurité annulable ; `resetPageFlags` étendu avec `__dualviewAutoPauseAborted` ; thème initial synchrone
+- `src/renderer/js/portrait-webview.js` : `AUTO_PAUSE_SCRIPT` simplifié — détection Shorts réduite à un filet URL minimal (garde primaire déplacée dans `portrait-app.js`) ; support `__dualviewAutoPauseAborted`
+- `src/preload/preload-landscape.js` : `initialTheme` exposé via `contextBridge`
+- `src/preload/preload-view.js` : `initialTheme` exposé via `contextBridge`
+- `src/renderer/js/landscape-ui.js` : application synchrone de `initialTheme` avant tout rendu
+- `src/main.js` : `backgroundColor` des deux fenêtres basé sur `getTheme()` ; `--initial-theme` passé via `additionalArguments`
+
+---
+
 ## [0.4.5] — 2025
 
 ### Ajouté
