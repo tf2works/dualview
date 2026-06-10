@@ -75,6 +75,8 @@ Mettez n'importe quelle page en favori d'un simple clic sur l'étoile ★ dans l
 
 ---
 
+## Nouveautés v0.4.6
+
 ### 🔧 Refactoring open source — découpage de `main.js`
 `main.js` passe de **1 323 à 815 lignes (−38%)** par extraction de 4 modules dans `src/core/` :
 
@@ -334,7 +336,7 @@ URL du dock, token).
 
 ### Services connectés
 Connexion aux services web depuis **Paramètres → Services connectés** :
-- 9 services pré-configurés : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam
+- 9 services pré-configurés : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam (+ GitHub et GitLab depuis v0.4.7)
 - Connexion dans une fenêtre dédiée : clés d'accès Windows Hello, FIDO2, email/mot de passe fonctionnels
 - URL personnalisée avec bouton "J'ai terminé" + confirmation
 - Détection automatique de connexion par cookies
@@ -407,6 +409,7 @@ ajoutez un dock de navigateur personnalisé dans OBS, et chargez le script Lua
 | Onglets & URLs | idem |
 | Paramètres & Services | idem |
 | **Historique de navigation** | `%APPDATA%\DualView\history.json` |
+| **Favoris** | `%APPDATA%\DualView\favorites.json` |
 | Cookies sessions | `%APPDATA%\DualView\Partitions\persist_dualview\` |
 
 ---
@@ -465,3 +468,4 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.4.4 | Refactoring open source : séparation CSS/JS landscape et portrait. Restructuration src/ (core/, preload/, renderer/). i18n portrait (option B). CONTRIBUTING.md, CHANGELOG.md, GitHub Actions. |
 | 0.4.5 | Support macOS (.dmg x64+arm64) et Linux (.AppImage + .deb). Script OBS Lua cross-platform. Build CI 3 plateformes. |
 | 0.4.6 | Refactoring `main.js` (1323 → 815 lignes) : extraction de 4 modules core/ (config-manager, url-guard, session-security, context-menu). Fix AUTO_PAUSE_SCRIPT landscape (retries bloqués sans pub). Fix Shorts portrait pausés à tort (garde renderer). Fix retries orphelins + MaxListenersExceededWarning. Fix thème portrait au démarrage (flash de fond). |
+| 0.4.7 | Favoris (★ toolbar + panneau latéral + favorites.json). GitHub et GitLab ajoutés dans Services connectés. Fix services personnalisés non affichés (enregistrement immédiat via add-custom-service). Fix `getSettings` portrait manquant. Fix canal `language-changed` non reçu par portrait. Fix MaxListenersExceededWarning sur webviews du pool et authWin. |
