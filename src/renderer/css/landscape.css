@@ -1,6 +1,6 @@
 /*
  * DualView - Styles fenêtre paysage
- * Version: 0.4.3
+ * Version: 0.4.7
  *
  * Thèmes : light (défaut) et dark ([data-theme="dark"])
  * Variables CSS : voir :root et [data-theme="dark"]
@@ -17,6 +17,7 @@
  *   - Settings panel (#settings-panel, .s-*)
  *   - Services connectés (.svc-*)
  *   - Historique (#history-panel, .hist-*)
+ *   - Favoris (#favorites-panel, .fav-*, #favorite-btn)
  *   - Dropdown nav historique (#nav-history-dropdown)
  *   - Screenshot (#screenshot-btn)
  *   - Omnibar (#omnibar-dropdown, .omni-*)
@@ -1797,3 +1798,186 @@ body.dev-mode #dev-btn {
     .restart-confirm:hover {
         background: var(--accent-h)
     }
+
+/* ── Bouton étoile favoris (v0.4.7) ── */
+#favorite-btn {
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    color: var(--fg-muted);
+    line-height: 1
+}
+
+#favorite-btn.fav-btn-inactive {
+    color: var(--fg-muted);
+    border-color: var(--border);
+    background: none
+}
+
+#favorite-btn.fav-btn-inactive:hover {
+    background: rgba(230,126,0,0.08);
+    color: var(--orange);
+    border-color: var(--orange)
+}
+
+#favorite-btn.fav-btn-active {
+    color: var(--orange);
+    border-color: var(--orange);
+    background: rgba(230,126,0,0.12)
+}
+
+#favorite-btn.fav-btn-active:hover {
+    background: rgba(230,126,0,0.22)
+}
+
+/* ── Panneau Favoris (v0.4.7) ── */
+#favorites-panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 360px;
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    box-shadow: -4px 0 20px rgba(0,0,0,0.12);
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.22s ease
+}
+
+    #favorites-panel.open {
+        transform: translateX(0)
+    }
+
+#favorites-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0
+}
+
+#favorites-panel-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fg)
+}
+
+#favorites-panel-close {
+    width: 26px; height: 26px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--fg-muted);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.1s, color 0.1s
+}
+    #favorites-panel-close:hover { background: var(--bg-alt); color: var(--danger) }
+
+#favorites-search-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0
+}
+
+#favorites-search-input {
+    flex: 1;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--fg);
+    font-size: 12px;
+    outline: none
+}
+    #favorites-search-input:focus { border-color: var(--accent) }
+
+#favorites-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+    scrollbar-width: thin
+}
+
+#favorites-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 40px 20px;
+    color: var(--fg-muted);
+    font-size: 13px;
+    text-align: center
+}
+
+.fav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 14px;
+    cursor: pointer;
+    transition: background 0.1s
+}
+    .fav-item:hover { background: var(--bg-alt) }
+
+.fav-favicon {
+    font-size: 15px;
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+    color: var(--orange)
+}
+
+.fav-text {
+    flex: 1;
+    min-width: 0
+}
+
+.fav-title {
+    font-size: 12px;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.fav-url {
+    font-size: 10px;
+    color: var(--fg-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.fav-delete-btn {
+    width: 20px; height: 20px;
+    background: none;
+    border: none;
+    color: var(--fg-muted);
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.1s, background 0.1s
+}
+    .fav-item:hover .fav-delete-btn { display: flex }
+    .fav-delete-btn:hover { color: var(--danger); background: rgba(220,53,69,0.1) }

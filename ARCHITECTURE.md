@@ -1,4 +1,4 @@
-# DualView - Architecture v0.4.6
+# DualView - Architecture v0.4.7
 
 ## Vue d'ensemble
 
@@ -32,6 +32,8 @@ main.js
   |     Polling pub YouTube (ad-showing/ad-interrupting) → IPC ad-state
   |     Pause auto vidéos classiques YouTube (dom-ready → retry 200ms)
   |     Dropdown historique ← → : fermeture auto 500ms après unfocus
+  |     Bouton étoile ★ favoris (toolbar) + panneau latéral favoris (v0.4.7)
+  |     setMaxListeners(50) sur chaque webview du pool via did-attach-webview (v0.4.7)
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     Pool de webviews mobile (miroir du pool landscape)
@@ -244,14 +246,15 @@ Niveau 3 — JS (landscape.html, injecté via dom-ready webview)
 
 ---
 
-## Services connectés v0.3.0
+## Services connectés v0.3.0 (mis à jour v0.4.7)
 
 ### Architecture
 ```
 auth-window.js
   |
-  |-- KNOWN_SERVICES : 9 services (Google, Microsoft, Instagram, Facebook,
-  |                    Twitch, TikTok, X/Twitter, Discord, Steam)
+  |-- KNOWN_SERVICES : 11 services (Google, Microsoft, Instagram, Facebook,
+  |                    Twitch, TikTok, X/Twitter, Discord, Steam,
+  |                    GitHub, GitLab)  ← GitHub et GitLab ajoutés v0.4.7
   |
   |-- checkKnownServiceCookies(serviceKey)
   |     → session.cookies.get({ domain })
@@ -268,6 +271,7 @@ auth-window.js
   |     → BrowserWindow indépendante, partition:persist:dualview
   |     → preload: preload-auth.js (neutralise détection Electron)
   |     → UA desktop standard (Chrome)
+  |     → setMaxListeners(50) sur authWin.webContents (v0.4.7)
   |     Services connus :
   |       → Détection fin auth : stratégie A (cookies) + C (URL hors marqueurs)
   |       → Fermeture automatique dès auth confirmée
@@ -275,6 +279,22 @@ auth-window.js
   |       → idem + bouton "J'ai terminé" injecté dans la page
   |       → Stratégie A (cookies génériques) → dialog confirmation
   |       → Confirmation via IPC auth-custom-confirmed
+
+### IPC services personnalisés (v0.4.7)
+  add-custom-service ({ label, url })
+    → Enregistre immédiatement { id, label, url, connected:false } dans
+      settings.customServices AVANT toute tentative de connexion
+    → Garantit la persistance même si la fenêtre d'auth est fermée
+
+  open-auth-window ({ serviceKey, customUrl, customLabel })
+    → Tente la connexion ; met à jour connected:true/false sur l'entrée
+      existante (ne crée plus l'entrée — délégué à add-custom-service)
+
+  delete-custom-service ({ serviceId })
+    → Supprime l'entrée par id
+
+  get-settings ()
+    → Retourne configGet('settings') (utilisé par portrait-app.js)
 ```
 
 ### Anti-détection Electron (preload-auth.js)
@@ -307,7 +327,7 @@ ATTENTION : ne pas installer de handler onBeforeSendHeaders
 
 ```
 dualview/
-|-- package.json              v0.4.4 (build:win / build:mac / build:linux)
+|-- package.json              v0.4.7 (build:win / build:mac / build:linux)
 |-- ARCHITECTURE.md           Ce fichier
 |-- CHANGELOG.md              Historique des versions (Keep a Changelog)
 |-- CONTRIBUTING.md           Guide de contribution (prérequis, branches, PR)
@@ -332,57 +352,71 @@ dualview/
 |       |-- build.yml         CI/CD : build Windows + GitHub Release sur tag v*
 |
 |-- src/
-    |-- main.js               Processus principal v0.4.3
-    |   |                     + IPC vidéo séquencé : video-pause/video-play/video-drift-check
-    |   |                     + Suppression video-timeupdate (remplacé par video-drift-check)
-    |   |                     + Séquençage pause : ①pause ②seek-to +50ms
-    |   |                     + Séquençage play  : ①seek-to ②play +100ms
+    |-- main.js               Processus principal v0.4.7
+    |   |                     + FavoritesManager + 5 IPC favorites-*
+    |   |                     + IPC add-custom-service (enregistrement immédiat)
+    |   |                     + IPC get-settings (portrait-app.js)
+    |   |                     + broadcast language-changed vers portrait
+    |   |                     + setMaxListeners(50) sur webviews pool (did-attach-webview)
     |   |
     |-- core/                 Modules Node.js / Electron Main
     |   |-- auth-window.js    Fenêtres d'authentification (services connectés)
+    |   |                     + setMaxListeners(50) sur authWin.webContents (v0.4.7)
+    |   |                     + KNOWN_SERVICES étendu : GitHub, GitLab (v0.4.7)
+    |   |-- config-manager.js  Config persistante (dualview-config.json)
+    |   |-- favorites-manager.js Favoris persistants (favorites.json) [v0.4.7]
+    |   |                         add / isFavorite / getAll / search / deleteUrl / saveNow
     |   |-- history-manager.js Historique persistant (history.json)
     |   |-- logger.js         Système de debug --dev
     |   |-- obs-control.js    Serveur HTTP + WebSocket OBS (v0.3.2)
+    |   |-- session-security.js Bloqueur pub réseau + permissions
+    |   |-- url-guard.js      sanitizeUrl, isAuthUrl, isLoginPage, detectServiceKey
+    |   |-- context-menu.js   Menu contextuel clic droit natif
     |
     |-- preload/              Scripts de pont IPC (main world → renderer)
     |   |-- preload-auth.js   Anti-détection Electron (authWin)
     |   |-- preload-dev.js    DevTools en mode --dev
-    |   |-- preload-landscape.js  API IPC renderer landscape v0.4.3
-    |   |                         + sendVideoDriftCheck() remplace sendVideoTimeUpdate()
-    |   |-- preload-view.js   API IPC renderer portrait v0.4.3
-    |                         + canal 'video-cmd' : nouvelles actions (seek-to, drift-check)
+    |   |-- preload-landscape.js  API IPC renderer landscape v0.4.7
+    |   |                         + addCustomService() [v0.4.7]
+    |   |                         + favoritesAdd/Remove/Is/GetAll/Search [v0.4.7]
+    |   |-- preload-view.js   API IPC renderer portrait v0.4.7
+    |                         + getSettings() [v0.4.7]
+    |                         + canal 'language-changed' [v0.4.7]
     |
     |-- renderer/             Fichiers chargés par BrowserWindow (UI)
-        |-- landscape.html    Fenêtre paysage v0.4.4
-        |   |                 + CSS externalisé → css/landscape.css
-        |   |                 + JS externalisé  → js/landscape-{i18n,webview,ui,views,tabs,settings,pollers}.js
-        |   |                 + pollVideoState() : sendVideoDriftCheck remplace sendVideoTimeUpdate
-        |   |                 + drift-check envoyé seulement si lecture en cours
+        |-- landscape.html    Fenêtre paysage v0.4.7
+        |   |                 + Bouton #favorite-btn ★ dans toolbar [v0.4.7]
+        |   |                 + Panneau #favorites-panel latéral [v0.4.7]
+        |   |                 + Entrée #menu-favorites dans ⚙️ [v0.4.7]
         |   |
-        |-- portrait.html     Fenêtre portrait v0.4.4
-        |   |                 + CSS externalisé → css/portrait.css
-        |   |                 + JS externalisé  → js/portrait-{i18n,app,webview}.js
-        |   |                 + data-i18n sur tous les textes statiques (option B)
-        |   |
+        |-- portrait.html     Fenêtre portrait
         |-- obs-dock.html     Page dock OBS
         |
         |-- css/
-        |   |-- landscape.css Styles fenêtre paysage (extrait de landscape.html v0.4.3)
-        |                     Thèmes light/dark, composants UI, animations
+        |   |-- landscape.css Styles fenêtre paysage v0.4.7
+        |                     + #favorite-btn (états ☆/★), #favorites-panel, .fav-* [v0.4.7]
         |
         |-- js/
-            |-- landscape-i18n.js    Traductions FR/EN + t() + applyTranslations()
-            |-- landscape-webview.js Scripts injectés dans les webviews (VIDEO_WATCHER,
-            |                        SCROLL_INJECT, AUTO_PAUSE_SCRIPT) + helpers
+            |-- landscape-i18n.js    Traductions FR/EN
+            |                        + clés favorites/favoriteAdded/etc. [v0.4.7]
+            |-- landscape-webview.js Scripts injectés dans les webviews
             |-- landscape-ui.js      État global, sync, thème, toast, nav, menu ⚙️, resize
+            |                        + handler #menu-favorites [v0.4.7]
             |-- landscape-views.js   Pool de webviews + popup login
+            |                        + refreshFavoriteBtnForUrl après did-navigate [v0.4.7]
             |-- landscape-tabs.js    Onglets, navigation URL, omnibar, screenshot
-            |-- landscape-settings.js Paramètres, services connectés, historique,
-            |                         dropdown nav hist, raccourcis, menu contextuel
+            |                        + refreshFavoriteBtnForUrl après switchTab/update-addressbar [v0.4.7]
+            |-- landscape-settings.js Paramètres, services connectés, historique, favoris
+            |                         + panneau favoris complet [v0.4.7]
+            |                         + bouton étoile toggle [v0.4.7]
+            |                         + addCustomService() avant connectService() [v0.4.7]
+            |                         + SERVICE_LABELS : GitHub, GitLab [v0.4.7]
+            |                         + filtre isNowKnownService() anti-doublons [v0.4.7]
             |-- landscape-pollers.js Polling pub/vidéo/scroll + initialisation
-            |-- portrait-i18n.js     Traductions FR/EN portrait + tp() + applyPortraitTranslations()
+            |                        + refreshFavoriteBtnForUrl à l'init [v0.4.7]
+            |-- portrait-i18n.js     Traductions FR/EN portrait
             |-- portrait-app.js      Logique portrait (pool, IPC handlers, remute, init)
-            |-- portrait-webview.js  Scripts injectés portrait (VIDEO_EXECUTOR, AUTO_PAUSE)
+            |-- portrait-webview.js  Scripts injectés portrait
 ```
 
 ### Principe de séparation (open source maintenability)
@@ -403,9 +437,14 @@ dualview/
 %AppData%/DualView/
 |-- dualview-config.json      Configuration (fenêtres, onglets, paramètres)
 |                             settings.autoPauseVideo (v0.4.2)
+|                             settings.customServices [{id,label,url,connected}]
 |-- history.json              Historique de navigation (v0.4.0)
 |                             [{url, title, visitedAt, tabId}, ...]
 |                             Max 5000 entrées, géré par history-manager.js
+|-- favorites.json            Favoris / marque-pages (v0.4.7)
+|                             [{url, title, addedAt}, ...]
+|                             Max 500 entrées, géré par favorites-manager.js
+|                             Sauvegarde différée 2s + flush à window-all-closed
 |-- Partitions/
     |-- persist_dualview/     Cookies et sessions (partition Electron)
 ```
@@ -429,19 +468,24 @@ Session persist:dualview — UN SEUL handler par événement webRequest
 
 ---
 
-## Paramètres v0.4.3 (inchangés depuis v0.4.2)
+## Paramètres v0.4.7
 
 ```
 Clé               | Valeurs                         | Effet
 ------------------|----------------------------------|---------------------------
 restoreTabs       | true / false                     | Prochain démarrage
 autoPauseVideo    | true / false (défaut: true)      | Immédiat (pause auto YouTube)
+autoMutePortrait  | true / false (défaut: true)      | Immédiat (mute portrait)
 homepageMode      | knack3 / custom / empty          | Immédiat
 customHomepageUrl | URL http/https validée           | Immédiat
 newTabMode        | homepage / empty                 | Immédiat
 appearance        | auto / light / dark              | Redémarrage requis
-language          | fr / en                          | Redémarrage requis
-customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
+language          | fr / en                          | Redémarrage requis (portrait: immédiat v0.4.7)
+customServices    | [{id,label,url,connected}]       | Persisté via add-custom-service (v0.4.7)
+searchEngineId    | string                           | Immédiat
+searchEngineUrl   | URL http/https                   | Immédiat
+screenshotDir     | chemin système ou ''             | Immédiat
+portraitPreset    | iphone15 / pixel8 / galaxys24 / ipad | Via modale redimensionnement
 ```
 
 ---
@@ -467,6 +511,7 @@ customServices    | [{id,label,url,connected}]       | Persisté, géré via UI
 | 0.4.3 | Refonte sync vidéo — protocole séquencé anti-boucle. Nouvelles commandes atomiques : pause / seek-to / play / drift-check. IPC video-drift-check remplace video-timeupdate. seek-to conditionnel (uniquement si paused). MutationObserver unique par webview (__dualviewObserverActive). pendingCmd avec TTL 5s. resetPageFlags() séparée de injectExecutor(). load-url : vérification getURL() avant assignation src. |
 | 0.4.5 | Refactoring open source de main.js (1323 → 815 lignes, −38%). Extraction de 4 modules dans core/ : config-manager.js, url-guard.js, session-security.js, context-menu.js. |
 | 0.4.6 | Fix AUTO_PAUSE_SCRIPT landscape (flag posé avant de trouver la vidéo → retries bloqués). Fix AUTO_PAUSE_SCRIPT Shorts portrait (garde primaire déplacée côté renderer Electron, isYouTubeShort). Fix retries orphelins portrait (__dualviewAutoPauseAborted). Fix MaxListenersExceededWarning (timer de sécurité annulable). Fix thème portrait au démarrage (initialTheme via contextBridge, backgroundColor dynamique). |
+| 0.4.7 | **Favoris** : favorites-manager.js (core), favorites.json, bouton ★ toolbar, panneau latéral, entrée ⚙️. **Fix services personnalisés** : add-custom-service IPC (enregistrement immédiat), open-auth-window ne crée plus l'entrée. **GitHub/GitLab** ajoutés dans KNOWN_SERVICES et SERVICE_LABELS. Filtre isNowKnownService() anti-doublons. **Fix portrait** : getSettings() + canal language-changed dans preload-view.js. **Fix MaxListenersExceededWarning** : setMaxListeners(50) sur webviews pool (did-attach-webview) + authWin.webContents. |
 
 ---
 

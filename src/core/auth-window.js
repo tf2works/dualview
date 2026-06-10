@@ -343,6 +343,8 @@ function openAuthWindow(opts) {
 
         // UA desktop identique aux webviews landscape/portrait
         authWin.webContents.setUserAgent(ua);
+        // Éviter MaxListenersExceededWarning (navigations multiples GitHub, etc.)
+        authWin.webContents.setMaxListeners(50);
 
         authWin.once('ready-to-show', () => {
             authWin.show();

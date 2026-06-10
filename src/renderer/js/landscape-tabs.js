@@ -48,6 +48,8 @@ function switchTab(id) {
         document.getElementById('url-input').classList.add('settings-url');
         document.getElementById('go-btn').disabled = true;
         updateNavButtons({ canGoBack: false, canGoForward: false });
+        // Désactiver le bouton étoile sur l'onglet paramètres (v0.4.7)
+        updateFavoriteBtn(false);
         // Notifier main.js → portrait reçoit 'tab-switched' avec SETTINGS_TAB_ID
         // et affiche l'overlay "Personnalisation en cours / stream reprendra"
         window.dualview.switchTab(SETTINGS_TAB_ID);
@@ -74,6 +76,8 @@ function switchTab(id) {
             updateNavButtons({ canGoBack: false, canGoForward: false });
         }
         window.dualview.switchTab(id);
+        // Rafraîchir le bouton étoile favoris (v0.4.7)
+        refreshFavoriteBtnForUrl(tab.url || '');
     }
     renderTabs(); saveTabs(); resetVideoCounters();
 }
@@ -415,6 +419,8 @@ window.dualview.on('update-addressbar', url => {
         try { const host = new URL(url).hostname.replace('www.', ''); tab.title = host.length > 18 ? host.slice(0, 18) + '…' : host; } catch { tab.title = url.slice(0, 20); }
         renderTabs(); saveTabs();
     }
+    // Rafraîchir le bouton étoile favoris (v0.4.7)
+    refreshFavoriteBtnForUrl(url);
 });
 
 window.dualview.on('load-url', url => {
@@ -439,5 +445,3 @@ document.getElementById('screenshot-btn').addEventListener('click', async () => 
         showToast(t('screenshotErr'));
     }
 });
-
-

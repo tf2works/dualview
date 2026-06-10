@@ -116,6 +116,8 @@ function attachWebviewListeners(wv, tabId) {
                 const htab = tabs.find(t => t.id === tabId);
                 window.dualview.historyAdd(e.url, htab ? htab.title : '', tabId);
             }
+            // Rafraîchir le bouton étoile favoris (v0.4.7)
+            if (tabId === activeTabId) refreshFavoriteBtnForUrl(e.url);
             // Pause auto sur navigation complète (vidéo classique ou Short direct)
             // Délai 1.5s : laisser le player YouTube s'initialiser
             if (tabId === activeTabId) setTimeout(() => injectAutoPause(wv), 1500);

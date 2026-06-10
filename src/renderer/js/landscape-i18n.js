@@ -1,6 +1,6 @@
 /*
  * DualView - Traductions interface paysage
- * Version: 0.4.4
+ * Version: 0.4.7
  *
  * Ajouter une langue :
  *   1. Dupliquer le bloc 'en' et lui donner un code ISO (ex. 'de')
@@ -39,8 +39,9 @@ const I18N = {
         languageLabel: "Langue de l'interface", languageDesc: "Langue utilisée pour l'interface DualView.",
         langFr: 'Français', langEn: 'English',
         servicesDesc: 'Connectez-vous à vos services pour naviguer sans interruption.',
-        servicesLoading: 'Vérification des connexions…', servicesCustom: 'Service personnalisé',
+        servicesLoading: 'Vérification des connexions…', servicesCustom: 'Services personnalisés',
         servicesCustomDesc: 'Ajoutez un service non listé.', servicesAddCustom: 'Ajouter un service',
+        servicesAddCustomLabel: 'Ajouter un service personnalisé',
         servicesConnect: 'Connecter', servicesConnected: 'Connecté', servicesNotConnected: 'Non connecté',
         servicesReconnect: 'Se reconnecter', servicesDisconnect: 'Déconnecter',
         servicesConnecting: 'Connexion en cours…', servicesSuccess: 'Connecté avec succès.',
@@ -86,6 +87,13 @@ const I18N = {
         screenshotBrowse: 'Parcourir…',
         screenshotOk: '✓ Captures sauvegardées',
         screenshotErr: 'Erreur lors de la capture.',
+        // v0.4.7
+        favorites: 'Favoris',
+        favoritesEmpty: 'Aucun favori',
+        favoritesEmptyHint: "Cliquez sur l'étoile ★ dans la barre pour ajouter une page.",
+        favoriteAdded: '★ Page ajoutée aux favoris',
+        favoriteRemoved: '☆ Page retirée des favoris',
+        favoriteSearchPlaceholder: 'Rechercher dans les favoris…',
     },
     en: {
         syncActive: 'Sync active', syncPaused: 'Sync paused', syncStarting: 'Sync…',
@@ -113,8 +121,9 @@ const I18N = {
         languageLabel: 'Interface language', languageDesc: 'Language used for the DualView interface.',
         langFr: 'Français', langEn: 'English',
         servicesDesc: 'Sign in to your services to browse without interruption.',
-        servicesLoading: 'Checking connections…', servicesCustom: 'Custom service',
+        servicesLoading: 'Checking connections…', servicesCustom: 'Custom services',
         servicesCustomDesc: 'Add an unlisted service.', servicesAddCustom: 'Add a service',
+        servicesAddCustomLabel: 'Add a custom service',
         servicesConnect: 'Connect', servicesConnected: 'Connected', servicesNotConnected: 'Not connected',
         servicesReconnect: 'Reconnect', servicesDisconnect: 'Disconnect',
         servicesConnecting: 'Connecting…', servicesSuccess: 'Successfully connected.',
@@ -160,6 +169,13 @@ const I18N = {
         screenshotBrowse: 'Browse…',
         screenshotOk: '✓ Screenshots saved',
         screenshotErr: 'Screenshot error.',
+        // v0.4.7
+        favorites: 'Favorites',
+        favoritesEmpty: 'No favorites yet',
+        favoritesEmptyHint: 'Click the ★ star in the toolbar to bookmark a page.',
+        favoriteAdded: '★ Page added to favorites',
+        favoriteRemoved: '☆ Page removed from favorites',
+        favoriteSearchPlaceholder: 'Search favorites…',
     }
 };
 let currentLang = 'fr';

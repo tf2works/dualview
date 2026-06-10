@@ -1,9 +1,13 @@
 /**
  * DualView - Main Process
- * Version: 0.4.5
+ * Version: 0.4.7
  *
- * Changements v0.4.5 :
- * - Refactoring open source : extraction de 4 modules depuis main.js
+ * Changements v0.4.7 :
+ * - Favoris (marque-pages) : core/favorites-manager.js
+ *   → IPC handlers : favorites-add, favorites-remove, favorites-is,
+ *                    favorites-get-all, favorites-search
+ *   → Données : %AppData%/DualView/favorites.json
+ *   → saveNow() à la fermeture (window-all-closed)
  *   → core/config-manager.js  : constantes, loadConfig/saveConfig, configGet/configSet
  *   → core/url-guard.js       : sanitizeUrl, isLoginPage, isAuthUrl, detectServiceKeyFromUrl
  *   → core/session-security.js: bloqueur pub réseau, setupSessionSecurity
@@ -34,9 +38,10 @@ const fs   = require('fs');
 
 // ── Modules core ──────────────────────────────────────────────────────────────
 // Tous les modules métier sont dans src/core/ (même dossier que main.js/core/)
-const logger          = require('./core/logger');
-const obsControl      = require('./core/obs-control');
-const HistoryManager  = require('./core/history-manager');
+const logger            = require('./core/logger');
+const obsControl        = require('./core/obs-control');
+const HistoryManager    = require('./core/history-manager');
+const FavoritesManager  = require('./core/favorites-manager');
 const {
     authWindowEvents,
     checkAllServicesStatus,
@@ -62,6 +67,9 @@ logger.setupIpc();
 // ── Historique de navigation (v0.4.0) ─────────────────────────────────────────
 // app.getPath est disponible avant app.whenReady() sur Electron moderne.
 const history = new HistoryManager(app.getPath('userData'));
+
+// ── Favoris (v0.4.7) ─────────────────────────────────────────────────────────
+const favorites = new FavoritesManager(app.getPath('userData'));
 
 // ── Icône cross-platform ──────────────────────────────────────────────────────
 function getAppIcon() {
@@ -288,6 +296,9 @@ function createLandscapeWindow() {
 
     // ── Interception ouvertures de fenêtre + menu contextuel (v0.4.1) ────────
     landscapeWin.webContents.on('did-attach-webview', (_event, wvContents) => {
+        // Éviter MaxListenersExceededWarning sur les webviews du pool (v0.4.7)
+        wvContents.setMaxListeners(50);
+
         wvContents.setWindowOpenHandler(({ url }) => {
             if (!url || url === 'about:blank') return { action: 'deny' };
             try {
@@ -433,6 +444,13 @@ ipcMain.on('history-delete-url',    (event, { url })  => { if (history) history.
 ipcMain.on('history-clear-all',     ()                => { if (history) history.clearAll(); });
 ipcMain.on('history-clear-tab',     (event, { tabId }) => { if (history) history.clearTab(tabId); });
 
+// ── Favoris (v0.4.7) ─────────────────────────────────────────────────────────
+ipcMain.handle('favorites-add',      (event, { url, title }) => favorites ? favorites.add({ url, title }) : false);
+ipcMain.handle('favorites-remove',   (event, { url })        => { if (favorites) favorites.deleteUrl(url); return true; });
+ipcMain.handle('favorites-is',       (event, { url })        => favorites ? favorites.isFavorite(url)     : false);
+ipcMain.handle('favorites-get-all',  ()                      => favorites ? favorites.getAll()             : []);
+ipcMain.handle('favorites-search',   (event, { query, limit }) => favorites ? favorites.search(query, limit || 100) : []);
+
 // ── Onglets ───────────────────────────────────────────────────────────────────
 ipcMain.on('tab-switched', (event, tabId) => {
     if (typeof tabId !== 'string') return;
@@ -560,22 +578,36 @@ ipcMain.on('login-page-left', (event, { tabId }) => {
 
 // ── Services connectés ────────────────────────────────────────────────────────
 ipcMain.handle('get-connected-services-status', async () => {
-    const knownStatus   = await checkAllServicesStatus();
+    const knownStatus = await checkAllServicesStatus();
     const customServices = configGet('settings.customServices') || [];
     return { known: knownStatus, custom: customServices };
+});
+
+// Enregistre un service personnalisé immédiatement (avant la tentative de connexion)
+ipcMain.handle('add-custom-service', (event, { label, url }) => {
+    if (!label || !url) return { success: false };
+    const customServices = configGet('settings.customServices') || [];
+    const existing = customServices.find(s => s.url === url);
+    if (!existing) {
+        customServices.push({ id: Date.now().toString(), label, url, connected: false });
+        configSet('settings.customServices', customServices);
+    }
+    return { success: true };
 });
 
 ipcMain.handle('open-auth-window', async (event, { serviceKey, customUrl, customLabel }) => {
     const parentWin = BrowserWindow.fromWebContents(event.sender);
     try {
         const success = await openAuthWindow({ serviceKey, customUrl, customLabel, parentWin });
-        if (success && serviceKey === 'custom') {
+        if (serviceKey === 'custom' && customUrl) {
+            // Met à jour uniquement le statut connected ; l'entrée existe déjà (add-custom-service)
             const customServices = configGet('settings.customServices') || [];
             const existing = customServices.find(s => s.url === customUrl);
             if (existing) {
-                existing.connected = true;
+                existing.connected = !!success;
             } else {
-                customServices.push({ id: Date.now().toString(), label: customLabel, url: customUrl, connected: true });
+                // Fallback : créer l'entrée si elle n'existe pas encore
+                customServices.push({ id: Date.now().toString(), label: customLabel || customUrl, url: customUrl, connected: !!success });
             }
             configSet('settings.customServices', customServices);
         }
@@ -629,6 +661,9 @@ ipcMain.handle('get-store', () => ({
     settings:    configGet('settings')    || Object.assign({}, SETTINGS_DEFAULTS),
 }));
 
+// Expose les settings seuls (utilisé par la fenêtre portrait)
+ipcMain.handle('get-settings', () => configGet('settings') || Object.assign({}, SETTINGS_DEFAULTS));
+
 ipcMain.handle('get-auto-mute-portrait', () => {
     const settings = configGet('settings') || {};
     return settings.autoMutePortrait !== false; // défaut true
@@ -675,6 +710,9 @@ ipcMain.on('save-settings', (event, settings) => {
     configSet('settings', current);
     applyAppearance();
     broadcastTheme();
+    if (settings.language !== undefined && portraitWin && !portraitWin.isDestroyed()) {
+        portraitWin.webContents.send('language-changed', current.language);
+    }
     if (settings.autoMutePortrait !== undefined && portraitWin && !portraitWin.isDestroyed()) {
         portraitWin.webContents.send('auto-mute-portrait-changed', current.autoMutePortrait);
     }
@@ -808,7 +846,8 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-    if (history) history.saveNow();
+    if (history)   history.saveNow();
+    if (favorites) favorites.saveNow();
     obsControl.stop();
     if (process.platform !== 'darwin') app.quit();
 });

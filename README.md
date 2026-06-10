@@ -1,4 +1,4 @@
-# DualView v0.4.6
+# DualView v0.4.7
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.4.6.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.4.7.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -33,7 +33,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 ## Barre de navigation
 
 ```
-← → ⟳ 🏠 [url] ▶ 📷 [● Sync] ⚙️
+← → ⟳ 🏠 [url] ▶ ★ 📷 [● Sync] ⚙️
 ```
 
 | Bouton | Fonction |
@@ -43,13 +43,37 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | 🏠 | Page d'accueil |
 | [url] | Barre d'adresse — sélection auto au clic, Échap annule, suggestions omnibar |
 | ▶ | Charger l'URL ou lancer une recherche |
+| ★ | Ajouter / retirer la page des favoris (étoile creuse = non sauvegardé, étoile dorée = favori) |
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
-| ⚙️ | Menu : Redimensionner / Paramètres |
+| ⚙️ | Menu : Redimensionner / Historique / **Favoris** / Paramètres |
 
 ---
 
-## Nouveautés v0.4.6
+## Nouveautés v0.4.7
+
+### ★ Favoris (marque-pages)
+
+Mettez n'importe quelle page en favori d'un simple clic sur l'étoile ★ dans la barre de contrôle.
+
+**Bouton étoile dans la toolbar**
+- ☆ (inactif) → la page n'est pas en favori
+- ★ dorée (actif) → la page est en favori
+- Un clic toggle l'état et affiche un toast de confirmation
+
+**Panneau latéral Favoris**
+- Accessible via ⚙️ → **Favoris** (entrée sous "Historique")
+- Barre de recherche fulltext sur URL et titre
+- Cliquer sur une entrée navigue directement vers cette page
+- Suppression individuelle uniquement (pas de "tout effacer")
+- Fermeture par ✕, touche Échap, ou clic extérieur
+
+**Persistance**
+- Stockés dans `%AppData%/DualView/favorites.json`
+- Maximum 500 favoris (les plus anciens sont retirés si dépassé)
+- Flush immédiat à la fermeture de l'application
+
+---
 
 ### 🔧 Refactoring open source — découpage de `main.js`
 `main.js` passe de **1 323 à 815 lignes (−38%)** par extraction de 4 modules dans `src/core/` :

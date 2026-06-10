@@ -1,6 +1,10 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.4.6
+ * Version: 0.4.7
+ *
+ * Changements v0.4.7 :
+ * - API favoris exposée via contextBridge :
+ *   favoritesAdd, favoritesRemove, favoritesIs, favoritesGetAll, favoritesSearch
  *
  * Changements v0.4.6 :
  * - Fix theme au demarrage : initialTheme expose via contextBridge
@@ -69,6 +73,7 @@ contextBridge.exposeInMainWorld('dualview', {
 
     // ── Services connectés ─────────────────────────────────────
     getConnectedServicesStatus: () => ipcRenderer.invoke('get-connected-services-status'),
+    addCustomService: (label, url) => ipcRenderer.invoke('add-custom-service', { label, url }),
     openAuthWindow: (opts) => ipcRenderer.invoke('open-auth-window', opts),
     disconnectService: (opts) => ipcRenderer.invoke('disconnect-service', opts),
     deleteCustomService: (opts) => ipcRenderer.invoke('delete-custom-service', opts),
@@ -106,6 +111,13 @@ contextBridge.exposeInMainWorld('dualview', {
     historyDeleteUrl: (url) => ipcRenderer.send('history-delete-url', { url }),
     historyClearAll: () => ipcRenderer.send('history-clear-all'),
     historyClearTab: (tabId) => ipcRenderer.send('history-clear-tab', { tabId }),
+
+    // ── Favoris (v0.4.7) ──────────────────────────────────────
+    favoritesAdd:    (url, title) => ipcRenderer.invoke('favorites-add',    { url, title }),
+    favoritesRemove: (url)        => ipcRenderer.invoke('favorites-remove',  { url }),
+    favoritesIs:     (url)        => ipcRenderer.invoke('favorites-is',      { url }),
+    favoritesGetAll: ()           => ipcRenderer.invoke('favorites-get-all'),
+    favoritesSearch: (query, limit) => ipcRenderer.invoke('favorites-search', { query, limit }),
 
     // ── Listeners ──────────────────────────────────────────────
     on: (channel, callback) => {

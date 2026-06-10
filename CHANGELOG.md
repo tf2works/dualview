@@ -7,7 +7,59 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.4.6] — 2025
+## [0.4.7] — 2026
+
+### Ajouté
+- **Favoris (marque-pages)** : mise en favori de n'importe quelle page en un clic
+  - Bouton étoile ★ dans la barre de contrôle (entre ▶ et 📷)
+    - ☆ inactif = page non sauvegardée ; ★ dorée = page en favori
+    - Clic = toggle avec toast de confirmation
+    - Mise à jour automatique sur navigation, changement d'onglet, démarrage
+  - Panneau latéral **Favoris** (même UX que l'historique)
+    - Accessible via ⚙️ → **Favoris** (entrée ajoutée sous "Historique")
+    - Barre de recherche fulltext (URL + titre)
+    - Suppression individuelle uniquement — pas de bouton "tout effacer"
+    - Clic sur une entrée → navigation + fermeture du panneau
+    - Fermeture par ✕, Échap ou clic extérieur
+  - Persistance dans `%AppData%/DualView/favorites.json`
+    - Max 500 entrées — FIFO sur les plus anciennes
+    - Sauvegarde différée 2s (batch) + flush immédiat à la fermeture
+  - `src/core/favorites-manager.js` : nouveau module
+  - i18n FR/EN complète (6 nouvelles clés)
+
+- **GitHub et GitLab** ajoutés dans la grille "Services connectés"
+  - `KNOWN_SERVICES` dans `auth-window.js` étendu (GitHub, GitLab)
+  - `SERVICE_ICONS` et `SERVICE_LABELS` dans `landscape-settings.js` mis à jour
+
+- **IPC `add-custom-service`** : enregistre un service personnalisé immédiatement dans `settings.customServices` dès la validation du formulaire, indépendamment du résultat de la connexion
+
+- **IPC `get-settings`** : expose les settings au renderer portrait (`portrait-app.js`)
+
+### Corrigé
+- **Services personnalisés non affichés** : l'entrée n'était créée dans la config que si l'utilisateur confirmait explicitement la popup "J'ai terminé". Fermer la fenêtre d'auth ou annuler la confirmation supprimait le service. Résolu par `add-custom-service` qui persiste l'entrée en amont ; `open-auth-window` met à jour uniquement `connected:true/false`
+- **Services personnalisés devenus services officiels** (ex: GitHub ajouté manuellement avant v0.4.7) : filtre `isNowKnownService(url)` dans `loadServicesStatus()` masque les doublons dans la liste custom sans modifier les données stockées
+- **`TypeError: window.dualview.getSettings is not a function`** (console portrait) : `getSettings` n'était pas exposé dans `preload-view.js`
+- **Canal `language-changed` non reçu par portrait** : canal absent de la liste blanche de `preload-view.js` et jamais émis par `main.js` lors du changement de langue. Les deux lacunes corrigées
+- **`MaxListenersExceededWarning` sur webviews** : `setMaxListeners(50)` ajouté dans `did-attach-webview` pour chaque webview du pool landscape (cause principale) et sur `authWin.webContents` dans `auth-window.js`
+
+### Modifié
+- `src/core/favorites-manager.js` : nouveau module (symétrique à `history-manager.js`)
+- `src/core/auth-window.js` : `setMaxListeners(50)` sur `authWin.webContents` ; GitHub et GitLab dans `KNOWN_SERVICES`
+- `src/main.js` : `FavoritesManager` importé + instancié ; 5 IPC `favorites-*` ; `favorites.saveNow()` à `window-all-closed` ; `add-custom-service` ; `get-settings` ; broadcast `language-changed` vers portrait ; `setMaxListeners(50)` sur webviews via `did-attach-webview` ; `open-auth-window` refactorisé (ne crée plus l'entrée)
+- `src/preload/preload-landscape.js` : `addCustomService()` + 5 API `favorites*`
+- `src/preload/preload-view.js` : `getSettings()` + canal `'language-changed'`
+- `src/renderer/landscape.html` : bouton `#favorite-btn`, panneau `#favorites-panel`, entrée `#menu-favorites` dans ⚙️, section `#svc-custom-section` (services perso séparés du formulaire)
+- `src/renderer/css/landscape.css` : styles `#favorite-btn` (☆/★), `#favorites-panel`, `.fav-*`
+- `src/renderer/js/landscape-i18n.js` : 6 nouvelles clés FR/EN (`favorites`, `favoritesEmpty`, `favoritesEmptyHint`, `favoriteAdded`, `favoriteRemoved`, `servicesAddCustomLabel`) ; `servicesCustom` mis au pluriel
+- `src/renderer/js/landscape-ui.js` : handler `#menu-favorites`
+- `src/renderer/js/landscape-settings.js` : panneau favoris complet (`openFavoritesPanel`, `closeFavoritesPanel`, `renderFavoritesList`, `updateFavoriteBtn`, `refreshFavoriteBtnForUrl`, toggle étoile) ; `addCustomService()` appelé avant `connectService()` ; `SERVICE_ICONS/LABELS` + GitHub/GitLab ; `isNowKnownService()` filtre anti-doublons ; `#svc-custom-section` visible si ≥ 1 service perso
+- `src/renderer/js/landscape-views.js` : `refreshFavoriteBtnForUrl()` après `did-navigate`
+- `src/renderer/js/landscape-tabs.js` : `refreshFavoriteBtnForUrl()` après `switchTab` et `update-addressbar` ; `updateFavoriteBtn(false)` sur onglet paramètres
+- `src/renderer/js/landscape-pollers.js` : `refreshFavoriteBtnForUrl()` à l'initialisation
+
+---
+
+## [0.4.6] — 2026
 
 ### Corrigé
 - **`AUTO_PAUSE_SCRIPT` landscape ne pausait pas sans pub** : le flag `__dualviewAutoPauseDone` était posé avant même de trouver la vidéo, bloquant tous les retries si le player YouTube n'était pas encore dans le DOM (`landscape-webview.js`)
@@ -29,7 +81,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.4.5] — 2025
+## [0.4.5] — 2026
 
 ### Ajouté
 - **Support macOS** : build `.dmg` (x64 + arm64), icône `.icns`, lifecycle `activate` + `window-all-closed` macOS-compatible
@@ -48,7 +100,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.4.4] — 2025
+## [0.4.4] — 2026
 
 ### Ajouté
 - Support **macOS** : build `.dmg` (x64 + arm64), cible `electron-builder` configurée
@@ -90,7 +142,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.4.3] — 2025
+## [0.4.3] — 2026
 
 ### Corrigé
 - **Boucle vidéo YouTube** : la vidéo portrait ne tourne plus en boucle sur les premières secondes au lancement, après une pause, ou après repositionnement de la timeline
@@ -109,7 +161,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.4.2] — 2025
+## [0.4.2] — 2026
 
 ### Ajouté
 - **Pause automatique YouTube** : vidéos classiques pausées au chargement dans les deux fenêtres (option désactivable dans Paramètres → Général)
@@ -124,7 +176,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.4.1] — 2025
+## [0.4.1] — 2026
 
 ### Ajouté
 - **Raccourcis clavier** : `Alt+←/→` (nav), `F5`/`Ctrl+R` (recharge), `Ctrl+T/W` (onglets), `Ctrl+Tab`, `Ctrl+L`/`F6` (barre d'adresse)
@@ -134,7 +186,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.4.0] — 2025
+## [0.4.0] — 2026
 
 ### Ajouté
 - **Redimensionnement Portrait repensé** : modale ⚙️ → Redimensionner avec préréglages (iPhone 15, Pixel 8, Galaxy S24, iPad) + taille libre (contour orange). Le bouton ✅ de toolbar est supprimé.
@@ -146,7 +198,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.3.2] — 2025
+## [0.3.2] — 2026
 
 ### Ajouté
 - **Intégration OBS** : serveur local HTTP+WebSocket (`127.0.0.1`, protégé par token)
@@ -156,7 +208,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.3.1] — 2025
+## [0.3.1] — 2026
 
 ### Corrigé
 - Fix cookies portrait (partition partagée)
@@ -171,7 +223,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.3.0] — 2025
+## [0.3.0] — 2026
 
 ### Ajouté
 - **Services connectés** : 9 services pré-configurés (Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam) + URL personnalisée
@@ -183,14 +235,14 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.2.6] — 2025
+## [0.2.6] — 2026
 
 ### Ajouté
 - **Pool de webviews** : switch d'onglet sans rechargement, état préservé en mémoire
 
 ---
 
-## [0.2.5] — 2025
+## [0.2.5] — 2026
 
 ### Ajouté
 - Sécurité : permissions bloquées (caméra, micro, géoloc, notifications)
@@ -200,7 +252,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.2.4] — 2025
+## [0.2.4] — 2026
 
 ### Modifié
 - Contrôle intégré dans la fenêtre Paysage (plus de fenêtre séparée)
@@ -208,14 +260,14 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.2.3] — 2025
+## [0.2.3] — 2026
 
 ### Corrigé
 - Fix sync vidéo
 
 ---
 
-## [0.2.2] — 2025
+## [0.2.2] — 2026
 
 ### Corrigé
 - Fix bloqueur de publicités
@@ -223,7 +275,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.2.1] — 2025
+## [0.2.1] — 2026
 
 ### Ajouté
 - Bloqueur de publicités (liste de domaines)
@@ -231,7 +283,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.2.0] — 2025
+## [0.2.0] — 2026
 
 ### Ajouté
 - Synchronisation vidéo (play/pause/seek)
@@ -239,7 +291,7 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
-## [0.1.0] — 2025
+## [0.1.0] — 2026
 
 ### Ajouté
 - Version initiale

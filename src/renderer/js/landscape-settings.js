@@ -1,11 +1,11 @@
 /*
- * DualView - Paramètres, services connectés, historique
- * Version: 0.4.4
+ * DualView - Paramètres, services connectés, historique, favoris
+ * Version: 0.4.7
  *
  * Moteurs de recherche personnalisés, intégration OBS (settings),
  * chargement/sauvegarde des paramètres, services connectés,
- * panneau historique, dropdown historique ←→,
- * raccourcis clavier, boutons souris, menu contextuel.
+ * panneau historique, panneau favoris, bouton étoile favoris,
+ * dropdown nav hist, raccourcis clavier, boutons souris, menu contextuel.
  *
  * Dépendances : landscape-i18n.js, landscape-ui.js, landscape-tabs.js
  */
@@ -283,9 +283,15 @@ async function loadServicesStatus() {
     }
 
     // Services personnalisés
+    const customSection = document.getElementById('svc-custom-section');
     const customList = document.getElementById('svc-custom-list');
     customList.innerHTML = '';
-    for (const svc of (custom || [])) {
+    const customServices = custom || [];
+
+    // Afficher la section uniquement si au moins un service personnalisé existe
+    customSection.style.display = customServices.length > 0 ? 'block' : 'none';
+
+    for (const svc of customServices) {
         const connected = svc.connected === true;
         const item = document.createElement('div');
         item.className = 'svc-tile' + (connected ? ' connected' : '');
@@ -444,6 +450,163 @@ function closeHistoryPanel() {
 document.addEventListener('click', (e) => {
     if (historyOpen && !historyPanel.contains(e.target) && e.target.id !== 'menu-history') {
         closeHistoryPanel();
+    }
+    if (favoritesOpen && !favoritesPanel.contains(e.target) &&
+        e.target.id !== 'menu-favorites' && e.target.id !== 'favorite-btn') {
+        closeFavoritesPanel();
+    }
+});
+
+// ── Panneau Favoris (v0.4.7) ──────────────────────────────────────────────────
+const favoritesPanel      = document.getElementById('favorites-panel');
+const favoritesList       = document.getElementById('favorites-list');
+const favoritesEmpty      = document.getElementById('favorites-empty');
+const favSearchInput      = document.getElementById('favorites-search-input');
+const favoriteBtn         = document.getElementById('favorite-btn');
+let favoritesOpen         = false;
+let favSearchTimer        = null;
+
+document.getElementById('favorites-panel-close').addEventListener('click', closeFavoritesPanel);
+
+favSearchInput.addEventListener('input', () => {
+    clearTimeout(favSearchTimer);
+    favSearchTimer = setTimeout(async () => {
+        const q = favSearchInput.value.trim();
+        const results = await window.dualview.favoritesSearch(q, 200);
+        renderFavoritesList(results);
+    }, 200);
+});
+
+async function openFavoritesPanel() {
+    favoritesOpen = true;
+    favoritesPanel.classList.add('open');
+    favSearchInput.value = '';
+    const entries = await window.dualview.favoritesGetAll();
+    renderFavoritesList(entries);
+    setTimeout(() => favSearchInput.focus(), 250);
+}
+
+function closeFavoritesPanel() {
+    favoritesOpen = false;
+    favoritesPanel.classList.remove('open');
+}
+
+/**
+ * Affiche la liste des favoris dans le panneau.
+ */
+function renderFavoritesList(entries) {
+    favoritesList.innerHTML = '';
+    favoritesList.appendChild(favoritesEmpty);
+
+    if (!entries || entries.length === 0) {
+        favoritesEmpty.style.display = 'flex';
+        return;
+    }
+    favoritesEmpty.style.display = 'none';
+
+    entries.forEach(entry => {
+        const item = document.createElement('div');
+        item.className = 'fav-item';
+
+        const favicon = document.createElement('span');
+        favicon.className = 'fav-favicon';
+        favicon.textContent = '★';
+
+        const text = document.createElement('div');
+        text.className = 'fav-text';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'fav-title';
+        titleEl.textContent = entry.title || entry.url;
+        titleEl.title = entry.url;
+
+        const urlEl = document.createElement('div');
+        urlEl.className = 'fav-url';
+        urlEl.textContent = entry.url;
+
+        text.appendChild(titleEl);
+        text.appendChild(urlEl);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'fav-delete-btn';
+        delBtn.title = 'Retirer des favoris';
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await window.dualview.favoritesRemove(entry.url);
+            item.remove();
+            // Rafraîchir le bouton étoile si l'URL retirée est la page courante
+            const currentUrl = document.getElementById('url-input').value;
+            if (currentUrl && currentUrl === entry.url) {
+                updateFavoriteBtn(false);
+            }
+            // Mettre à jour l'empty state
+            if (!favoritesList.querySelector('.fav-item')) {
+                favoritesEmpty.style.display = 'flex';
+            }
+        });
+
+        item.appendChild(favicon);
+        item.appendChild(text);
+        item.appendChild(delBtn);
+
+        // Clic sur l'item → naviguer
+        item.addEventListener('click', () => {
+            navigate(entry.url);
+            closeFavoritesPanel();
+        });
+
+        favoritesList.appendChild(item);
+    });
+}
+
+// ── Bouton étoile dans la barre (v0.4.7) ─────────────────────────────────────
+/**
+ * Met à jour l'état visuel du bouton étoile.
+ * @param {boolean} isFav
+ */
+function updateFavoriteBtn(isFav) {
+    if (!favoriteBtn) return;
+    favoriteBtn.classList.toggle('fav-btn-active',   isFav);
+    favoriteBtn.classList.toggle('fav-btn-inactive', !isFav);
+    favoriteBtn.title = isFav ? '★ Retirer des favoris' : '☆ Ajouter aux favoris';
+}
+
+/**
+ * Vérifie si l'URL courante est en favori et met à jour le bouton.
+ * @param {string} url
+ */
+async function refreshFavoriteBtnForUrl(url) {
+    if (!url || url === 'about:blank' || url.startsWith('dualview://')) {
+        updateFavoriteBtn(false);
+        return;
+    }
+    const isFav = await window.dualview.favoritesIs(url);
+    updateFavoriteBtn(!!isFav);
+}
+
+// Clic sur le bouton étoile : toggle favori
+favoriteBtn.addEventListener('click', async () => {
+    const url = document.getElementById('url-input').value;
+    if (!url || url === 'about:blank' || url.startsWith('dualview://')) return;
+
+    const isFav = favoriteBtn.classList.contains('fav-btn-active');
+    if (isFav) {
+        await window.dualview.favoritesRemove(url);
+        updateFavoriteBtn(false);
+        showToast(t('favoriteRemoved'));
+    } else {
+        // Récupérer le titre depuis l'onglet actif
+        const tab = typeof tabs !== 'undefined' ? tabs.find(tb => tb.id === activeTabId) : null;
+        const title = (tab && tab.title) ? tab.title : '';
+        await window.dualview.favoritesAdd(url, title);
+        updateFavoriteBtn(true);
+        showToast(t('favoriteAdded'));
+    }
+    // Rafraîchir le panneau s'il est ouvert
+    if (favoritesOpen) {
+        const entries = await window.dualview.favoritesGetAll();
+        renderFavoritesList(entries);
     }
 });
 
@@ -812,6 +975,7 @@ document.addEventListener('keydown', (e) => {
         syncMenu.classList.remove('open');
         closeNavHistDropdown();
         closeHistoryPanel();
+        closeFavoritesPanel();
         return;
     }
 
@@ -898,4 +1062,3 @@ window.dualview.on('context-menu-action', ({ action, url, text, x, y }) => {
             break;
     }
 });
-

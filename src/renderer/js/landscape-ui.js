@@ -187,6 +187,7 @@ gearBtn.addEventListener('click', e => { e.stopPropagation(); gearMenu.classList
 gearMenu.addEventListener('click', e => e.stopPropagation());
 document.getElementById('menu-resize').addEventListener('click', () => { gearMenu.classList.remove('open'); startResizeMode(); });
 document.getElementById('menu-history').addEventListener('click', () => { gearMenu.classList.remove('open'); openHistoryPanel(); });
+document.getElementById('menu-favorites').addEventListener('click', () => { gearMenu.classList.remove('open'); openFavoritesPanel(); });
 document.getElementById('menu-settings').addEventListener('click', () => { gearMenu.classList.remove('open'); openSettingsTab(); });
 
 // ── Mode redimensionnement v0.4.0 ──────────────────────────────────────────────

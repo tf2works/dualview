@@ -198,7 +198,11 @@ window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings }) => {
     }
     showWebview(activeTabId);
     const activeTab = tabs.find(t => t.id === activeTabId);
-    if (activeTab && activeTab.url) document.getElementById('url-input').value = activeTab.url;
+    if (activeTab && activeTab.url) {
+        document.getElementById('url-input').value = activeTab.url;
+        // Initialiser le bouton étoile favoris (v0.4.7)
+        refreshFavoriteBtnForUrl(activeTab.url);
+    }
     window.dualview.switchTab(activeTabId);
     renderTabs();
 });

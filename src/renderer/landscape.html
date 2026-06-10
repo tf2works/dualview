@@ -22,6 +22,7 @@
         </div>
         <button id="go-btn" title="▶">&#9654;</button>
         <button id="resume-btn" title="✅" style="display:none">&#9989;</button>
+        <button id="favorite-btn" title="☆ Ajouter aux favoris" class="fav-btn-inactive">&#9733;</button>
         <button id="screenshot-btn" title="📷 Capturer les deux vues">&#128247;</button>
 
         <!-- Bouton sync -->
@@ -63,6 +64,10 @@
                 <span>&#128336;</span>
                 <span data-i18n="history">Historique</span>
             </div>
+            <div class="gear-item" id="menu-favorites">
+                <span>&#9733;</span>
+                <span data-i18n="favorites">Favoris</span>
+            </div>
             <div class="gear-separator"></div>
             <div class="gear-item" id="menu-settings">
                 <span>&#9881;</span>
@@ -73,7 +78,7 @@
 
     <div id="status-bar">
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
-        <span id="version-label">v0.4.0</span>
+        <span id="version-label">v0.4.7</span>
         <button id="dev-btn" title="Inspecter webview active (Ctrl+F12)">🔧 DEV</button>
     </div>
 
@@ -286,8 +291,17 @@
                 <div class="s-desc" data-i18n="servicesDesc">Connectez-vous à vos services pour naviguer sans interruption.</div>
                 <div id="svc-loading" class="svc-loading"><div class="spinner"></div><span data-i18n="servicesLoading">Vérification des connexions…</span></div>
                 <div id="svc-grid" class="svc-grid" style="display:none"></div>
+
+                <!-- Liste des services personnalisés déjà ajoutés (affichée si ≥ 1 entrée) -->
+                <div id="svc-custom-section" style="display:none">
+                    <div class="s-divider"></div>
+                    <div class="s-label" data-i18n="servicesCustom">Services personnalisés</div>
+                    <div id="svc-custom-list"></div>
+                </div>
+
+                <!-- Formulaire d'ajout d'un service personnalisé -->
                 <div class="s-divider"></div>
-                <div class="s-label" data-i18n="servicesCustom">Service personnalisé</div>
+                <div class="s-label" data-i18n="servicesAddCustomLabel">Ajouter un service personnalisé</div>
                 <div class="s-desc" data-i18n="servicesCustomDesc">Ajoutez un service non listé.</div>
                 <div id="svc-custom-list"></div>
                 <div class="svc-custom-add" id="svc-add-custom-btn">
@@ -405,6 +419,24 @@
                 <span style="font-size:32px">🕐</span>
                 <span>Aucun historique</span>
                 <span style="font-size:11px;color:var(--fg-muted)">Les pages que vous visitez apparaîtront ici.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panneau Favoris (v0.4.7) -->
+    <div id="favorites-panel">
+        <div id="favorites-panel-header">
+            <span id="favorites-panel-title">★ Favoris</span>
+            <button id="favorites-panel-close" title="Fermer">✕</button>
+        </div>
+        <div id="favorites-search-row">
+            <input type="text" id="favorites-search-input" placeholder="Rechercher dans les favoris…" autocomplete="off" spellcheck="false" />
+        </div>
+        <div id="favorites-list">
+            <div id="favorites-empty" style="display:none">
+                <span style="font-size:32px">★</span>
+                <span data-i18n="favoritesEmpty">Aucun favori</span>
+                <span style="font-size:11px;color:var(--fg-muted)" data-i18n="favoritesEmptyHint">Cliquez sur l'étoile ★ dans la barre pour ajouter une page.</span>
             </div>
         </div>
     </div>

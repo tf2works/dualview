@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('dualview', {
     getTheme: () => ipcRenderer.invoke('get-theme'),
     getSyncState: () => ipcRenderer.invoke('get-sync-state'),
     getAutoMutePortrait: () => ipcRenderer.invoke('get-auto-mute-portrait'),
+    getSettings: () => ipcRenderer.invoke('get-settings'),
 
     on: (channel, callback) => {
         const valid = [
@@ -42,6 +43,7 @@ contextBridge.exposeInMainWorld('dualview', {
             'sync-state-changed', 'show-login-popup', 'login-page-cleared', 'sync-resume-state',
             'ad-state',
             'auto-mute-portrait-changed',
+            'language-changed',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));
