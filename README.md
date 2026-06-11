@@ -1,4 +1,4 @@
-# DualView v0.4.7
+# DualView v0.5.0
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -13,7 +13,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.4.7.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.5.0.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -46,7 +46,71 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 | ★ | Ajouter / retirer la page des favoris (étoile creuse = non sauvegardé, étoile dorée = favori) |
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
-| ⚙️ | Menu : Redimensionner / Historique / **Favoris** / Paramètres |
+| ⚙️ | Menu : Redimensionner / Historique / Favoris / **Rouvrir le portrait** / Paramètres |
+
+**Raccourcis clavier**
+
+| Raccourci | Fonction |
+|-----------|----------|
+| `Ctrl+Shift+H` ou `F11` | Activer / désactiver le **Mode Focus** (masque la toolbar) |
+| `Alt+←` / `Alt+→` | Navigation Retour / Avance |
+| `F5` / `Ctrl+R` | Recharger |
+| `Ctrl+T` / `Ctrl+W` | Nouvel onglet / Fermer l'onglet actif |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Onglet suivant / précédent |
+| `Ctrl+L` / `F6` | Focus sur la barre d'adresse |
+
+---
+
+## Nouveautés v0.5.0
+
+### 🎭 Mode Focus — masquer la toolbar
+
+Appuyez sur **`Ctrl+Shift+H`** ou **`F11`** pour masquer la toolbar et maximiser
+la zone de capture OBS. La toolbar reste accessible sans quitter le mode :
+
+- **Survol du bord supérieur** (bande invisible de 8 px) : la toolbar réapparaît 2 secondes
+- **Déplacer la souris sur la toolbar** : elle reste visible tant que la souris y est
+- Un **badge discret** en bas à droite confirme l'activation (disparaît après 2 s)
+- Même raccourci pour désactiver
+
+---
+
+### 🌐 Top 10 domaines sur onglet vide
+
+Quand "Paramètres → Général → Nouveaux onglets" est réglé sur **"Page vide"**,
+les onglets vides affichent automatiquement vos sites les plus fréquentés :
+
+- Jusqu'à **10 domaines** classés par nombre de visites (toutes sessions confondues)
+- Si moins de 10 domaines dans l'historique, affiche le maximum disponible
+- Aucun doublon (normalisé par hostname, `www.` ignoré)
+- Favicon de chaque site avec fallback sur l'initiale du domaine
+- **Visible dans les deux fenêtres** — landscape et portrait affichent la même grille
+- Clic → navigation directe dans l'onglet actif
+
+---
+
+### ⚙️ Paramètres simplifiés
+
+Les sections **Apparence** et **Langue** sont désormais intégrées directement dans **Général**.
+La barre latérale des paramètres passe de 6 à 4 entrées :
+
+```
+Avant : Général / Apparence / Langue / Services / Confidentialité / OBS
+Après : Général / Services / Confidentialité / OBS
+```
+
+---
+
+### 🪟 Réouverture de la fenêtre portrait
+
+Si la fenêtre portrait est fermée accidentellement ou volontairement, rouvrez-la
+sans redémarrer DualView :
+
+1. Cliquez sur **⚙️** dans la toolbar paysage
+2. Sélectionnez **"Rouvrir le portrait"** (entrée visible uniquement si portrait fermé)
+3. La fenêtre portrait se rouvre à sa **dernière position et taille connue**
+4. Tous les onglets ouverts dans landscape sont **automatiquement reconstruits**
+   dans le portrait — aucune actualisation manuelle nécessaire
 
 ---
 
@@ -74,8 +138,6 @@ Mettez n'importe quelle page en favori d'un simple clic sur l'étoile ★ dans l
 - Flush immédiat à la fermeture de l'application
 
 ---
-
-## Nouveautés v0.4.6
 
 ### 🔧 Refactoring open source — découpage de `main.js`
 `main.js` passe de **1 323 à 815 lignes (−38%)** par extraction de 4 modules dans `src/core/` :
@@ -336,7 +398,7 @@ URL du dock, token).
 
 ### Services connectés
 Connexion aux services web depuis **Paramètres → Services connectés** :
-- 9 services pré-configurés : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam (+ GitHub et GitLab depuis v0.4.7)
+- 9 services pré-configurés : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam
 - Connexion dans une fenêtre dédiée : clés d'accès Windows Hello, FIDO2, email/mot de passe fonctionnels
 - URL personnalisée avec bouton "J'ai terminé" + confirmation
 - Détection automatique de connexion par cookies
@@ -468,4 +530,5 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.4.4 | Refactoring open source : séparation CSS/JS landscape et portrait. Restructuration src/ (core/, preload/, renderer/). i18n portrait (option B). CONTRIBUTING.md, CHANGELOG.md, GitHub Actions. |
 | 0.4.5 | Support macOS (.dmg x64+arm64) et Linux (.AppImage + .deb). Script OBS Lua cross-platform. Build CI 3 plateformes. |
 | 0.4.6 | Refactoring `main.js` (1323 → 815 lignes) : extraction de 4 modules core/ (config-manager, url-guard, session-security, context-menu). Fix AUTO_PAUSE_SCRIPT landscape (retries bloqués sans pub). Fix Shorts portrait pausés à tort (garde renderer). Fix retries orphelins + MaxListenersExceededWarning. Fix thème portrait au démarrage (flash de fond). |
-| 0.4.7 | Favoris (★ toolbar + panneau latéral + favorites.json). GitHub et GitLab ajoutés dans Services connectés. Fix services personnalisés non affichés (enregistrement immédiat via add-custom-service). Fix `getSettings` portrait manquant. Fix canal `language-changed` non reçu par portrait. Fix MaxListenersExceededWarning sur webviews du pool et authWin. |
+| 0.4.7 | Favoris : favorites-manager.js, bouton ★ toolbar, panneau latéral, entrée ⚙️. Fix services personnalisés (add-custom-service IPC). GitHub/GitLab dans KNOWN_SERVICES. Fix portrait : getSettings() + language-changed. Fix MaxListenersExceededWarning : setMaxListeners(50) webviews pool + authWin. |
+| 0.5.0 | **Mode Focus** Ctrl+Shift+H / F11 (masque toolbar, bande 8px, badge). **Top domaines** sur onglet vide (top 10 par hostname, toutes sessions, paysage + portrait). **Fusion Apparence + Langue dans Général** (nav 4 entrées). **Réouverture portrait** depuis ⚙️ (reconstruction complète pool via dom-ready). Fix canGoBack() avant dom-ready. Fix réouverture portrait : dom-ready vs did-finish-load. |
