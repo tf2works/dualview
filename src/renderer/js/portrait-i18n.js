@@ -43,6 +43,8 @@ const PORTRAIT_I18N = {
         // Overlay pub (HTML statique via data-i18n)
         adTitle:          'Publicité en cours',
         adSub:            'Une publicité est diffusée\ndans la fenêtre paysage.',
+        // Top domaines (v0.5.0)
+        topSitesTitle:    'Sites fréquents',
     },
     en: {
         syncActive:  '● Sync active',
@@ -63,6 +65,8 @@ const PORTRAIT_I18N = {
         remuteActionTitle:'Mute again',
         adTitle:          'Ad playing',
         adSub:            'An ad is playing\nin the landscape window.',
+        // Top domaines (v0.5.0)
+        topSitesTitle:    'Frequently visited',
     }
 };
 

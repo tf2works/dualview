@@ -1026,6 +1026,18 @@ document.addEventListener('keydown', (e) => {
         if (idx !== -1) switchTab(tabs[(idx - 1 + tabs.length) % tabs.length].id);
         return;
     }
+    // Ctrl+Shift+H — Toggle Mode Focus (v0.5.0)
+    if (e.key === 'H' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        setFocusMode(!focusMode);
+        return;
+    }
+    // F11 — Toggle Mode Focus (v0.5.0) — alternative au raccourci principal
+    if (e.key === 'F11') {
+        e.preventDefault();
+        setFocusMode(!focusMode);
+        return;
+    }
 });
 
 // ── Boutons souris Retour/Avance (v0.4.1) ────────────────────────────────

@@ -44,7 +44,7 @@ le numéro de version précédent avant d'en créer un nouveau.
 Le format attendu est `vX.X.X` (ex. `v1.0.0`, `v1.2.0`, `v1.2.10`).
 
 ```bash
-git tag -a vX.X.X -m "DualView vX.X.X"  # ex. : git tag -a v1.0.0 -m "DualView v1.0.0"
+git tag -a vX.X.X -m "Titre personnalisé du tag"  # ex. : git tag -a v1.0.0 -m "Mon titre personnalisé"
 ```
 
 L'option `-a` crée un **tag annoté** (recommandé) : il contient un auteur,

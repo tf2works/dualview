@@ -47,6 +47,8 @@ function showWebview(tabId) {
     const wv = webviewPool.get(tabId);
     const hasUrl = wv && wv.src && wv.src !== 'about:blank';
     emptyState.style.display = hasUrl ? 'none' : 'flex';
+    // Top domaines sur onglet vide (v0.5.0)
+    if (!hasUrl) maybeShowTopSites();
 }
 
 function getActiveWebview() { return webviewPool.get(activeTabId) || null; }

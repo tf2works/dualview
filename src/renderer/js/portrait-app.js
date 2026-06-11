@@ -471,6 +471,52 @@ remuteDismiss.addEventListener('click', () => {
 
 startMuteCheck();
 
+// ── Top domaines — onglet vide portrait (v0.5.0) ──────────────────────────────
+// Reçoit les données précalculées depuis landscape via le canal 'show-topsites'.
+// Un clic navigue via window.dualview.navigate() → main.js → landscape (sync).
+const portraitTopsitesGrid = document.getElementById('topsites-grid');
+
+window.dualview.on('show-topsites', (top10) => {
+    // top10 = [] → effacer la grille et revenir à l'état vide normal
+    if (!top10 || top10.length === 0) {
+        emptyState.classList.remove('has-topsites');
+        portraitTopsitesGrid.innerHTML = '';
+        return;
+    }
+
+    portraitTopsitesGrid.innerHTML = '';
+    for (const [host, count] of top10) {
+        const url = 'https://' + host;
+        const item = document.createElement('div');
+        item.className = 'topsite-item';
+        item.title = host + ' (' + count + ' visite' + (count > 1 ? 's' : '') + ')';
+
+        const faviconUrl = 'https://www.google.com/s2/favicons?domain=' + host + '&sz=64';
+        const faviconDiv = document.createElement('div');
+        faviconDiv.className = 'topsite-favicon';
+        const img = document.createElement('img');
+        img.src = faviconUrl;
+        img.alt = '';
+        img.onerror = () => {
+            faviconDiv.textContent = host.charAt(0).toUpperCase();
+            img.remove();
+        };
+        faviconDiv.appendChild(img);
+
+        const label = document.createElement('div');
+        label.className = 'topsite-label';
+        const parts = host.split('.');
+        label.textContent = parts.length >= 2 ? parts[parts.length - 2] : host;
+
+        item.appendChild(faviconDiv);
+        item.appendChild(label);
+        // Clic → navigate via IPC standard → landscape reçoit et synchronise
+        item.addEventListener('click', () => window.dualview.navigate(url));
+        portraitTopsitesGrid.appendChild(item);
+    }
+    emptyState.classList.add('has-topsites');
+});
+
 // ── Traductions et langue ──────────────────────────────────────────────────────
 // Lire la langue depuis les paramètres landscape et appliquer les traductions
 window.dualview.getSettings().then(s => {

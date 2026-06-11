@@ -367,7 +367,13 @@ function createPortraitWindow() {
         tryScheduleSyncStart();
     });
     portraitWin.on('moved',  () => { const [x, y] = portraitWin.getPosition(); configSet('portraitWindow.x', x); configSet('portraitWindow.y', y); });
-    portraitWin.on('closed', () => { portraitWin = null; });
+    portraitWin.on('closed', () => {
+        portraitWin = null;
+        // Notifier la fenêtre paysage que le portrait est fermé (v0.5.0)
+        if (landscapeWin && !landscapeWin.isDestroyed()) {
+            landscapeWin.webContents.send('portrait-status', false);
+        }
+    });
 }
 
 let _landscapeReady = false;
@@ -732,6 +738,253 @@ ipcMain.handle('get-obs-info', () => {
         token:   info ? info.token : '',
         dockUrl: info ? `http://127.0.0.1:${info.port}/dock?token=${info.token}` : '',
     };
+});
+
+// ── Export config OBS (v0.5.0) ────────────────────────────────────────────────
+// Génère un fichier JSON importable dans OBS (Profil → Importer une collection
+// de scènes) avec deux sources "Capture de fenêtre" positionnées et nommées.
+ipcMain.handle('obs-export-config', async () => {
+    try {
+        // Dimensions actuelles des deux fenêtres
+        const lsSize = (landscapeWin && !landscapeWin.isDestroyed())
+            ? landscapeWin.getSize()  : [1280, 720];
+        const ptSize = (portraitWin  && !portraitWin.isDestroyed())
+            ? portraitWin.getSize()   : [390, 844];
+        const [lsW, lsH] = lsSize;
+        const [ptW, ptH] = ptSize;
+
+        // UUID v4 minimal (sans dépendance externe)
+        function uuidv4() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        }
+
+        const sceneUuid     = uuidv4();
+        const srcLsUuid     = uuidv4();
+        const srcPtUuid     = uuidv4();
+        const sceneItemLsId = 1;
+        const sceneItemPtId = 2;
+
+        // Template JSON — format OBS Scene Collection (compatible OBS 29 / 30)
+        const collection = {
+            "ov-data-version": 1,
+            "name": "DualView — Paysage + Portrait",
+            "sources": [
+                {
+                    "prev_ver": null,
+                    "name":  "DualView Paysage",
+                    "uuid":  srcLsUuid,
+                    "id":    "window_capture",
+                    "versioned_id": "window_capture",
+                    "settings": {
+                        "window":  "DualView - Paysage",
+                        "capture_cursor": true,
+                        "capture_mode": "window"
+                    },
+                    "mixers": 1,
+                    "sync": 0,
+                    "flags": 0,
+                    "volume": 1.0,
+                    "balance": 0.5,
+                    "enabled": true,
+                    "muted": false,
+                    "push-to-mute": false,
+                    "push-to-mute-delay": 0,
+                    "push-to-talk": false,
+                    "push-to-talk-delay": 0,
+                    "hotkeys": {},
+                    "deinterlace_field_order": 0,
+                    "deinterlace_mode": 0,
+                    "filter-list": []
+                },
+                {
+                    "prev_ver": null,
+                    "name":  "DualView Portrait",
+                    "uuid":  srcPtUuid,
+                    "id":    "window_capture",
+                    "versioned_id": "window_capture",
+                    "settings": {
+                        "window":  "DualView - Portrait",
+                        "capture_cursor": true,
+                        "capture_mode": "window"
+                    },
+                    "mixers": 1,
+                    "sync": 0,
+                    "flags": 0,
+                    "volume": 1.0,
+                    "balance": 0.5,
+                    "enabled": true,
+                    "muted": false,
+                    "push-to-mute": false,
+                    "push-to-mute-delay": 0,
+                    "push-to-talk": false,
+                    "push-to-talk-delay": 0,
+                    "hotkeys": {},
+                    "deinterlace_field_order": 0,
+                    "deinterlace_mode": 0,
+                    "filter-list": []
+                }
+            ],
+            "scene_order": [
+                { "name": "DualView", "uuid": sceneUuid }
+            ],
+            "current_scene": "DualView",
+            "current_program_scene": "DualView",
+            "scenes": [
+                {
+                    "name": "DualView",
+                    "uuid": sceneUuid,
+                    "id":   "scene",
+                    "versioned_id": "scene",
+                    "settings": {
+                        "id_counter": 2,
+                        "custom_size": false,
+                        "items": [
+                            {
+                                "name":       "DualView Paysage",
+                                "source_uuid": srcLsUuid,
+                                "id":         sceneItemLsId,
+                                "visible":    true,
+                                "locked":     false,
+                                "pos":  { "x": 0.0, "y": 0.0 },
+                                "rot":  0.0,
+                                "scale": {
+                                    "x": 1.0,
+                                    "y": 1.0
+                                },
+                                "align":  5,
+                                "bounds_type": 0,
+                                "bounds_align": 0,
+                                "bounds": { "x": 0.0, "y": 0.0 },
+                                "crop_left":   0,
+                                "crop_top":    0,
+                                "crop_right":  0,
+                                "crop_bottom": 0,
+                                "group_item_backup": false,
+                                "blend_type": 0,
+                                "blend_method": 0
+                            },
+                            {
+                                "name":       "DualView Portrait",
+                                "source_uuid": srcPtUuid,
+                                "id":         sceneItemPtId,
+                                "visible":    true,
+                                "locked":     false,
+                                "pos":  { "x": parseFloat(lsW), "y": 0.0 },
+                                "rot":  0.0,
+                                "scale": {
+                                    "x": 1.0,
+                                    "y": 1.0
+                                },
+                                "align":  5,
+                                "bounds_type": 0,
+                                "bounds_align": 0,
+                                "bounds": { "x": 0.0, "y": 0.0 },
+                                "crop_left":   0,
+                                "crop_top":    0,
+                                "crop_right":  0,
+                                "crop_bottom": 0,
+                                "group_item_backup": false,
+                                "blend_type": 0,
+                                "blend_method": 0
+                            }
+                        ]
+                    },
+                    "mixers": 0,
+                    "sync": 0,
+                    "flags": 0,
+                    "volume": 1.0,
+                    "balance": 0.5,
+                    "enabled": true,
+                    "muted": false,
+                    "push-to-mute": false,
+                    "push-to-mute-delay": 0,
+                    "push-to-talk": false,
+                    "push-to-talk-delay": 0,
+                    "hotkeys": {},
+                    "deinterlace_field_order": 0,
+                    "deinterlace_mode": 0,
+                    "filter-list": []
+                }
+            ],
+            "groups": [],
+            "transitions": [],
+            "saved_projectors": []
+        };
+
+        const defaultPath = path.join(
+            app.getPath('documents'),
+            'DualView_OBS_Scene.json'
+        );
+        const result = await dialog.showSaveDialog(landscapeWin, {
+            title:       'Enregistrer la config OBS',
+            defaultPath,
+            filters:     [{ name: 'OBS Scene Collection', extensions: ['json'] }],
+        });
+        if (result.canceled || !result.filePath) return { success: false, canceled: true };
+
+        fs.writeFileSync(result.filePath, JSON.stringify(collection, null, 2), 'utf8');
+        logger.log('obs', 'LOG', [`Config OBS exportée : ${result.filePath}`]);
+        return { success: true, filePath: result.filePath, lsW, lsH, ptW, ptH };
+    } catch (e) {
+        console.warn('obs-export-config error:', e.message);
+        return { success: false, error: e.message };
+    }
+});
+
+// ── Relais landscape → portrait (v0.5.0) ─────────────────────────────────────
+// Permet au renderer landscape d'envoyer des données au portrait
+// sur un canal arbitraire de la whitelist preload-view.
+ipcMain.on('send-to-portrait', (event, { channel, data }) => {
+    const ALLOWED = ['show-topsites'];
+    if (!ALLOWED.includes(channel)) return;
+    if (portraitWin && !portraitWin.isDestroyed()) {
+        portraitWin.webContents.send(channel, data);
+    }
+});
+
+// ── Réouverture fenêtre portrait (v0.5.0) ────────────────────────────────────
+ipcMain.handle('reopen-portrait', () => {
+    if (portraitWin && !portraitWin.isDestroyed()) {
+        portraitWin.focus();
+        return;
+    }
+    createPortraitWindow();
+    if (!portraitWin || portraitWin.isDestroyed()) return;
+
+    // dom-ready est émis APRÈS que portrait-app.js a exécuté tous ses listeners IPC.
+    // did-finish-load arrive trop tôt (HTML chargé mais scripts pas encore exécutés).
+    portraitWin.webContents.once('dom-ready', () => {
+        if (!portraitWin || portraitWin.isDestroyed()) return;
+
+        // 1. Notifier landscape que le portrait est ouvert
+        if (landscapeWin && !landscapeWin.isDestroyed()) {
+            landscapeWin.webContents.send('portrait-status', true);
+        }
+
+        // 2. Reconstruire le pool d'onglets du portrait :
+        //    envoyer tab-created pour chaque onglet connu (sauf l'actif)
+        //    puis tab-switched vers l'actif → portrait affiche le bon onglet
+        //    puis load-url si l'onglet actif a une URL
+        for (const [tabId, url] of tabUrls.entries()) {
+            if (tabId === activeTabId) continue; // envoyé séparément après
+            portraitWin.webContents.send('tab-created', { tabId, url: url || '' });
+        }
+
+        if (activeTabId) {
+            const url = tabUrls.get(activeTabId) || '';
+            // Créer l'onglet actif dans le pool portrait
+            portraitWin.webContents.send('tab-created', { tabId: activeTabId, url: '' });
+            // Basculer dessus
+            portraitWin.webContents.send('tab-switched', activeTabId);
+            // Charger l'URL si disponible
+            if (url && !isAuthUrl(url)) {
+                portraitWin.webContents.send('load-url', { tabId: activeTabId, url });
+            }
+        }
+    });
 });
 
 // ── Redimensionnement portrait (modale v0.4.0) ────────────────────────────────

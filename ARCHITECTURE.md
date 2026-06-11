@@ -1,4 +1,4 @@
-# DualView - Architecture v0.4.7
+# DualView - Architecture v0.5.0
 
 ## Vue d'ensemble
 
@@ -34,6 +34,10 @@ main.js
   |     Dropdown historique ← → : fermeture auto 500ms après unfocus
   |     Bouton étoile ★ favoris (toolbar) + panneau latéral favoris (v0.4.7)
   |     setMaxListeners(50) sur chaque webview du pool via did-attach-webview (v0.4.7)
+  |     Mode Focus Ctrl+Shift+H / F11 : masque toolbar + bande de détection 8px (v0.5.0)
+  |     Onglet vide : top 10 domaines visités (historique toutes sessions) (v0.5.0)
+  |     Paramètres : Apparence + Langue fusionnés dans Général (v0.5.0)
+  |     Menu ⚙️ : bouton "Rouvrir le portrait" si portrait fermé (v0.5.0)
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     Pool de webviews mobile (miroir du pool landscape)
@@ -44,6 +48,8 @@ main.js
   |     Bouton remute (polling 2s, visible si video.muted=false)
   |     Pause auto vidéos classiques YouTube (dom-ready → retry 200ms)
   |     Protocole vidéo séquencé v0.4.3 : pause/seek-to/play/drift-check atomiques
+  |     Onglet vide : top 10 domaines (données reçues depuis landscape via IPC) (v0.5.0)
+  |     Réouverture depuis landscape : pool reconstruit via dom-ready + séquence IPC (v0.5.0)
   |
   |-- État synchronisation
   |     syncState : 'paused' | 'active'
@@ -112,6 +118,44 @@ URLs bloquées vers portrait si isAuthUrl(url) :
   → isAuthUrl() vérifie AUTH_DOMAINS (9 services) + patterns LOGIN_URL
 
 Canal ad-state : toujours relayé (indépendant de syncState)
+```
+
+---
+
+## Réouverture fenêtre portrait v0.5.0
+
+### Problème résolu
+Quand le portrait est fermé puis rouvert via "Rouvrir le portrait", l'ancien
+code utilisait `did-finish-load` pour envoyer les données : à ce moment,
+`portrait-app.js` n'avait pas encore exécuté ses `window.dualview.on(...)`.
+Les IPC tombaient dans le vide. De plus, seul l'onglet actif était envoyé.
+
+### Séquence correcte (dom-ready)
+```
+Utilisateur clique "Rouvrir le portrait" (⚙️)
+  → ipcRenderer.invoke('reopen-portrait')
+  → main.js : createPortraitWindow()
+  → portraitWin.webContents.once('dom-ready')
+      ↓  (portrait-app.js entièrement exécuté, listeners IPC actifs)
+      ① landscapeWin.send('portrait-status', true)
+      ② Pour chaque tabId dans tabUrls (sauf activeTabId) :
+           portraitWin.send('tab-created', { tabId, url })
+      ③ portraitWin.send('tab-created', { tabId: activeTabId, url: '' })
+      ④ portraitWin.send('tab-switched', activeTabId)
+      ⑤ portraitWin.send('load-url', { tabId: activeTabId, url })
+
+Résultat : portrait reconstruit avec tous les onglets,
+           onglet actif visible et chargé sans actualisation manuelle.
+```
+
+### IPC de relais landscape → portrait (v0.5.0)
+```
+Canal 'send-to-portrait' (ipcMain.on)
+  Whitelist : ['show-topsites']
+  → portraitWin.webContents.send(channel, data)
+
+Utilisé par : landscape-ui.js → sendToPortrait('show-topsites', top10)
+  → portrait-app.js reçoit 'show-topsites' et rend la grille top domaines
 ```
 
 ---
@@ -327,7 +371,7 @@ ATTENTION : ne pas installer de handler onBeforeSendHeaders
 
 ```
 dualview/
-|-- package.json              v0.4.7 (build:win / build:mac / build:linux)
+|-- package.json              v0.5.0 (build:win / build:mac / build:linux)
 |-- ARCHITECTURE.md           Ce fichier
 |-- CHANGELOG.md              Historique des versions (Keep a Changelog)
 |-- CONTRIBUTING.md           Guide de contribution (prérequis, branches, PR)
@@ -352,7 +396,10 @@ dualview/
 |       |-- build.yml         CI/CD : build Windows + GitHub Release sur tag v*
 |
 |-- src/
-    |-- main.js               Processus principal v0.4.7
+    |-- main.js               Processus principal v0.5.0
+    |   |                     + IPC reopen-portrait (dom-ready, reconstruction pool) [v0.5.0]
+    |   |                     + IPC send-to-portrait (relais canal whitelist) [v0.5.0]
+    |   |                     + Événement closed portraitWin → portrait-status:false [v0.5.0]
     |   |                     + FavoritesManager + 5 IPC favorites-*
     |   |                     + IPC add-custom-service (enregistrement immédiat)
     |   |                     + IPC get-settings (portrait-app.js)
@@ -376,46 +423,66 @@ dualview/
     |-- preload/              Scripts de pont IPC (main world → renderer)
     |   |-- preload-auth.js   Anti-détection Electron (authWin)
     |   |-- preload-dev.js    DevTools en mode --dev
-    |   |-- preload-landscape.js  API IPC renderer landscape v0.4.7
+    |   |-- preload-landscape.js  API IPC renderer landscape v0.5.0
+    |   |                         + reopenPortrait() [v0.5.0]
+    |   |                         + sendToPortrait(channel, data) [v0.5.0]
     |   |                         + addCustomService() [v0.4.7]
     |   |                         + favoritesAdd/Remove/Is/GetAll/Search [v0.4.7]
-    |   |-- preload-view.js   API IPC renderer portrait v0.4.7
+    |   |-- preload-view.js   API IPC renderer portrait v0.5.0
+    |                         + navigate(url) [v0.5.0]
+    |                         + canal 'show-topsites' [v0.5.0]
     |                         + getSettings() [v0.4.7]
     |                         + canal 'language-changed' [v0.4.7]
     |
     |-- renderer/             Fichiers chargés par BrowserWindow (UI)
-        |-- landscape.html    Fenêtre paysage v0.4.7
+        |-- landscape.html    Fenêtre paysage v0.5.0
+        |   |                 + #focus-trigger + #focus-badge (Mode Focus) [v0.5.0]
+        |   |                 + #topsites-grid dans #empty-state [v0.5.0]
+        |   |                 + #menu-reopen-portrait dans ⚙️ [v0.5.0]
+        |   |                 + Apparence + Langue fusionnés dans section-general [v0.5.0]
         |   |                 + Bouton #favorite-btn ★ dans toolbar [v0.4.7]
         |   |                 + Panneau #favorites-panel latéral [v0.4.7]
-        |   |                 + Entrée #menu-favorites dans ⚙️ [v0.4.7]
         |   |
-        |-- portrait.html     Fenêtre portrait
+        |-- portrait.html     Fenêtre portrait v0.5.0
+        |   |                 + #topsites-grid dans #empty-state [v0.5.0]
+        |   |
         |-- obs-dock.html     Page dock OBS
         |
         |-- css/
-        |   |-- landscape.css Styles fenêtre paysage v0.4.7
-        |                     + #favorite-btn (états ☆/★), #favorites-panel, .fav-* [v0.4.7]
+        |   |-- landscape.css Styles fenêtre paysage v0.5.0
+        |   |                 + Mode Focus (.focus-mode, #focus-trigger, #focus-badge) [v0.5.0]
+        |   |                 + Top domaines (.has-topsites, #topsites-grid, .topsite-*) [v0.5.0]
+        |   |                 + #favorite-btn (états ☆/★), #favorites-panel, .fav-* [v0.4.7]
+        |   |-- portrait.css  Styles fenêtre portrait v0.5.0
+        |                     + Top domaines (.has-topsites, #topsites-grid, .topsite-*) [v0.5.0]
         |
         |-- js/
-            |-- landscape-i18n.js    Traductions FR/EN
+            |-- landscape-i18n.js    Traductions FR/EN v0.5.0
+            |                        + focusModeOn/Off/Badge, topSitesTitle, reopenPortrait [v0.5.0]
             |                        + clés favorites/favoriteAdded/etc. [v0.4.7]
             |-- landscape-webview.js Scripts injectés dans les webviews
-            |-- landscape-ui.js      État global, sync, thème, toast, nav, menu ⚙️, resize
+            |-- landscape-ui.js      État global, sync, thème, toast, nav, menu ⚙️, resize v0.5.0
+            |                        + setFocusMode() + logique survol Mode Focus [v0.5.0]
+            |                        + renderTopSites() + maybeShowTopSites() [v0.5.0]
+            |                        + updateReopenPortraitBtn() [v0.5.0]
+            |                        + handler #menu-reopen-portrait [v0.5.0]
             |                        + handler #menu-favorites [v0.4.7]
-            |-- landscape-views.js   Pool de webviews + popup login
+            |-- landscape-views.js   Pool de webviews + popup login v0.5.0
+            |                        + appel maybeShowTopSites() dans showWebview() [v0.5.0]
+            |                        + Guard try/catch canGoBack() avant dom-ready [v0.5.0]
             |                        + refreshFavoriteBtnForUrl après did-navigate [v0.4.7]
             |-- landscape-tabs.js    Onglets, navigation URL, omnibar, screenshot
             |                        + refreshFavoriteBtnForUrl après switchTab/update-addressbar [v0.4.7]
-            |-- landscape-settings.js Paramètres, services connectés, historique, favoris
+            |-- landscape-settings.js Paramètres v0.5.0
+            |                         + Raccourcis Ctrl+Shift+H / F11 (Mode Focus) [v0.5.0]
+            |                         + Apparence + Langue retirées de la nav latérale [v0.5.0]
             |                         + panneau favoris complet [v0.4.7]
-            |                         + bouton étoile toggle [v0.4.7]
-            |                         + addCustomService() avant connectService() [v0.4.7]
-            |                         + SERVICE_LABELS : GitHub, GitLab [v0.4.7]
-            |                         + filtre isNowKnownService() anti-doublons [v0.4.7]
             |-- landscape-pollers.js Polling pub/vidéo/scroll + initialisation
             |                        + refreshFavoriteBtnForUrl à l'init [v0.4.7]
-            |-- portrait-i18n.js     Traductions FR/EN portrait
-            |-- portrait-app.js      Logique portrait (pool, IPC handlers, remute, init)
+            |-- portrait-i18n.js     Traductions FR/EN portrait v0.5.0
+            |                        + topSitesTitle [v0.5.0]
+            |-- portrait-app.js      Logique portrait v0.5.0
+            |                        + handler 'show-topsites' → grille top domaines [v0.5.0]
             |-- portrait-webview.js  Scripts injectés portrait
 ```
 
@@ -468,7 +535,7 @@ Session persist:dualview — UN SEUL handler par événement webRequest
 
 ---
 
-## Paramètres v0.4.7
+## Paramètres v0.5.0
 
 ```
 Clé               | Valeurs                         | Effet
@@ -478,9 +545,9 @@ autoPauseVideo    | true / false (défaut: true)      | Immédiat (pause auto Yo
 autoMutePortrait  | true / false (défaut: true)      | Immédiat (mute portrait)
 homepageMode      | knack3 / custom / empty          | Immédiat
 customHomepageUrl | URL http/https validée           | Immédiat
-newTabMode        | homepage / empty                 | Immédiat
-appearance        | auto / light / dark              | Redémarrage requis
-language          | fr / en                          | Redémarrage requis (portrait: immédiat v0.4.7)
+newTabMode        | homepage / empty                 | Immédiat (+ top domaines si empty)
+appearance        | auto / light / dark              | Redémarrage requis (fusionné dans Général v0.5.0)
+language          | fr / en                          | Redémarrage requis (portrait: immédiat v0.4.7) (fusionné dans Général v0.5.0)
 customServices    | [{id,label,url,connected}]       | Persisté via add-custom-service (v0.4.7)
 searchEngineId    | string                           | Immédiat
 searchEngineUrl   | URL http/https                   | Immédiat
@@ -512,6 +579,7 @@ portraitPreset    | iphone15 / pixel8 / galaxys24 / ipad | Via modale redimensio
 | 0.4.5 | Refactoring open source de main.js (1323 → 815 lignes, −38%). Extraction de 4 modules dans core/ : config-manager.js, url-guard.js, session-security.js, context-menu.js. |
 | 0.4.6 | Fix AUTO_PAUSE_SCRIPT landscape (flag posé avant de trouver la vidéo → retries bloqués). Fix AUTO_PAUSE_SCRIPT Shorts portrait (garde primaire déplacée côté renderer Electron, isYouTubeShort). Fix retries orphelins portrait (__dualviewAutoPauseAborted). Fix MaxListenersExceededWarning (timer de sécurité annulable). Fix thème portrait au démarrage (initialTheme via contextBridge, backgroundColor dynamique). |
 | 0.4.7 | **Favoris** : favorites-manager.js (core), favorites.json, bouton ★ toolbar, panneau latéral, entrée ⚙️. **Fix services personnalisés** : add-custom-service IPC (enregistrement immédiat), open-auth-window ne crée plus l'entrée. **GitHub/GitLab** ajoutés dans KNOWN_SERVICES et SERVICE_LABELS. Filtre isNowKnownService() anti-doublons. **Fix portrait** : getSettings() + canal language-changed dans preload-view.js. **Fix MaxListenersExceededWarning** : setMaxListeners(50) sur webviews pool (did-attach-webview) + authWin.webContents. |
+| 0.5.0 | **Mode Focus** (F) : Ctrl+Shift+H / F11, masque toolbar, bande de détection 8px, badge discret, survol maintenu. **Top domaines** : onglet vide affiche le top 10 domaines les plus visités (historique toutes sessions, dédoublonné par hostname, max disponible) dans landscape et portrait (données relayées via IPC show-topsites). **Fusion paramètres** : Apparence + Langue déplacés dans Général, nav latérale réduite à 4 entrées. **Réouverture portrait** : bouton "Rouvrir le portrait" dans ⚙️ (visible si portrait fermé), reconstruction complète du pool via dom-ready (tous onglets + onglet actif + URL). **Fix canGoBack avant dom-ready** : guard try/catch dans switchTab (landscape-tabs.js). |
 
 ---
 

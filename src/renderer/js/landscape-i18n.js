@@ -94,6 +94,12 @@ const I18N = {
         favoriteAdded: '★ Page ajoutée aux favoris',
         favoriteRemoved: '☆ Page retirée des favoris',
         favoriteSearchPlaceholder: 'Rechercher dans les favoris…',
+        // v0.5.0
+        focusModeOn: 'Mode Focus activé — Ctrl+Shift+H pour quitter',
+        focusModeOff: 'Mode Focus désactivé',
+        focusBadge: 'Mode Focus — Ctrl+Shift+H pour quitter',
+        topSitesTitle: 'Sites fréquents',
+        reopenPortrait: 'Rouvrir le portrait',
     },
     en: {
         syncActive: 'Sync active', syncPaused: 'Sync paused', syncStarting: 'Sync…',
@@ -176,6 +182,12 @@ const I18N = {
         favoriteAdded: '★ Page added to favorites',
         favoriteRemoved: '☆ Page removed from favorites',
         favoriteSearchPlaceholder: 'Search favorites…',
+        // v0.5.0
+        focusModeOn: 'Focus mode on — Ctrl+Shift+H to exit',
+        focusModeOff: 'Focus mode off',
+        focusBadge: 'Focus mode — Ctrl+Shift+H to exit',
+        topSitesTitle: 'Frequently visited',
+        reopenPortrait: 'Reopen portrait',
     }
 };
 let currentLang = 'fr';

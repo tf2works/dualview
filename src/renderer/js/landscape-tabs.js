@@ -67,10 +67,17 @@ function switchTab(id) {
             // Webview déjà dans le pool avec un historique intact :
             // lire l'état réel directement plutôt que de tout remettre à false.
             // dom-ready ne se déclenche plus pour une webview déjà chargée.
-            updateNavButtons({
-                canGoBack: wv.canGoBack(),
-                canGoForward: wv.canGoForward ? wv.canGoForward() : false
-            });
+            // Guard try/catch : canGoBack() lève si dom-ready n'a pas encore été émis
+            // (ex. rechargement rapide ou page vide en cours d'initialisation).
+            try {
+                updateNavButtons({
+                    canGoBack: wv.canGoBack(),
+                    canGoForward: wv.canGoForward ? wv.canGoForward() : false
+                });
+            } catch (_) {
+                // dom-ready pas encore émis → dom-ready appellera sendNavState
+                updateNavButtons({ canGoBack: false, canGoForward: false });
+            }
         } else {
             // Nouvelle webview — dom-ready appellera sendNavState une fois prête.
             updateNavButtons({ canGoBack: false, canGoForward: false });
@@ -110,7 +117,8 @@ function addTab() {
     const id = 'tab-' + Date.now();
     const url = getNewTabUrl();
     tabs.push({ id, title: url ? '' : t('newTab'), url });
-    createWebview(id, url);
+    // Ne pas appeler createWebview ici : switchTab détecte isNewWebview=true
+    // et crée la webview lui-même, évitant un appel canGoBack() avant dom-ready.
     switchTab(id);
 }
 
@@ -120,7 +128,7 @@ function addTabWithUrl(url) {
     let title = '';
     try { title = new URL(url).hostname.replace('www.', ''); } catch { title = url.slice(0, 20); }
     tabs.push({ id, title, url });
-    createWebview(id, url);
+    // Ne pas appeler createWebview ici : switchTab gère la création.
     switchTab(id);
 }
 

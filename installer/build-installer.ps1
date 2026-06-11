@@ -1,5 +1,5 @@
 #Requires -Version 5.0
-# DualView v0.4.7 - Script de build
+# DualView v0.5.0 - Script de build
 #
 # Produit dist\DualView-Setup-[version].exe via electron-builder (NSIS).
 # Ce fichier inclut automatiquement un desinstallateur Windows natif.
@@ -19,7 +19,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit
 }
 
-$APP_VERSION = "0.4.7"
+$APP_VERSION = "0.5.0"
 $SCRIPT_DIR  = Split-Path -Parent $PSCommandPath
 $ROOT_DIR    = Split-Path -Parent $SCRIPT_DIR
 $DIST_DIR    = Join-Path $ROOT_DIR "dist"

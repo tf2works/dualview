@@ -28,14 +28,35 @@
   Assistant dans Paramètres → OBS générant un fichier `.json` importable directement
   dans OBS avec les deux sources "Capture de fenêtre" (Paysage + Portrait) déjà
   configurées, nommées et positionnées.
+  _(Tenté en v0.5.0 — le format JSON généré n'était pas compatible avec OBS. Reporté.)_
 
 - [ ] **E. Indicateur réseau dans la toolbar**
   Afficher le temps de chargement de la dernière navigation (via `did-finish-load` + timestamp)
   et un indicateur de latence. Utile en live pour diagnostiquer une page lente.
 
-- [ ] **F. Mode Focus — masquer la toolbar**
-  Raccourci clavier (`F11` ou `Ctrl+Shift+H`) pour masquer la toolbar et maximiser
-  l'espace de capture OBS. La toolbar réapparaît au survol ou sur une nouvelle pression.
+- [x] **F. Mode Focus — masquer la toolbar**
+  Raccourci clavier (`Ctrl+Shift+H` ou `F11`) pour masquer la toolbar et maximiser
+  l'espace de capture OBS. La toolbar réapparaît au survol (bande 8 px) ou sur nouvelle pression.
+  ✅ Livré en v0.5.0 — bande de détection + badge discret + toast.
+
+---
+
+## Priorité 2 bis — Expérience utilisateur (v0.5.0)
+
+- [x] **Top 10 domaines sur onglet vide**
+  Quand "Nouveaux onglets" est réglé sur "Page vide", afficher les domaines les plus
+  visités (historique toutes sessions, dédoublonné, max 10). Paysage + portrait.
+  ✅ Livré en v0.5.0.
+
+- [x] **Fusion Apparence + Langue dans Général**
+  Déplacer les sections "Apparence" et "Langue" dans "Général" pour simplifier la
+  navigation dans les paramètres (4 entrées au lieu de 6).
+  ✅ Livré en v0.5.0.
+
+- [x] **Réouverture fenêtre portrait**
+  Bouton "Rouvrir le portrait" dans ⚙️, visible uniquement si la fenêtre portrait est
+  fermée. Reconstruction complète du pool d'onglets au rouvrir.
+  ✅ Livré en v0.5.0.
 
 ---
 

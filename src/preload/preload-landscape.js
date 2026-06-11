@@ -91,6 +91,13 @@ contextBridge.exposeInMainWorld('dualview', {
 
     // ── Intégration OBS (v0.3.2) ───────────────────────────────
     getObsInfo: () => ipcRenderer.invoke('get-obs-info'),
+    // ── Export config OBS (v0.5.0) ───────────────────────────
+    obsExportConfig: () => ipcRenderer.invoke('obs-export-config'),
+
+    // ── Réouverture portrait (v0.5.0) ─────────────────────────
+    reopenPortrait: () => ipcRenderer.invoke('reopen-portrait'),
+    // Envoie un message au portrait via main.js (v0.5.0 — top domaines)
+    sendToPortrait: (channel, data) => ipcRenderer.send('send-to-portrait', { channel, data }),
 
     // ── Portrait resize (v0.4.0) ───────────────────────────────
     getPortraitPresets: () => ipcRenderer.invoke('get-portrait-presets'),
@@ -129,6 +136,7 @@ contextBridge.exposeInMainWorld('dualview', {
             'auth-custom-confirm', 'sync-resume-state',
             'obs-command',
             'mouse-nav', 'context-menu-action',
+            'portrait-status',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

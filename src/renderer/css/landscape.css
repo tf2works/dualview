@@ -593,6 +593,73 @@ body.dev-mode #dev-btn {
         font-size: 13px
     }
 
+/* ── Onglet vide — top domaines (v0.5.0) ── */
+#empty-state.has-topsites {
+    opacity: 1;
+    pointer-events: all;
+    justify-content: flex-start;
+    padding-top: 40px;
+    overflow-y: auto
+}
+
+#empty-state.has-topsites .icon,
+#empty-state.has-topsites .text,
+#empty-state.has-topsites .sub {
+    display: none
+}
+
+#topsites-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 88px);
+    gap: 16px 12px;
+    justify-content: center
+}
+
+.topsite-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    border-radius: 10px;
+    padding: 10px 6px 8px;
+    transition: background 0.15s
+}
+
+    .topsite-item:hover {
+        background: var(--bg-alt)
+    }
+
+.topsite-favicon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--bg-alt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid var(--border)
+}
+
+    .topsite-favicon img {
+        width: 28px;
+        height: 28px;
+        object-fit: contain
+    }
+
+.topsite-label {
+    font-size: 11px;
+    color: var(--fg);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 84px
+}
+
 /* ── Popup login ── */
 #login-popup {
     display: none;
@@ -1709,7 +1776,86 @@ body.dev-mode #dev-btn {
     margin-top: 6px
 }
 
-/* ── Screenshot settings (v0.4.0) ── */
+/* ── Mode Focus (v0.5.0) ── */
+/*
+ * body.focus-mode : masque #tab-bar + #toolbar + #status-bar
+ * Une bande de détection (8 px) reste visible en haut.
+ * La toolbar réapparaît au survol de cette bande ou par Ctrl+Shift+H / F11.
+ */
+body.focus-mode #tab-bar,
+body.focus-mode #toolbar,
+body.focus-mode #status-bar {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-100%);
+    transition: opacity 0.2s ease, transform 0.2s ease
+}
+
+body.focus-mode #tab-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 900
+}
+
+body.focus-mode #toolbar {
+    position: absolute;
+    top: 34px; left: 0; right: 0;
+    z-index: 900
+}
+
+body.focus-mode #status-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    z-index: 900
+}
+
+body.focus-mode.focus-reveal #tab-bar,
+body.focus-mode.focus-reveal #toolbar {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0)
+}
+
+/* Bande de détection (haut de fenêtre, toujours cliquable) */
+#focus-trigger {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 8px;
+    z-index: 1100;
+    cursor: default
+}
+
+body.focus-mode #focus-trigger {
+    display: block
+}
+
+/* Badge "Mode Focus actif" (discret, coin bas-droit) */
+#focus-badge {
+    display: none;
+    position: fixed;
+    bottom: 12px;
+    right: 14px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    font-size: 11px;
+    padding: 4px 9px;
+    border-radius: 10px;
+    z-index: 1200;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease
+}
+
+body.focus-mode #focus-badge {
+    display: block
+}
+
+body.focus-mode #focus-badge.visible {
+    opacity: 1
+}
+
+/* Screenshot settings (v0.4.0) */
 .screenshot-dir-row {
     display: flex;
     align-items: center;

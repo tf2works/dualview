@@ -190,6 +190,117 @@ document.getElementById('menu-history').addEventListener('click', () => { gearMe
 document.getElementById('menu-favorites').addEventListener('click', () => { gearMenu.classList.remove('open'); openFavoritesPanel(); });
 document.getElementById('menu-settings').addEventListener('click', () => { gearMenu.classList.remove('open'); openSettingsTab(); });
 
+// ── Réouverture fenêtre portrait (v0.5.0) ─────────────────────────────────────
+const menuReopenPortrait = document.getElementById('menu-reopen-portrait');
+
+// Met à jour la visibilité du bouton selon l'état de la fenêtre portrait
+function updateReopenPortraitBtn(portraitOpen) {
+    if (portraitOpen) {
+        // Portrait ouvert → bouton masqué
+        menuReopenPortrait.style.display = 'none';
+    } else {
+        // Portrait fermé → bouton visible et actif
+        menuReopenPortrait.style.display = '';
+        menuReopenPortrait.classList.remove('disabled');
+    }
+}
+
+menuReopenPortrait.addEventListener('click', () => {
+    gearMenu.classList.remove('open');
+    window.dualview.reopenPortrait();
+});
+
+// Écoute les changements d'état de la fenêtre portrait
+window.dualview.on('portrait-status', (isOpen) => {
+    updateReopenPortraitBtn(isOpen);
+});
+
+// ── Top domaines — onglet vide (v0.5.0) ───────────────────────────────────────
+// Affiché quand newTabMode === 'empty' ET historique non vide.
+const topsitesGrid = document.getElementById('topsites-grid');
+let _lastTop10 = []; // cache pour broadcast vers portrait
+
+async function renderTopSites() {
+    // Récupérer l'historique complet (toutes sessions)
+    let entries = [];
+    try { entries = await window.dualview.historyGetAll(); } catch { return null; }
+    if (!entries || entries.length === 0) return null;
+
+    // Compter les visites par domaine — la Map garantit l'unicité par hostname
+    const counts = new Map();
+    for (const e of entries) {
+        try {
+            const host = new URL(e.url).hostname.replace(/^www\./, '');
+            if (!host) continue;
+            counts.set(host, (counts.get(host) || 0) + 1);
+        } catch { continue; }
+    }
+    if (counts.size === 0) return null;
+
+    // Trier et prendre au maximum les 10 premiers (slice retourne < 10 si moins disponibles)
+    const top10 = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+
+    _lastTop10 = top10; // stocker pour broadcast portrait
+
+    // Construire la grille
+    topsitesGrid.innerHTML = '';
+    for (const [host, count] of top10) {
+        const url = 'https://' + host;
+        const item = document.createElement('div');
+        item.className = 'topsite-item';
+        item.title = host + ' (' + count + ' visite' + (count > 1 ? 's' : '') + ')';
+
+        // Favicon via Google S2 (fiable, ne nécessite pas de requête cross-origin spéciale)
+        const faviconUrl = 'https://www.google.com/s2/favicons?domain=' + host + '&sz=64';
+        const faviconDiv = document.createElement('div');
+        faviconDiv.className = 'topsite-favicon';
+        const img = document.createElement('img');
+        img.src = faviconUrl;
+        img.alt = '';
+        // Fallback : initiale du domaine si l'image ne charge pas
+        img.onerror = () => {
+            faviconDiv.textContent = host.charAt(0).toUpperCase();
+            img.remove();
+        };
+        faviconDiv.appendChild(img);
+
+        const label = document.createElement('div');
+        label.className = 'topsite-label';
+        // Afficher le nom du domaine sans TLD
+        const parts = host.split('.');
+        label.textContent = parts.length >= 2 ? parts[parts.length - 2] : host;
+
+        item.appendChild(faviconDiv);
+        item.appendChild(label);
+        item.addEventListener('click', () => navigate(url));
+        topsitesGrid.appendChild(item);
+    }
+    return top10.length;
+}
+
+// Affiche ou cache la grille topsites selon le contexte de l'onglet actif
+async function maybeShowTopSites() {
+    const isEmptyMode = currentSettings.newTabMode === 'empty';
+    if (!isEmptyMode) {
+        emptyState.classList.remove('has-topsites');
+        // Effacer la grille portrait aussi
+        window.dualview.sendToPortrait('show-topsites', []);
+        return;
+    }
+    const count = await renderTopSites();
+    if (count && count > 0) {
+        emptyState.classList.add('has-topsites');
+        // Envoyer les mêmes données au portrait
+        const top10 = _lastTop10;
+        window.dualview.sendToPortrait('show-topsites', top10);
+    } else {
+        emptyState.classList.remove('has-topsites');
+        window.dualview.sendToPortrait('show-topsites', []);
+    }
+}
+
 // ── Mode redimensionnement v0.4.0 ──────────────────────────────────────────────
 // Le bouton ✅ (resume-btn) est retiré de la toolbar — tout passe par la modale.
 const resizeModalOverlay = document.getElementById('resize-modal-overlay');
@@ -244,4 +355,63 @@ document.getElementById('resize-modal-validate').addEventListener('click', () =>
 document.getElementById('resize-modal-cancel').addEventListener('click', () => {
     resizeModalOverlay.classList.remove('show');
     window.dualview.cancelPortraitResize();
+});
+
+// ── Mode Focus (v0.5.0) ────────────────────────────────────────────────────────
+// Raccourci : Ctrl+Shift+H (ou F11 si non réservé par l'OS)
+// Masque toolbar + tab-bar pour maximiser la zone de capture OBS.
+// La toolbar réapparaît 2 s au survol de la bande supérieure (8 px).
+let focusMode = false;
+let focusRevealTimer = null;
+let focusBadgeTimer = null;
+const focusBadge = document.getElementById('focus-badge');
+const focusTrigger = document.getElementById('focus-trigger');
+
+function setFocusMode(on) {
+    focusMode = on;
+    document.body.classList.toggle('focus-mode', on);
+    document.body.classList.remove('focus-reveal');
+    clearTimeout(focusRevealTimer);
+    // Badge de confirmation (2 s)
+    clearTimeout(focusBadgeTimer);
+    if (on) {
+        focusBadge.textContent = t('focusBadge');
+        focusBadge.classList.add('visible');
+        focusBadgeTimer = setTimeout(() => focusBadge.classList.remove('visible'), 2000);
+    }
+    showToast(on ? t('focusModeOn') : t('focusModeOff'), 2000);
+}
+
+// Survol de la bande de détection : affiche la toolbar 2 s
+focusTrigger.addEventListener('mouseenter', () => {
+    if (!focusMode) return;
+    document.body.classList.add('focus-reveal');
+    clearTimeout(focusRevealTimer);
+    focusRevealTimer = setTimeout(() => {
+        document.body.classList.remove('focus-reveal');
+    }, 2000);
+});
+
+// Maintenir la toolbar visible si la souris reste dans toolbar/tab-bar
+document.getElementById('toolbar').addEventListener('mouseenter', () => {
+    if (!focusMode) return;
+    clearTimeout(focusRevealTimer);
+    document.body.classList.add('focus-reveal');
+});
+document.getElementById('toolbar').addEventListener('mouseleave', () => {
+    if (!focusMode) return;
+    focusRevealTimer = setTimeout(() => {
+        document.body.classList.remove('focus-reveal');
+    }, 800);
+});
+document.getElementById('tab-bar').addEventListener('mouseenter', () => {
+    if (!focusMode) return;
+    clearTimeout(focusRevealTimer);
+    document.body.classList.add('focus-reveal');
+});
+document.getElementById('tab-bar').addEventListener('mouseleave', () => {
+    if (!focusMode) return;
+    focusRevealTimer = setTimeout(() => {
+        document.body.classList.remove('focus-reveal');
+    }, 800);
 });

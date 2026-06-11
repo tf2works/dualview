@@ -68,6 +68,11 @@
                 <span>&#9733;</span>
                 <span data-i18n="favorites">Favoris</span>
             </div>
+            <!-- Rouvrir portrait (v0.5.0) — visible uniquement si portrait fermé -->
+            <div class="gear-item" id="menu-reopen-portrait" style="display:none">
+                <span>&#128247;</span>
+                <span data-i18n="reopenPortrait">Rouvrir le portrait</span>
+            </div>
             <div class="gear-separator"></div>
             <div class="gear-item" id="menu-settings">
                 <span>&#9881;</span>
@@ -83,6 +88,10 @@
     </div>
 
     <div id="toast"></div>
+
+    <!-- Mode Focus (v0.5.0) — bande de détection + badge -->
+    <div id="focus-trigger"></div>
+    <div id="focus-badge">Mode Focus — Ctrl+Shift+H pour quitter</div>
 
     <!-- Popup page de connexion -->
     <div id="login-popup">
@@ -150,6 +159,8 @@
             <div class="icon">&#128421;</div>
             <div class="text" data-i18n="landscapeView">Vue Paysage (Desktop)</div>
             <div class="sub" data-i18n="enterUrl">Entrez une URL dans la barre d'adresse</div>
+            <!-- Top domaines (v0.5.0) — visible uniquement si historique non vide + mode page vide -->
+            <div id="topsites-grid"></div>
         </div>
     </div>
 
@@ -167,8 +178,6 @@
         </div>
         <div class="s-sidebar">
             <div class="s-nav active" data-section="general"><span class="s-nav-icon">&#9783;</span><span data-i18n="settingsGeneral">Général</span></div>
-            <div class="s-nav" data-section="appearance"><span class="s-nav-icon">&#9680;</span><span data-i18n="settingsAppearance">Apparence</span></div>
-            <div class="s-nav" data-section="language"><span class="s-nav-icon">&#127760;</span><span data-i18n="settingsLanguage">Langue</span></div>
             <div class="s-nav" data-section="services"><span class="s-nav-icon">&#128279;</span><span data-i18n="settingsServices">Services connectés</span></div>
             <div class="s-nav" data-section="privacy"><span class="s-nav-icon">&#128274;</span><span data-i18n="settingsPrivacy">Confidentialité</span></div>
             <div class="s-nav" data-section="obs"><span class="s-nav-icon">&#128250;</span><span data-i18n="settingsObs">OBS</span></div>
@@ -256,11 +265,8 @@
                         <button id="s-screenshot-browse" class="s-validate-btn" data-i18n="screenshotBrowse">Parcourir…</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Apparence -->
-            <div id="section-appearance" class="s-section">
-                <div class="s-heading" data-i18n="settingsAppearance">Apparence</div>
+                <div class="s-divider"></div>
+                <!-- Apparence (fusionné dans Général v0.5.0) -->
                 <div class="s-row">
                     <label class="s-label" data-i18n="appearanceLabel">Apparence des sites web</label>
                     <div class="s-desc" data-i18n="appearanceDesc">Applique le thème aux sites visités et à l'interface DualView.</div>
@@ -270,11 +276,8 @@
                         <option value="dark" data-i18n="appearanceDark">Sombre</option>
                     </select>
                 </div>
-            </div>
-
-            <!-- Langue -->
-            <div id="section-language" class="s-section">
-                <div class="s-heading" data-i18n="settingsLanguage">Langue</div>
+                <div class="s-divider"></div>
+                <!-- Langue (fusionné dans Général v0.5.0) -->
                 <div class="s-row">
                     <label class="s-label" data-i18n="languageLabel">Langue de l'interface</label>
                     <div class="s-desc" data-i18n="languageDesc">Langue utilisée pour l'interface DualView.</div>

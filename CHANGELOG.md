@@ -7,6 +7,51 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.5.0] — 2026
+
+### Ajouté
+
+- **Mode Focus (F)** — masque toolbar + tab-bar pour maximiser la zone de capture OBS
+  - Raccourci `Ctrl+Shift+H` ou `F11` pour activer / désactiver
+  - Bande de détection (8 px en haut de fenêtre) : la toolbar réapparaît 2 s au survol
+  - Le toolbar se maintient visible tant que la souris reste dessus
+  - Badge discret en bas à droite confirmant l'état (disparaît après 2 s)
+  - Toast de confirmation à l'activation/désactivation
+  - i18n FR/EN (3 nouvelles clés)
+
+- **Top 10 domaines sur onglet vide** — quand "Nouveaux onglets" est réglé sur "Page vide"
+  - Affiche jusqu'à 10 domaines les plus visités (historique toutes sessions confondues)
+  - Dédoublonnage automatique par hostname (`www.` normalisé)
+  - Si moins de 10 domaines visités, affiche le maximum disponible
+  - Favicon via Google S2 avec fallback initiale si indisponible
+  - Visible dans la fenêtre paysage et dans la fenêtre portrait (données relayées via IPC)
+  - Clic → navigation dans l'onglet actif (comportement navigateur standard)
+
+- **Fusion Apparence + Langue dans Général** — navigation paramètres simplifiée
+  - Les sections "Apparence" et "Langue" sont intégrées directement dans "Général"
+  - Barre latérale réduite à 4 entrées : Général / Services connectés / Confidentialité / OBS
+
+- **Réouverture fenêtre portrait** — bouton dans le menu ⚙️
+  - Entrée "Rouvrir le portrait" visible uniquement si la fenêtre portrait est fermée
+  - Si portrait ouvert : bouton absent (non nécessaire)
+  - À la réouverture : tous les onglets existants sont reconstruits dans le portrait,
+    l'onglet actif est affiché et chargé automatiquement, la synchronisation reprend
+
+### Corrigé
+
+- **`canGoBack()` appelé avant `dom-ready`** (`landscape-tabs.js`) — lors de la création
+  d'un onglet vide, `canGoBack()` levait une erreur Electron avant que la webview soit
+  prête. La garde `try/catch` absorbe l'erreur et laisse `dom-ready` mettre à jour
+  les boutons de navigation. Corrige aussi la non-visibilité de l'onglet créé.
+
+- **Réouverture portrait : onglets non affichés sans actualisation manuelle** (`main.js`) —
+  l'ancien handler `reopen-portrait` utilisait `did-finish-load` (trop tôt : scripts
+  pas encore exécutés) et n'envoyait que l'onglet actif. Remplacé par `dom-ready`
+  avec reconstruction séquentielle complète du pool : `tab-created` pour chaque onglet,
+  `tab-switched` vers l'actif, `load-url` avec l'URL courante.
+
+---
+
 ## [0.4.7] — 2026
 
 ### Ajouté

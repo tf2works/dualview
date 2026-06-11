@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('dualview', {
     getSyncState: () => ipcRenderer.invoke('get-sync-state'),
     getAutoMutePortrait: () => ipcRenderer.invoke('get-auto-mute-portrait'),
     getSettings: () => ipcRenderer.invoke('get-settings'),
+    // Navigation depuis portrait (v0.5.0 — top domaines)
+    navigate: (url) => ipcRenderer.send('navigate', url),
 
     on: (channel, callback) => {
         const valid = [
@@ -44,6 +46,7 @@ contextBridge.exposeInMainWorld('dualview', {
             'ad-state',
             'auto-mute-portrait-changed',
             'language-changed',
+            'show-topsites',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));
