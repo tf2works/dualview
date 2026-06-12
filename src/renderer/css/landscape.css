@@ -533,6 +533,11 @@ body.dev-mode #dev-btn {
         display: flex
     }
 
+    /* Webview active sur about:blank — ne capte pas les clics sur topsites (fix v0.5.1) */
+    .wv-landscape.active.is-blank {
+        pointer-events: none
+    }
+
 #video-indicator {
     position: absolute;
     bottom: 8px;
@@ -594,6 +599,11 @@ body.dev-mode #dev-btn {
     }
 
 /* ── Onglet vide — top domaines (v0.5.0) ── */
+/* .hidden remplace style.display inline — évite d'écraser pointer-events (fix v0.5.1) */
+#empty-state.hidden {
+    display: none
+}
+
 #empty-state.has-topsites {
     opacity: 1;
     pointer-events: all;

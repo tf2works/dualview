@@ -41,7 +41,7 @@ function switchTab(id) {
     // Reset popup login state au switch (main.js envoie login-page-cleared si nécessaire)
     if (isSettingsTab(tab)) {
         webviewPool.forEach(wv => wv.classList.remove('active'));
-        emptyState.style.display = 'none';
+        emptyState.classList.add('hidden'); // fix v0.5.1 — pas de style inline
         webviewCont.style.display = 'none';
         settingsPanel.classList.add('show');
         document.getElementById('url-input').value = 'dualview://paramètres';
@@ -440,7 +440,8 @@ window.dualview.on('load-url', url => {
     } catch (e) {
         wv.addEventListener('dom-ready', () => { wv.src = url; }, { once: true });
     }
-    emptyState.style.display = 'none';
+    emptyState.classList.add('hidden'); // fix v0.5.1 — pas de style inline
+    wv.classList.remove('is-blank');    // fix v0.5.1 — la webview charge une vraie URL
     wv.classList.add('active');
 });
 

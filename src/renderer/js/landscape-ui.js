@@ -285,16 +285,20 @@ async function maybeShowTopSites() {
     const isEmptyMode = currentSettings.newTabMode === 'empty';
     if (!isEmptyMode) {
         emptyState.classList.remove('has-topsites');
-        // Effacer la grille portrait aussi
         window.dualview.sendToPortrait('show-topsites', []);
         return;
     }
+    // Capturer l'onglet actif AVANT l'await pour détecter un changement d'onglet
+    // pendant le chargement de l'historique (race condition fix v0.5.1)
+    const tabIdAtCall = activeTabId;
     const count = await renderTopSites();
-    if (count && count > 0) {
+    // Si l'onglet actif a changé pendant l'attente, ne pas modifier l'UI
+    if (activeTabId !== tabIdAtCall) return;
+    const wv = webviewPool.get(activeTabId);
+    const stillBlank = !wv || !wv.src || wv.src === 'about:blank';
+    if (count && count > 0 && stillBlank) {
         emptyState.classList.add('has-topsites');
-        // Envoyer les mêmes données au portrait
-        const top10 = _lastTop10;
-        window.dualview.sendToPortrait('show-topsites', top10);
+        window.dualview.sendToPortrait('show-topsites', _lastTop10);
     } else {
         emptyState.classList.remove('has-topsites');
         window.dualview.sendToPortrait('show-topsites', []);

@@ -83,7 +83,7 @@
 
     <div id="status-bar">
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
-        <span id="version-label">v0.4.7</span>
+        <span id="version-label">v0.5.1</span>
         <button id="dev-btn" title="Inspecter webview active (Ctrl+F12)">🔧 DEV</button>
     </div>
 
@@ -181,6 +181,7 @@
             <div class="s-nav" data-section="services"><span class="s-nav-icon">&#128279;</span><span data-i18n="settingsServices">Services connectés</span></div>
             <div class="s-nav" data-section="privacy"><span class="s-nav-icon">&#128274;</span><span data-i18n="settingsPrivacy">Confidentialité</span></div>
             <div class="s-nav" data-section="obs"><span class="s-nav-icon">&#128250;</span><span data-i18n="settingsObs">OBS</span></div>
+            <div class="s-nav" data-section="shortcuts"><span class="s-nav-icon">&#9875;</span><span data-i18n="settingsShortcuts">Raccourcis clavier</span></div>
         </div>
         <div class="s-content">
             <!-- Général -->
@@ -402,6 +403,68 @@
                 <div class="s-info-block">
                     <div class="s-info-title" data-i18n="obsGuideTitle">Guide complet</div>
                     <div class="s-info-desc" data-i18n="obsGuideDesc">Voir obs-integration/OBS_INTEGRATION.md pour la mise en place du dock et des raccourcis clavier.</div>
+                </div>
+            </div>
+            <!-- Raccourcis clavier (v0.5.1) -->
+            <div id="section-shortcuts" class="s-section">
+                <div class="s-heading" data-i18n="settingsShortcuts">Raccourcis clavier</div>
+                <div class="s-desc" data-i18n="shortcutsDesc">Les raccourcis utilisent <kbd>Ctrl</kbd> sur Windows/Linux et <kbd>⌘ Cmd</kbd> sur macOS. Les touches <kbd>F5</kbd>, <kbd>F6</kbd>, <kbd>F11</kbd> sont identiques sur les trois systèmes.</div>
+
+                <!-- Navigation -->
+                <div class="s-label" style="margin-top:14px;margin-bottom:6px" data-i18n="shortcutsCatNav">Navigation</div>
+                <table class="shortcuts-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="shortcutsColAction">Action</th>
+                            <th>Windows / Linux</th>
+                            <th>macOS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td data-i18n="scBack">Retour</td><td><kbd>Alt</kbd>+<kbd>←</kbd></td><td><kbd>⌘</kbd>+<kbd>[</kbd></td></tr>
+                        <tr><td data-i18n="scForward">Avance</td><td><kbd>Alt</kbd>+<kbd>→</kbd></td><td><kbd>⌘</kbd>+<kbd>]</kbd></td></tr>
+                        <tr><td data-i18n="scReload">Recharger</td><td><kbd>F5</kbd> ou <kbd>Ctrl</kbd>+<kbd>R</kbd></td><td><kbd>F5</kbd> ou <kbd>⌘</kbd>+<kbd>R</kbd></td></tr>
+                        <tr><td data-i18n="scFocusBar">Barre d'adresse</td><td><kbd>Ctrl</kbd>+<kbd>L</kbd> ou <kbd>F6</kbd></td><td><kbd>⌘</kbd>+<kbd>L</kbd> ou <kbd>F6</kbd></td></tr>
+                    </tbody>
+                </table>
+
+                <!-- Onglets -->
+                <div class="s-label" style="margin-top:14px;margin-bottom:6px" data-i18n="shortcutsCatTabs">Onglets</div>
+                <table class="shortcuts-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="shortcutsColAction">Action</th>
+                            <th>Windows / Linux</th>
+                            <th>macOS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td data-i18n="scNewTab">Nouvel onglet</td><td><kbd>Ctrl</kbd>+<kbd>T</kbd></td><td><kbd>⌘</kbd>+<kbd>T</kbd></td></tr>
+                        <tr><td data-i18n="scCloseTab">Fermer l'onglet actif</td><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td><kbd>⌘</kbd>+<kbd>W</kbd></td></tr>
+                        <tr><td data-i18n="scNextTab">Onglet suivant</td><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td><kbd>⌃</kbd>+<kbd>Tab</kbd></td></tr>
+                        <tr><td data-i18n="scPrevTab">Onglet précédent</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td><td><kbd>⌃</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td></tr>
+                    </tbody>
+                </table>
+
+                <!-- Interface -->
+                <div class="s-label" style="margin-top:14px;margin-bottom:6px" data-i18n="shortcutsCatUI">Interface</div>
+                <table class="shortcuts-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="shortcutsColAction">Action</th>
+                            <th>Windows / Linux</th>
+                            <th>macOS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td data-i18n="scFocusMode">Mode Focus (masquer toolbar)</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> ou <kbd>F11</kbd></td><td><kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> ou <kbd>F11</kbd></td></tr>
+                        <tr><td data-i18n="scCloseDropdown">Fermer menus / dropdowns</td><td colspan="2"><kbd>Échap</kbd></td></tr>
+                    </tbody>
+                </table>
+
+                <div class="s-info-block" style="margin-top:16px">
+                    <div class="s-info-title" data-i18n="shortcutsMouseTitle">Boutons souris</div>
+                    <div class="s-info-desc" data-i18n="shortcutsMouseDesc">Les boutons latéraux de la souris (bouton 4 = retour, bouton 5 = avance) sont pris en charge sur Windows, macOS et Linux.</div>
                 </div>
             </div>
         </div>

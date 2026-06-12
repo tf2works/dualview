@@ -7,6 +7,51 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.5.1] — 2026
+
+### Ajouté
+
+- **Section Raccourcis clavier dans les Paramètres** (`landscape.html`, `landscape-i18n.js`, `landscape.css`)
+  - Nouvelle entrée **⚓ Raccourcis clavier** dans la barre latérale — la nav passe de 4 à 5 entrées
+  - Trois tableaux par catégorie : **Navigation**, **Onglets**, **Interface**
+  - Distinction explicite **Windows / Linux** (`Ctrl`) vs **macOS** (`⌘ Cmd`) en deux colonnes
+  - Touches identiques sur les 3 systèmes (`F5`, `F6`, `F11`) signalées explicitement
+  - Note sur les boutons latéraux de souris (bouton 4 = retour, bouton 5 = avance)
+  - Rendu `kbd` (badge clavier) cohérent thèmes clair et sombre
+  - 18 nouvelles clés i18n FR/EN
+
+### Corrigé
+
+- **Clics non fonctionnels sur les icônes du top 10** (`landscape-views.js`, `landscape.css`)
+  La webview active (`about:blank`) est en `position: absolute; inset: 0` — elle couvrait
+  la totalité de la zone et interceptait tous les événements souris. Corrigé par la classe
+  `.is-blank` (ajoutée dans `showWebview()`, retirée dans `did-navigate`) avec la règle
+  `.wv-landscape.active.is-blank { pointer-events: none }` en CSS.
+
+- **Disparition du top 10 à l'ouverture d'un 2e onglet vide** (`landscape-ui.js`)
+  `maybeShowTopSites()` est `async` : un changement d'onglet rapide pendant l'`await
+  renderTopSites()` effaçait `.has-topsites` sur le mauvais onglet. Corrigé par un guard
+  anti-race-condition : `activeTabId` capturé avant l'`await`, vérification de cohérence
+  au retour (onglet actif + webview toujours vide `stillBlank`).
+
+- **`style.display` inline écrasait `pointer-events` défini en CSS** (`landscape-views.js`, `landscape-tabs.js`, `landscape.css`)
+  Trois sites manipulaient `emptyState.style.display` directement, bloquant la cascade CSS.
+  Remplacés par `classList.toggle('hidden')` + règle `#empty-state.hidden { display: none }` :
+  - `showWebview()` dans `landscape-views.js`
+  - `switchTab()` (onglet paramètres) dans `landscape-tabs.js`
+  - Handler `load-url` dans `landscape-tabs.js`
+
+### Modifié
+
+- `src/renderer/landscape.html` : entrée `shortcuts` dans la sidebar + section `#section-shortcuts`
+- `src/renderer/js/landscape-i18n.js` : 18 nouvelles clés i18n FR/EN (v0.5.1)
+- `src/renderer/js/landscape-views.js` : `showWebview()` — `.is-blank` + `.hidden` ; `did-navigate` — retrait `.is-blank`
+- `src/renderer/js/landscape-tabs.js` : `switchTab()` + handler `load-url` — `.hidden` à la place de `style.display`
+- `src/renderer/js/landscape-ui.js` : `maybeShowTopSites()` — guard anti-race-condition
+- `src/renderer/css/landscape.css` : `.wv-landscape.active.is-blank`, `#empty-state.hidden`, styles `kbd` + `.shortcuts-table`
+
+---
+
 ## [0.5.0] — 2026
 
 ### Ajouté

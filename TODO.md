@@ -2,6 +2,7 @@
 
 > Améliorations et nouvelles fonctionnalités identifiées à partir de la v0.3.2.
 > Classées par priorité. Cocher une case une fois l'item livré et reporté dans `CHANGELOG.md`.
+> Dernière version livrée : **v0.5.1**.
 
 ---
 
@@ -38,6 +39,21 @@
   Raccourci clavier (`Ctrl+Shift+H` ou `F11`) pour masquer la toolbar et maximiser
   l'espace de capture OBS. La toolbar réapparaît au survol (bande 8 px) ou sur nouvelle pression.
   ✅ Livré en v0.5.0 — bande de détection + badge discret + toast.
+
+---
+
+## Priorité 2 bis — Expérience utilisateur (v0.5.1)
+
+- [x] **Section Raccourcis clavier dans les Paramètres**
+  Nouvelle entrée ⚓ dans la barre latérale des Paramètres. Trois tableaux (Navigation,
+  Onglets, Interface) avec distinction Windows/Linux vs macOS. 18 clés i18n FR/EN.
+  ✅ Livré en v0.5.1 — `landscape.html`, `landscape-i18n.js`, `landscape.css`.
+
+- [x] **Correctifs topsites — clics et race condition**
+  Clics sur les icônes du top 10 bloqués par la webview `about:blank` (`pointer-events`).
+  Race condition `maybeShowTopSites()` causant la disparition du top 10 au 2e onglet vide.
+  Manipulation `style.display` inline écrasant les règles CSS `pointer-events`.
+  ✅ Livré en v0.5.1 — `landscape-views.js`, `landscape-tabs.js`, `landscape-ui.js`, `landscape.css`.
 
 ---
 

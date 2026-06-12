@@ -1,4 +1,16 @@
-# DualView v0.4.5 - Instructions d'installation
+# DualView v0.5.1 - Instructions d'installation
+
+## Nouveautés v0.5.1
+
+- **Section Raccourcis clavier dans les Paramètres** : nouvelle entrée ⚓ dans la barre latérale, trois tableaux distincts (Navigation, Onglets, Interface) avec colonnes Windows/Linux vs macOS
+- **Correctifs topsites** : clics sur les icônes du top 10 désormais fonctionnels (webview `about:blank` ne bloque plus les événements souris) ; le top 10 reste visible à l'ouverture de plusieurs onglets vides consécutifs
+
+## Nouveautés v0.5.0
+
+- **Mode Focus** (`Ctrl+Shift+H` ou `F11`) : masque la toolbar pour maximiser la capture OBS. Bande de détection 8 px, badge discret, toast de confirmation.
+- **Top 10 domaines** sur onglet vide (mode "Page vide") : sites les plus visités avec favicon, visibles dans les deux fenêtres. Clic = navigation directe.
+- **Fusion Apparence + Langue dans Général** : Paramètres simplifiés à 4 entrées.
+- **Réouverture Portrait** : bouton ⚙️ → "Rouvrir le portrait" si la fenêtre portrait est fermée, reconstruction complète du pool d'onglets.
 
 ## Nouveautés v0.4.5
 
@@ -42,7 +54,7 @@
 
 **Prérequis** : Windows 11 (Build 22000+)
 
-1. Téléchargez **`DualView-Setup-0.4.5.exe`** depuis les [Releases GitHub](https://github.com/<org>/dualview/releases)
+1. Téléchargez **`DualView-Setup-0.5.1.exe`** depuis les [Releases GitHub](https://github.com/<org>/dualview/releases)
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur si demandée
 
@@ -168,13 +180,13 @@ Les Shorts (`youtube.com/shorts/...`) sont exemptés du bloqueur de publicités.
 
 ## Paramètres
 
-**⚙️ → Paramètres**
+**⚙️ → Paramètres** — 5 sections depuis v0.5.1 :
 
-- **Général** : restauration onglets, page d'accueil, nouveaux onglets
-- **Apparence** : Automatique / Clair / Sombre (redémarrage requis)
-- **Langue** : Français / English (redémarrage requis)
-- **Services connectés** : gestion des connexions
+- **Général** : restauration onglets, pause auto YouTube, page d'accueil, nouveaux onglets, moteur de recherche, dossier captures, apparence, langue
+- **Services connectés** : gestion des connexions (9 services + URL personnalisée)
 - **Confidentialité** : informations sur les protections actives
+- **OBS** : activation serveur local, port, URL dock, token
+- **Raccourcis clavier** *(v0.5.1)* : tableaux Navigation / Onglets / Interface avec distinction Windows/Linux vs macOS
 
 ---
 
@@ -209,9 +221,9 @@ Guide complet pas à pas : **obs-integration/OBS_INTEGRATION.md**.
 
 | Plateforme | Commande | Artefact produit |
 |---|---|---|
-| Windows | `installer\build-installer.bat` | `dist/DualView-Setup-0.4.5.exe` (~150 Mo) |
-| macOS | `./installer/build-installer.sh --mac` | `dist/DualView-0.4.5.dmg` |
-| Linux | `./installer/build-installer.sh --linux` | `dist/DualView-0.4.5.AppImage` + `.deb` |
+| Windows | `installer\build-installer.bat` | `dist/DualView-Setup-0.5.1.exe` (~150 Mo) |
+| macOS | `./installer/build-installer.sh --mac` | `dist/DualView-0.5.1.dmg` |
+| Linux | `./installer/build-installer.sh --linux` | `dist/DualView-0.5.1.AppImage` + `.deb` |
 
 Voir `assets/README.txt` pour générer les icônes `icon.icns` (macOS) et `icon.png` (Linux) avant le premier build.
 

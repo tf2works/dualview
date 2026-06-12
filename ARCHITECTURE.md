@@ -376,7 +376,8 @@ dualview/
 |-- CHANGELOG.md              Historique des versions (Keep a Changelog)
 |-- CONTRIBUTING.md           Guide de contribution (prérequis, branches, PR)
 |-- HOW_TO_INSTALL.md
-|-- README.md
+|-- README.md                 Guide général et liste des fonctionnalités de l'application
+|-- VERSION_HISTORY.md        Remplace l'ancien readme (Détails des mises à jour approtées dans les versions)
 |-- TODO.md
 |-- assets/
 |   |-- icon.ico

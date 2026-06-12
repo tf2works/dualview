@@ -76,7 +76,7 @@ src/
         ├── landscape-ui.js     État, sync, thème, toast, nav, redimensionnement
         ├── landscape-views.js  Pool de webviews + popup login
         ├── landscape-tabs.js   Onglets, URL, omnibar, screenshot
-        ├── landscape-settings.js Paramètres, services, historique, raccourcis
+        ├── landscape-settings.js Paramètres, services, historique, favoris, raccourcis (v0.5.1)
         ├── landscape-pollers.js  Polling pub/vidéo/scroll + initialisation
         ├── portrait-i18n.js    Traductions portrait + tp() + applyPortraitTranslations()
         ├── portrait-app.js     Logique portrait (pool, IPC handlers, remute)
@@ -116,7 +116,7 @@ docs/quoi             Documentation uniquement
 chore/quoi            Maintenance (dépendances, CI, etc.)
 ```
 
-Exemples : `feat/mode-focus-toolbar`, `fix/youtube-shorts-autopause`, `docs/contributing-de`
+Exemples : `feat/mode-focus-toolbar`, `fix/youtube-shorts-autopause`, `fix/topsites-pointer-events`, `docs/contributing-de`
 
 ---
 
@@ -129,6 +129,8 @@ Exemples : `feat/mode-focus-toolbar`, `fix/youtube-shorts-autopause`, `docs/cont
    - Sync vidéo YouTube (play / pause / seek)
    - Onglets multiples
    - Paramètres (langue, thème, services)
+   - Top 10 domaines sur onglet vide : clics fonctionnels, persistance entre onglets
+   - Section Raccourcis clavier : affichage correct dans les deux langues
 4. **Commitez** avec un message clair en français ou en anglais :
    ```
    feat: ajout du mode focus toolbar (F11)

@@ -1,6 +1,6 @@
 /*
  * DualView - Traductions interface paysage
- * Version: 0.4.7
+ * Version: 0.5.1
  *
  * Ajouter une langue :
  *   1. Dupliquer le bloc 'en' et lui donner un code ISO (ex. 'de')
@@ -100,6 +100,19 @@ const I18N = {
         focusBadge: 'Mode Focus — Ctrl+Shift+H pour quitter',
         topSitesTitle: 'Sites fréquents',
         reopenPortrait: 'Rouvrir le portrait',
+        // v0.5.1
+        settingsShortcuts: 'Raccourcis clavier',
+        shortcutsDesc: 'Les raccourcis utilisent Ctrl sur Windows/Linux et ⌘ Cmd sur macOS. Les touches F5, F6, F11 sont identiques sur les trois systèmes.',
+        shortcutsCatNav: 'Navigation',
+        shortcutsCatTabs: 'Onglets',
+        shortcutsCatUI: 'Interface',
+        shortcutsColAction: 'Action',
+        scBack: 'Retour', scForward: 'Avance', scReload: 'Recharger', scFocusBar: "Barre d'adresse",
+        scNewTab: 'Nouvel onglet', scCloseTab: "Fermer l'onglet actif",
+        scNextTab: 'Onglet suivant', scPrevTab: 'Onglet précédent',
+        scFocusMode: 'Mode Focus (masquer toolbar)', scCloseDropdown: 'Fermer menus / dropdowns',
+        shortcutsMouseTitle: 'Boutons souris',
+        shortcutsMouseDesc: 'Les boutons latéraux de la souris (bouton 4 = retour, bouton 5 = avance) sont pris en charge sur Windows, macOS et Linux.',
     },
     en: {
         syncActive: 'Sync active', syncPaused: 'Sync paused', syncStarting: 'Sync…',
@@ -188,6 +201,19 @@ const I18N = {
         focusBadge: 'Focus mode — Ctrl+Shift+H to exit',
         topSitesTitle: 'Frequently visited',
         reopenPortrait: 'Reopen portrait',
+        // v0.5.1
+        settingsShortcuts: 'Keyboard shortcuts',
+        shortcutsDesc: 'Shortcuts use Ctrl on Windows/Linux and ⌘ Cmd on macOS. The F5, F6, F11 keys are the same on all three systems.',
+        shortcutsCatNav: 'Navigation',
+        shortcutsCatTabs: 'Tabs',
+        shortcutsCatUI: 'Interface',
+        shortcutsColAction: 'Action',
+        scBack: 'Back', scForward: 'Forward', scReload: 'Reload', scFocusBar: 'Address bar',
+        scNewTab: 'New tab', scCloseTab: 'Close active tab',
+        scNextTab: 'Next tab', scPrevTab: 'Previous tab',
+        scFocusMode: 'Focus mode (hide toolbar)', scCloseDropdown: 'Close menus / dropdowns',
+        shortcutsMouseTitle: 'Mouse buttons',
+        shortcutsMouseDesc: 'Side mouse buttons (button 4 = back, button 5 = forward) are supported on Windows, macOS and Linux.',
     }
 };
 let currentLang = 'fr';

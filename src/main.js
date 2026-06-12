@@ -350,6 +350,11 @@ function createPortraitWindow() {
     portraitWin.loadFile(path.join(__dirname, 'renderer', 'portrait.html'));
     portraitWin.webContents.setMaxListeners(50);
 
+    // ── Éviter MaxListenersExceededWarning sur les webviews du portrait (v0.5.1) ─
+    portraitWin.webContents.on('did-attach-webview', (_event, wvContents) => {
+        wvContents.setMaxListeners(50);
+    });
+
     if (logger.IS_DEV) {
         portraitWin.webContents.session.registerPreloadScript({
             id:       'dev-preload-portrait',

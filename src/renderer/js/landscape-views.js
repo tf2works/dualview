@@ -43,11 +43,20 @@ function destroyWebview(tabId) {
 }
 
 function showWebview(tabId) {
-    webviewPool.forEach((wv, id) => { wv.classList.toggle('active', id === tabId); });
+    webviewPool.forEach((wv, id) => {
+        const active = id === tabId;
+        wv.classList.toggle('active', active);
+        if (active) {
+            // .is-blank sur la webview active vide → elle ne capte pas les clics topsites (fix v0.5.1)
+            wv.classList.toggle('is-blank', !wv.src || wv.src === 'about:blank');
+        } else {
+            wv.classList.remove('is-blank');
+        }
+    });
     const wv = webviewPool.get(tabId);
     const hasUrl = wv && wv.src && wv.src !== 'about:blank';
-    emptyState.style.display = hasUrl ? 'none' : 'flex';
-    // Top domaines sur onglet vide (v0.5.0)
+    // .hidden remplace style.display inline — évite d'écraser pointer-events (fix v0.5.1)
+    emptyState.classList.toggle('hidden', !!hasUrl);
     if (!hasUrl) maybeShowTopSites();
 }
 
@@ -97,6 +106,7 @@ function attachWebviewListeners(wv, tabId) {
     wv.addEventListener('did-navigate', (e) => {
         resetWatcherFlags(wv);
         if (e.url && e.url !== 'about:blank') {
+            wv.classList.remove('is-blank'); // fix v0.5.1
             if (tabId === activeTabId) {
                 if (isLoginPage(e.url)) {
                     window.dualview.notifyLoginPage(e.url, tabId);
