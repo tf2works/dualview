@@ -64,6 +64,19 @@ chmod +x DualView-*.AppImage
 
 👉 Voir le guide complet : **[HOW_TO_INSTALL.md](HOW_TO_INSTALL.md)**
 
+### macOS
+
+Téléchargez le `.dmg`, glissez DualView dans `/Applications`, puis au premier lancement : clic droit → **Ouvrir** (Gatekeeper).
+
+### Linux
+
+```bash
+chmod +x DualView-*.AppImage
+./DualView-*.AppImage
+```
+
+👉 Voir le guide complet : **[HOW_TO_INSTALL.md](HOW_TO_INSTALL.md)**
+
 ---
 
 ## Fenêtres
@@ -75,8 +88,13 @@ chmod +x DualView-*.AppImage
 
 Les titres de fenêtre sont stables entre les changements d'onglets, ce qui garantit une capture OBS fiable.
 
+Les titres de fenêtre sont stables entre les changements d'onglets, ce qui garantit une capture OBS fiable.
+
 ---
 
+## Navigation
+
+### Barre de contrôle (fenêtre Paysage)
 ## Navigation
 
 ### Barre de contrôle (fenêtre Paysage)
@@ -211,7 +229,9 @@ La toolbar reste accessible sans quitter le mode :
 ---
 
 ## Favoris
+## Favoris
 
+Mettez n'importe quelle page en favori d'un simple clic sur l'étoile **★** dans la barre de contrôle.
 Mettez n'importe quelle page en favori d'un simple clic sur l'étoile **★** dans la barre de contrôle.
 
 - **☆** (inactif) → la page n'est pas en favori
@@ -220,8 +240,16 @@ Mettez n'importe quelle page en favori d'un simple clic sur l'étoile **★** da
 ### Panneau latéral Favoris
 
 Accessible via **⚙️ → Favoris** :
+- **☆** (inactif) → la page n'est pas en favori
+- **★ dorée** (actif) → la page est en favori. Un toast de confirmation s'affiche.
+
+### Panneau latéral Favoris
+
+Accessible via **⚙️ → Favoris** :
 - Barre de recherche fulltext sur URL et titre
 - Cliquer sur une entrée navigue directement vers cette page
+- Suppression individuelle
+- Fermeture par ✕, `Échap`, ou clic extérieur
 - Suppression individuelle
 - Fermeture par ✕, `Échap`, ou clic extérieur
 
@@ -237,9 +265,24 @@ Un historique persistant est conservé entre les sessions :
 - Alimenté automatiquement par toutes les navigations (toutes sessions confondues)
 
 Dropdown **← →** : survolez un bouton pendant 500 ms pour afficher l'historique de l'onglet actif.
+**Persistance** : stockés dans `%AppData%/DualView/favorites.json` — maximum 500 entrées.
 
 ---
 
+## Historique de navigation
+
+Un historique persistant est conservé entre les sessions :
+- Accessible via **⚙️ → Historique**
+- Affiché dans les suggestions de l'omnibar pendant la frappe
+- Alimenté automatiquement par toutes les navigations (toutes sessions confondues)
+
+Dropdown **← →** : survolez un bouton pendant 500 ms pour afficher l'historique de l'onglet actif.
+
+---
+
+## Captures d'écran
+
+Le bouton **📷** capture simultanément les deux vues en PNG horodaté :
 ## Captures d'écran
 
 Le bouton **📷** capture simultanément les deux vues en PNG horodaté :
@@ -285,7 +328,49 @@ Si la fenêtre Portrait est fermée accidentellement, rouvrez-la sans redémarre
 
 ## Services connectés
 
+---
+
+## Page de démarrage — Top domaines
+
+Quand **Paramètres → Général → Nouveaux onglets** est réglé sur **"Page vide"**, les onglets vides affichent automatiquement vos sites les plus fréquentés :
+
+- Jusqu'à **10 domaines** classés par nombre de visites (toutes sessions confondues)
+- Aucun doublon (normalisé par hostname, `www.` ignoré)
+- Favicon de chaque site avec fallback sur l'initiale du domaine
+- Visible dans **les deux fenêtres** — Paysage et Portrait affichent la même grille
+- Clic → navigation directe dans l'onglet actif
+
+---
+
+## Redimensionnement Portrait
+
+**⚙️ → Redimensionner** ouvre une modale avec :
+
+- **Préréglages** : iPhone 15 (390×844), Pixel 8 (412×915), Galaxy S24 (360×780), iPad (768×1024)
+- **Taille libre** : redimensionnez manuellement la fenêtre Portrait (contour orange)
+- **Valider** verrouille la taille. **Annuler** restaure la taille précédente.
+
+---
+
+## Réouverture de la fenêtre Portrait
+
+Si la fenêtre Portrait est fermée accidentellement, rouvrez-la sans redémarrer DualView :
+
+1. Cliquez sur **⚙️** dans la toolbar Paysage
+2. Sélectionnez **"Rouvrir le portrait"** (entrée visible uniquement si Portrait fermé)
+3. La fenêtre se rouvre à sa **dernière position et taille connue**
+4. Tous les onglets ouverts dans Paysage sont **automatiquement reconstruits** dans le Portrait
+
+---
+
+## Services connectés
+
 Connexion aux services web depuis **Paramètres → Services connectés** :
+
+- **9 services pré-configurés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam
+- Connexion dans une **fenêtre dédiée** : compatibilité Windows Hello, FIDO2, email/mot de passe
+- **URL personnalisée** avec bouton "J'ai terminé" + confirmation
+- **Détection automatique de connexion** par cookies
 
 - **9 services pré-configurés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam
 - Connexion dans une **fenêtre dédiée** : compatibilité Windows Hello, FIDO2, email/mot de passe
@@ -392,22 +477,44 @@ Accessible via **⚙️ → Paramètres** — 5 sections :
 | Anti-détection Electron | `preload-auth.js` (5 couches) + flag `AutomationControlled` |
 | IPC sécurisé | `contextIsolation` + preload scripts |
 | Serveur OBS local | Lié à `127.0.0.1` + token d'authentification |
+| Mesure | Détail |
+|--------|--------|
+| Téléchargements bloqués | Exception : enregistrement d'image via clic droit |
+| Permissions refusées | Caméra, micro, géolocalisation, notifications |
+| Navigation limitée | `http://`, `https://`, `file://` uniquement |
+| Anti-détection Electron | `preload-auth.js` (5 couches) + flag `AutomationControlled` |
+| IPC sécurisé | `contextIsolation` + preload scripts |
+| Serveur OBS local | Lié à `127.0.0.1` + token d'authentification |
 
 ---
 
 ## Persistance des données
+## Persistance des données
 
 | Donnée | Emplacement |
 |--------|-------------|
+| Position / taille des fenêtres | `%APPDATA%\DualView\dualview-config.json` |
 | Position / taille des fenêtres | `%APPDATA%\DualView\dualview-config.json` |
 | Onglets & URLs | idem |
 | Paramètres & Services | idem |
 | Historique de navigation | `%APPDATA%\DualView\history.json` |
 | Favoris | `%APPDATA%\DualView\favorites.json` |
 | Cookies & sessions | `%APPDATA%\DualView\Partitions\persist_dualview\` |
+| Historique de navigation | `%APPDATA%\DualView\history.json` |
+| Favoris | `%APPDATA%\DualView\favorites.json` |
+| Cookies & sessions | `%APPDATA%\DualView\Partitions\persist_dualview\` |
 
 ---
 
+## Stack technique
+
+- **Electron 42** (Chromium 130+, Node.js 22)
+- **IPC sécurisé** : `contextIsolation` + preload scripts
+- **Anti-détection** : `preload-auth.js` (5 couches) + flag `AutomationControlled`
+- **Contrôle OBS** : serveur local HTTP+WebSocket (`obs-control.js`, `127.0.0.1` + token), dock `obs-dock.html`, script Lua hotkeys
+- **Cookies** : partition `persist:dualview` partagée entre webviews et fenêtres auth
+- **Persistance** : `fs` + JSON natif
+- **Installeur** : electron-builder — NSIS (Windows) · DMG (macOS) · AppImage + deb (Linux)
 ## Stack technique
 
 - **Electron 42** (Chromium 130+, Node.js 22)
