@@ -24,6 +24,7 @@
  *   - Modale redimensionnement (#resize-modal-overlay)
  *   - Moteur de recherche (.search-engine-*)
  *   - Dialogue redémarrage (#restart-dialog, .restart-*)
+ *   - Export/Import (.export-*, #import-merge-overlay) [v0.5.2]
  */
 
 :root {
@@ -2137,3 +2138,206 @@ body.focus-mode #focus-badge.visible {
 }
     .fav-item:hover .fav-delete-btn { display: flex }
     .fav-delete-btn:hover { color: var(--danger); background: rgba(220,53,69,0.1) }
+
+/* ── Export / Import (v0.5.2) ─────────────────────────────────────────────── */
+
+/* Checklist d'export */
+.export-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 10px;
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 4px;
+    background: var(--bg-alt);
+}
+
+.export-group-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-muted);
+    padding: 8px 8px 2px;
+    margin-top: 4px;
+}
+    .export-group-label:first-child { margin-top: 0 }
+
+.export-check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--fg);
+    transition: background 0.1s;
+}
+    .export-check-row:hover { background: var(--bg-tab) }
+    .export-check-row input[type="checkbox"] { flex-shrink: 0; cursor: pointer; accent-color: var(--accent) }
+
+.export-val-preview {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--fg-muted);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: monospace;
+    opacity: 0.8;
+}
+
+.export-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.export-toggle-btn {
+    font-size: 11px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    color: var(--fg-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+}
+    .export-toggle-btn:hover { background: var(--bg-tab); color: var(--fg) }
+
+/* Modale Import — merge sélectif */
+#import-merge-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+    #import-merge-overlay.show { display: flex }
+
+#import-merge-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    width: 560px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+}
+
+.import-merge-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg);
+}
+
+.import-merge-meta {
+    font-size: 11px;
+    color: var(--fg-muted);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+}
+
+.import-merge-list {
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.import-merge-header {
+    display: grid;
+    grid-template-columns: 20px 1fr 120px 120px;
+    gap: 8px;
+    padding: 4px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--fg-muted);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+}
+
+.import-merge-row {
+    display: grid;
+    grid-template-columns: 20px 1fr 120px 120px;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--fg);
+    transition: background 0.1s;
+}
+    .import-merge-row:hover { background: var(--bg-alt) }
+    .import-merge-row input[type="checkbox"] { cursor: pointer; accent-color: var(--accent) }
+
+.import-merge-key {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.import-merge-val {
+    font-size: 11px;
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+    .import-merge-val.new     { background: rgba(40,167,69,0.12); color: #28a745 }
+    .import-merge-val.current { background: var(--bg-alt); color: var(--fg-muted) }
+
+[data-theme="dark"] .import-merge-val.new { background: rgba(40,167,69,0.2); color: #5cb85c }
+
+.import-merge-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+/* Dropdown limite historique */
+.export-history-limit-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px 4px 32px;  /* indent sous la checkbox parente */
+    background: var(--bg-tab);
+    border-left: 2px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 2px;
+}
+
+.export-history-limit-label {
+    font-size: 11px;
+    color: var(--fg-muted);
+    flex-shrink: 0;
+}
+
+.export-history-limit-select {
+    font-size: 11px;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+}

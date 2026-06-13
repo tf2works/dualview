@@ -1074,6 +1074,219 @@ ipcMain.handle('choose-screenshot-dir', async () => {
     return dir;
 });
 
+// ── Export / Import configuration (v0.5.2) ────────────────────────────────────
+
+/**
+ * Exporte les paramètres sélectionnés vers un fichier JSON choisi par l'utilisateur.
+ * @param {object} payload.selection  Objet { key: true|false } indiquant les clés à inclure
+ */
+ipcMain.handle('export-config', async (event, { selection }) => {
+    try {
+        const settings = configGet('settings') || {};
+
+        // ── Paramètres généraux ───────────────────────────────────────────────
+        const exportedSettings = {};
+        for (const key of Object.keys(selection)) {
+            if (!selection[key]) continue;
+            // Clés spéciales traitées séparément ci-dessous
+            if (key === '_history' || key === '_favorites' || key === '_portraitWindow') continue;
+            if (settings[key] !== undefined) exportedSettings[key] = settings[key];
+        }
+
+        // ── Historique de navigation ──────────────────────────────────────────
+        let exportedHistory = undefined;
+        if (selection['_history']) {
+            const all   = history.getAll();
+            const limit = Number.isInteger(selection['_historyLimit']) ? selection['_historyLimit'] : 500;
+            // 0 = tout exporter, sinon prendre les N premières (les plus récentes, getAll() retourne du plus récent au plus ancien)
+            exportedHistory = limit > 0 ? all.slice(0, limit) : all;
+        }
+
+        // ── Favoris ───────────────────────────────────────────────────────────
+        let exportedFavorites = undefined;
+        if (selection['_favorites']) {
+            exportedFavorites = favorites.getAll();
+        }
+
+        // ── Dimensions fenêtre portrait ───────────────────────────────────────
+        let exportedPortraitWindow = undefined;
+        if (selection['_portraitWindow']) {
+            const pw = configGet('portraitWindow') || {};
+            exportedPortraitWindow = {
+                width:  pw.width  || 390,
+                height: pw.height || 844,
+            };
+        }
+
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+        const defaultName = `dualview-backup-${dateStr}.json`;
+
+        const result = await dialog.showSaveDialog(landscapeWin, {
+            title:       'Exporter la configuration',
+            defaultPath: path.join(app.getPath('downloads'), defaultName),
+            filters:     [{ name: 'JSON', extensions: ['json'] }],
+        });
+
+        if (result.canceled || !result.filePath) return { success: false, canceled: true };
+
+        const exportData = {
+            _dualview_export:  true,
+            version:           app.getVersion(),
+            exportedAt:        now.toISOString(),
+            settings:          exportedSettings,
+            ...(exportedHistory       !== undefined && { history:       exportedHistory }),
+            ...(exportedFavorites     !== undefined && { favorites:     exportedFavorites }),
+            ...(exportedPortraitWindow !== undefined && { portraitWindow: exportedPortraitWindow }),
+        };
+
+        fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2), 'utf8');
+        return { success: true, filePath: result.filePath };
+    } catch (e) {
+        console.warn('export-config error:', e.message);
+        return { success: false, error: e.message };
+    }
+});
+
+/**
+ * Importe une configuration depuis un fichier JSON.
+ * Retourne le contenu parsé pour que le renderer propose un merge sélectif.
+ */
+ipcMain.handle('import-config-read', async () => {
+    try {
+        const result = await dialog.showOpenDialog(landscapeWin, {
+            title:       'Importer une configuration',
+            defaultPath: app.getPath('downloads'),
+            filters:     [{ name: 'JSON', extensions: ['json'] }],
+            properties:  ['openFile'],
+        });
+
+        if (result.canceled || !result.filePaths.length) return { success: false, canceled: true };
+
+        const raw  = fs.readFileSync(result.filePaths[0], 'utf8');
+        const data = JSON.parse(raw);
+
+        if (!data._dualview_export || !data.settings) {
+            return { success: false, error: 'invalid_file' };
+        }
+
+        // Passer aussi les métadonnées sur les données non-settings disponibles dans le fichier
+        return {
+            success:  true,
+            imported: data,
+            has: {
+                history:       Array.isArray(data.history)       && data.history.length       > 0,
+                favorites:     Array.isArray(data.favorites)     && data.favorites.length     > 0,
+                portraitWindow: data.portraitWindow != null       && typeof data.portraitWindow === 'object',
+            },
+        };
+    } catch (e) {
+        console.warn('import-config-read error:', e.message);
+        return { success: false, error: e.message };
+    }
+});
+
+/**
+ * Applique les paramètres importés (après confirmation utilisateur dans le renderer).
+ * @param {object} payload.settings        Clés/valeurs settings à fusionner
+ * @param {Array}  payload.historyEntries  Entrées d'historique à fusionner (optionnel)
+ * @param {Array}  payload.favEntries      Entrées de favoris à fusionner (optionnel)
+ * @param {object} payload.portraitWindow  Dimensions portrait à appliquer (optionnel)
+ */
+ipcMain.handle('import-config-apply', async (event, { settings: imported, historyEntries, favEntries, portraitWindow: importedPortrait }) => {
+    try {
+        let needsRestart = false;
+
+        // ── Paramètres settings ────────────────────────────────────────────────
+        if (imported && typeof imported === 'object' && Object.keys(imported).length > 0) {
+            const allowed = {
+                restoreTabs:         v => typeof v === 'boolean',
+                homepageMode:        v => ['knack3', 'custom', 'empty'].includes(v),
+                customHomepageUrl:   v => typeof v === 'string',
+                newTabMode:          v => ['homepage', 'empty'].includes(v),
+                appearance:          v => ['auto', 'light', 'dark'].includes(v),
+                language:            v => ['fr', 'en'].includes(v),
+                customServices:      v => Array.isArray(v),
+                searchEngineId:      v => typeof v === 'string' && v.length > 0,
+                searchEngineUrl:     v => typeof v === 'string' && v.startsWith('http'),
+                searchEngineName:    v => typeof v === 'string',
+                customSearchEngines: v => Array.isArray(v),
+                screenshotDir:       v => typeof v === 'string',
+                portraitPreset:      v => typeof v === 'string',
+                autoMutePortrait:    v => typeof v === 'boolean',
+                autoPauseVideo:      v => typeof v === 'boolean',
+            };
+
+            const current = configGet('settings') || {};
+
+            // Détecter si appearance ou language va changer → restart requis
+            if (imported.appearance !== undefined && allowed.appearance(imported.appearance) &&
+                imported.appearance !== current.appearance) {
+                needsRestart = true;
+            }
+            if (imported.language !== undefined && allowed.language(imported.language) &&
+                imported.language !== current.language) {
+                needsRestart = true;
+            }
+
+            for (const key of Object.keys(allowed)) {
+                if (imported[key] !== undefined && allowed[key](imported[key])) {
+                    current[key] = imported[key];
+                }
+            }
+            configSet('settings', current);
+            if (!needsRestart) {
+                applyAppearance();
+                broadcastTheme();
+            }
+        }
+
+        // ── Historique — fusion (dédupliquée par history.add) ──────────────────
+        if (Array.isArray(historyEntries) && historyEntries.length > 0) {
+            // Insérer du plus ancien au plus récent pour respecter l'ordre FIFO
+            const sorted = historyEntries.slice().sort(
+                (a, b) => new Date(a.visitedAt) - new Date(b.visitedAt)
+            );
+            for (const entry of sorted) {
+                if (entry && typeof entry.url === 'string' && typeof entry.visitedAt === 'string') {
+                    history.add({ url: entry.url, title: entry.title || '', tabId: entry.tabId || '' });
+                }
+            }
+            history.saveNow();
+        }
+
+        // ── Favoris — fusion (dédupliquée par favorites.add) ──────────────────
+        if (Array.isArray(favEntries) && favEntries.length > 0) {
+            for (const entry of favEntries) {
+                if (entry && typeof entry.url === 'string') {
+                    favorites.add({ url: entry.url, title: entry.title || '' });
+                }
+            }
+            favorites.saveNow();
+        }
+
+        // ── Dimensions fenêtre portrait ────────────────────────────────────────
+        if (importedPortrait && typeof importedPortrait === 'object') {
+            const w = parseInt(importedPortrait.width,  10);
+            const h = parseInt(importedPortrait.height, 10);
+            if (w > 0 && h > 0 && w <= 3840 && h <= 3840) {
+                configSet('portraitWindow', Object.assign(
+                    configGet('portraitWindow') || {},
+                    { width: w, height: h }
+                ));
+                if (portraitWin && !portraitWin.isDestroyed()) {
+                    portraitWin.setSize(w, h);
+                }
+            }
+        }
+
+        return { success: true, needsRestart };
+    } catch (e) {
+        console.warn('import-config-apply error:', e.message);
+        return { success: false, error: e.message };
+    }
+});
+
 // ═════════════════════════════════════════════════════════════════════════════
 // APP LIFECYCLE
 // ═════════════════════════════════════════════════════════════════════════════

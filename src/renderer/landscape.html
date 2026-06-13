@@ -83,7 +83,7 @@
 
     <div id="status-bar">
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
-        <span id="version-label">v0.5.1</span>
+        <span id="version-label">v0.5.2</span>
         <button id="dev-btn" title="Inspecter webview active (Ctrl+F12)">🔧 DEV</button>
     </div>
 
@@ -182,6 +182,7 @@
             <div class="s-nav" data-section="privacy"><span class="s-nav-icon">&#128274;</span><span data-i18n="settingsPrivacy">Confidentialité</span></div>
             <div class="s-nav" data-section="obs"><span class="s-nav-icon">&#128250;</span><span data-i18n="settingsObs">OBS</span></div>
             <div class="s-nav" data-section="shortcuts"><span class="s-nav-icon">&#9875;</span><span data-i18n="settingsShortcuts">Raccourcis clavier</span></div>
+            <div class="s-nav" data-section="exportimport"><span class="s-nav-icon">&#128228;</span><span data-i18n="settingsExportImport">Export / Import</span></div>
         </div>
         <div class="s-content">
             <!-- Général -->
@@ -466,6 +467,43 @@
                     <div class="s-info-title" data-i18n="shortcutsMouseTitle">Boutons souris</div>
                     <div class="s-info-desc" data-i18n="shortcutsMouseDesc">Les boutons latéraux de la souris (bouton 4 = retour, bouton 5 = avance) sont pris en charge sur Windows, macOS et Linux.</div>
                 </div>
+            </div>
+            <!-- Export / Import (v0.5.2) -->
+            <div id="section-exportimport" class="s-section">
+                <div class="s-heading" data-i18n="settingsExportImport">Export / Import</div>
+                <div class="s-desc" data-i18n="exportImportDesc">Sauvegardez ou restaurez votre configuration DualView.</div>
+
+                <!-- ── EXPORT ── -->
+                <div class="s-label" style="margin-top:16px;margin-bottom:8px" data-i18n="exportTitle">Exporter</div>
+                <div class="s-desc" data-i18n="exportDesc">Choisissez les paramètres à inclure dans le fichier d'export.</div>
+                <div class="export-checklist" id="export-checklist"><!-- généré par JS --></div>
+                <div class="export-actions">
+                    <button class="export-toggle-btn" id="export-select-all" data-i18n="exportSelectAll">Tout sélectionner</button>
+                    <button class="export-toggle-btn" id="export-select-none" data-i18n="exportSelectNone">Tout désélectionner</button>
+                </div>
+                <button class="s-validate-btn" id="export-btn" style="margin-top:12px" data-i18n="exportBtn">&#128228; Exporter…</button>
+                <div id="export-msg" class="s-msg"></div>
+
+                <div class="s-divider" style="margin-top:20px"></div>
+
+                <!-- ── IMPORT ── -->
+                <div class="s-label" style="margin-top:16px;margin-bottom:8px" data-i18n="importTitle">Importer</div>
+                <div class="s-desc" data-i18n="importDesc">Chargez un fichier de configuration DualView. Vous pourrez choisir quels paramètres appliquer.</div>
+                <button class="s-validate-btn" id="import-btn" style="margin-top:8px" data-i18n="importBtn">&#128229; Importer un fichier…</button>
+                <div id="import-msg" class="s-msg"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Import — merge sélectif (v0.5.2) -->
+    <div id="import-merge-overlay">
+        <div id="import-merge-box">
+            <div class="import-merge-title" data-i18n="importMergeTitle">Choisir les paramètres à importer</div>
+            <div class="import-merge-meta" id="import-merge-meta"></div>
+            <div class="import-merge-list" id="import-merge-list"><!-- généré par JS --></div>
+            <div class="import-merge-actions">
+                <button class="restart-cancel" id="import-merge-cancel" data-i18n="importMergeCancel">Annuler</button>
+                <button class="s-validate-btn" id="import-merge-apply" data-i18n="importMergeApply">Appliquer la sélection</button>
             </div>
         </div>
     </div>

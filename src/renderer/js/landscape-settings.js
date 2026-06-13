@@ -225,6 +225,8 @@ document.querySelectorAll('.s-nav').forEach(nav => {
         const sec = document.getElementById('section-' + nav.dataset.section);
         if (sec) sec.classList.add('active');
         if (nav.dataset.section === 'services') loadServicesStatus();
+        if (nav.dataset.section === 'obs') loadObsInfo();
+        if (nav.dataset.section === 'exportimport') buildExportChecklist();
     });
 });
 
@@ -952,6 +954,457 @@ document.addEventListener('click', (e) => {
 // Attacher les events aux boutons ← →
 attachNavHistEvents(backBtn);
 attachNavHistEvents(forwardBtn);
+
+// ── Export / Import configuration (v0.5.2) ────────────────────────────────────
+
+/**
+ * Définition des paramètres exportables.
+ * Regroupés par catégorie pour l'affichage dans la checklist.
+ * Chaque entrée : { key, labelKey, group, defaultChecked }
+ */
+const EXPORTABLE_KEYS = [
+    // Comportement général
+    { key: 'restoreTabs',         group: 'general', defaultChecked: true },
+    { key: 'autoPauseVideo',      group: 'general', defaultChecked: true },
+    { key: 'autoMutePortrait',    group: 'general', defaultChecked: true },
+    // Page d'accueil
+    { key: 'homepageMode',        group: 'homepage', defaultChecked: true },
+    { key: 'customHomepageUrl',   group: 'homepage', defaultChecked: true },
+    { key: 'newTabMode',          group: 'homepage', defaultChecked: true },
+    // Interface
+    { key: 'appearance',          group: 'interface', defaultChecked: true },
+    { key: 'language',            group: 'interface', defaultChecked: true },
+    // Recherche
+    { key: 'searchEngineId',      group: 'search', defaultChecked: true },
+    { key: 'searchEngineUrl',     group: 'search', defaultChecked: false },
+    { key: 'searchEngineName',    group: 'search', defaultChecked: false },
+    { key: 'customSearchEngines', group: 'search', defaultChecked: true },
+    // Autres
+    { key: 'screenshotDir',       group: 'other', defaultChecked: false },
+    { key: 'portraitPreset',      group: 'other', defaultChecked: true },
+    { key: 'customServices',      group: 'other', defaultChecked: true },
+    // Données (v0.5.2b)
+    { key: '_portraitWindow',     group: 'data',  defaultChecked: true },
+    { key: '_history',            group: 'data',  defaultChecked: true },
+    { key: '_favorites',          group: 'data',  defaultChecked: true },
+];
+
+const EXPORT_GROUP_LABELS = {
+    general:   { fr: 'Comportement',         en: 'Behavior' },
+    homepage:  { fr: "Page d'accueil",        en: 'Homepage' },
+    interface: { fr: 'Interface',             en: 'Interface' },
+    search:    { fr: 'Moteur de recherche',   en: 'Search engine' },
+    other:     { fr: 'Autres',                en: 'Other' },
+    data:      { fr: 'Données',               en: 'Data' },
+};
+
+/**
+ * Construit la checklist d'export dans le panneau Export/Import.
+ * Appelé à l'ouverture de la section pour refléter les settings courants.
+ */
+function buildExportChecklist() {
+    const container = document.getElementById('export-checklist');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Grouper par catégorie
+    const groups = {};
+    for (const item of EXPORTABLE_KEYS) {
+        if (!groups[item.group]) groups[item.group] = [];
+        groups[item.group].push(item);
+    }
+
+    const lang = currentLang || 'fr';
+
+    for (const [groupKey, items] of Object.entries(groups)) {
+        // Titre du groupe
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'export-group-label';
+        groupLabel.textContent = (EXPORT_GROUP_LABELS[groupKey] || {})[lang] || groupKey;
+        container.appendChild(groupLabel);
+
+        for (const item of items) {
+            const row = document.createElement('label');
+            row.className = 'export-check-row';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = 'export-key-' + item.key;
+            checkbox.checked = item.defaultChecked;
+            checkbox.dataset.exportKey = item.key;
+
+            const labelText = document.createElement('span');
+            labelText.textContent = t('exportKey_' + item.key) || item.key;
+
+            // Afficher la valeur actuelle en sous-texte
+            const valPreview = document.createElement('span');
+            valPreview.className = 'export-val-preview';
+
+            if (item.key === '_history') {
+                // Aperçu dynamique : récupérer le compte depuis l'historique
+                valPreview.textContent = '…';
+                window.dualview.historyGetAll().then(entries => {
+                    valPreview.textContent = entries && entries.length > 0
+                        ? `${entries.length} entrée(s)`
+                        : '(vide)';
+                }).catch(() => { valPreview.textContent = '?'; });
+
+                // Insérer le row maintenant pour pouvoir placer le dropdown juste après
+                row.appendChild(checkbox);
+                row.appendChild(labelText);
+                row.appendChild(valPreview);
+                container.appendChild(row);
+
+                // Dropdown limite — visible seulement si la case est cochée
+                const limitRow = document.createElement('div');
+                limitRow.className = 'export-history-limit-row';
+                limitRow.id = 'export-history-limit-row';
+                limitRow.style.display = checkbox.checked ? 'flex' : 'none';
+
+                const limitLabel = document.createElement('span');
+                limitLabel.className = 'export-history-limit-label';
+                limitLabel.textContent = t('historyLimitLabel');
+
+                const limitSelect = document.createElement('select');
+                limitSelect.id = 'export-history-limit';
+                limitSelect.className = 'export-history-limit-select';
+                [
+                    { value: '500',  labelKey: 'historyLimit500' },
+                    { value: '1000', labelKey: 'historyLimit1000' },
+                    { value: '5000', labelKey: 'historyLimit5000' },
+                    { value: '0',    labelKey: 'historyLimitAll' },
+                ].forEach(opt => {
+                    const o = document.createElement('option');
+                    o.value = opt.value;
+                    o.textContent = t(opt.labelKey);
+                    if (opt.value === '500') o.selected = true;
+                    limitSelect.appendChild(o);
+                });
+
+                limitRow.appendChild(limitLabel);
+                limitRow.appendChild(limitSelect);
+                container.appendChild(limitRow);
+
+                // Afficher/masquer le dropdown selon l'état de la checkbox
+                checkbox.addEventListener('change', () => {
+                    limitRow.style.display = checkbox.checked ? 'flex' : 'none';
+                });
+
+                continue; // le row a déjà été appendé manuellement
+            } else if (item.key === '_favorites') {
+                valPreview.textContent = '…';
+                window.dualview.favoritesGetAll().then(entries => {
+                    valPreview.textContent = entries && entries.length > 0
+                        ? `${entries.length} favori(s)`
+                        : '(vide)';
+                }).catch(() => { valPreview.textContent = '?'; });
+            } else if (item.key === '_portraitWindow') {
+                // On n'a pas d'accès direct aux dimensions portrait depuis le renderer,
+                // on affiche le preset actif comme proxy
+                const preset = currentSettings.portraitPreset || 'iphone15';
+                valPreview.textContent = preset;
+            } else {
+                const val = currentSettings[item.key];
+                if (val !== undefined && val !== null && val !== '') {
+                    if (Array.isArray(val)) {
+                        valPreview.textContent = val.length > 0 ? `${val.length} élément(s)` : '(vide)';
+                    } else if (typeof val === 'boolean') {
+                        valPreview.textContent = val ? '✓ activé' : '✗ désactivé';
+                    } else {
+                        const str = String(val);
+                        valPreview.textContent = str.length > 50 ? str.slice(0, 47) + '…' : str;
+                    }
+                } else {
+                    valPreview.textContent = '(non défini)';
+                }
+            }
+
+            row.appendChild(checkbox);
+            row.appendChild(labelText);
+            row.appendChild(valPreview);
+            container.appendChild(row);
+        }
+    }
+}
+
+// Boutons Tout sélectionner / Tout désélectionner
+document.getElementById('export-select-all').addEventListener('click', () => {
+    document.querySelectorAll('#export-checklist input[type="checkbox"]')
+        .forEach(cb => { cb.checked = true; });
+});
+document.getElementById('export-select-none').addEventListener('click', () => {
+    document.querySelectorAll('#export-checklist input[type="checkbox"]')
+        .forEach(cb => { cb.checked = false; });
+});
+
+// Bouton Export
+document.getElementById('export-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('export-msg');
+    // Construire la sélection depuis les checkboxes
+    const selection = {};
+    document.querySelectorAll('#export-checklist input[type="checkbox"]').forEach(cb => {
+        selection[cb.dataset.exportKey] = cb.checked;
+    });
+    // Lire la limite d'historique (0 = tout)
+    const limitEl = document.getElementById('export-history-limit');
+    if (limitEl) selection._historyLimit = parseInt(limitEl.value, 10) || 0;
+
+    // Vérifier qu'au moins un item est coché
+    if (!Object.values(selection).some(v => v === true)) {
+        msg.textContent = currentLang === 'fr'
+            ? 'Sélectionnez au moins un paramètre.'
+            : 'Select at least one setting.';
+        msg.className = 's-msg show err';
+        return;
+    }
+    msg.textContent = ''; msg.className = 's-msg';
+    const result = await window.dualview.exportConfig(selection);
+    if (result && result.success) {
+        msg.textContent = t('exportOk');
+        msg.className = 's-msg show ok';
+        setTimeout(() => msg.classList.remove('show'), 4000);
+    } else if (result && result.canceled) {
+        // Annulé par l'utilisateur — silencieux
+    } else {
+        msg.textContent = t('exportErr') + (result && result.error ? ' — ' + result.error : '');
+        msg.className = 's-msg show err';
+    }
+});
+
+// Bouton Import — ouvrir le fichier, puis afficher la modale de merge
+document.getElementById('import-btn').addEventListener('click', async () => {
+    const msg = document.getElementById('import-msg');
+    msg.textContent = ''; msg.className = 's-msg';
+
+    const result = await window.dualview.importConfigRead();
+    if (!result || result.canceled) return;
+
+    if (!result.success) {
+        if (result.error === 'invalid_file') {
+            msg.textContent = t('importErrInvalid');
+        } else {
+            msg.textContent = t('importErrRead') + (result.error ? ' — ' + result.error : '');
+        }
+        msg.className = 's-msg show err';
+        return;
+    }
+
+    // Afficher la modale de merge sélectif
+    openImportMergeModal(result.imported, result.has || {}, msg);
+});
+
+/**
+ * Ouvre la modale de merge sélectif avec les données du fichier importé.
+ * @param {object} importedData  Contenu parsé du fichier
+ * @param {object} hasData       Flags {history, favorites, portraitWindow} — données non-settings dispo
+ * @param {HTMLElement} msgEl    Élément de message dans la section Import
+ */
+function openImportMergeModal(importedData, hasData, msgEl) {
+    const overlay  = document.getElementById('import-merge-overlay');
+    const metaEl   = document.getElementById('import-merge-meta');
+    const listEl   = document.getElementById('import-merge-list');
+
+    // Métadonnées du fichier
+    const exportedAt = importedData.exportedAt
+        ? new Date(importedData.exportedAt).toLocaleString(currentLang === 'fr' ? 'fr-FR' : 'en-US')
+        : '?';
+    const versionStr = importedData.version || '?';
+    metaEl.textContent = currentLang === 'fr'
+        ? `Exporté le ${exportedAt} — version ${versionStr}`
+        : `Exported on ${exportedAt} — version ${versionStr}`;
+
+    listEl.innerHTML = '';
+    const importedSettings = importedData.settings || {};
+
+    // Construire la liste fusionnée : settings + clés spéciales disponibles dans le fichier
+    const allItems = [];
+
+    // Paramètres settings présents dans le fichier
+    for (const key of Object.keys(importedSettings)) {
+        allItems.push({ key, type: 'setting', value: importedSettings[key] });
+    }
+
+    // Clés spéciales (données)
+    if (hasData && hasData.history) {
+        allItems.push({ key: '_history', type: 'special',
+            value: `${(importedData.history || []).length} entrée(s)` });
+    }
+    if (hasData && hasData.favorites) {
+        allItems.push({ key: '_favorites', type: 'special',
+            value: `${(importedData.favorites || []).length} favori(s)` });
+    }
+    if (hasData && hasData.portraitWindow) {
+        const pw = importedData.portraitWindow;
+        allItems.push({ key: '_portraitWindow', type: 'special',
+            value: `${pw.width} × ${pw.height}` });
+    }
+
+    if (allItems.length === 0) {
+        listEl.textContent = currentLang === 'fr'
+            ? 'Aucun paramètre trouvé dans ce fichier.'
+            : 'No settings found in this file.';
+    } else {
+        // En-têtes colonnes
+        const header = document.createElement('div');
+        header.className = 'import-merge-header';
+        header.innerHTML = `
+            <span></span>
+            <span>${currentLang === 'fr' ? 'Paramètre' : 'Setting'}</span>
+            <span>${currentLang === 'fr' ? 'Valeur importée' : 'Imported value'}</span>
+            <span>${currentLang === 'fr' ? 'Valeur actuelle' : 'Current value'}</span>
+        `;
+        listEl.appendChild(header);
+
+        for (const item of allItems) {
+            const row = document.createElement('label');
+            row.className = 'import-merge-row';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.dataset.importKey = item.key;
+            checkbox.dataset.importType = item.type;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'import-merge-key';
+            nameSpan.textContent = t('exportKey_' + item.key) || item.key;
+
+            // Valeur importée
+            const newValSpan = document.createElement('span');
+            newValSpan.className = 'import-merge-val new';
+            if (item.type === 'special') {
+                newValSpan.textContent = item.value;
+            } else {
+                const v = item.value;
+                if (Array.isArray(v)) {
+                    newValSpan.textContent = `${v.length} élément(s)`;
+                } else if (typeof v === 'boolean') {
+                    newValSpan.textContent = v ? '✓' : '✗';
+                } else {
+                    const str = String(v);
+                    newValSpan.textContent = str.length > 40 ? str.slice(0, 37) + '…' : str;
+                }
+            }
+
+            // Valeur actuelle
+            const currentValSpan = document.createElement('span');
+            currentValSpan.className = 'import-merge-val current';
+            if (item.type === 'special') {
+                // Pas de valeur courante simple à afficher pour les données
+                currentValSpan.textContent = currentLang === 'fr' ? '(fusion)' : '(merge)';
+            } else {
+                const cv = currentSettings[item.key];
+                if (cv === undefined || cv === null || cv === '') {
+                    currentValSpan.textContent = '—';
+                } else if (Array.isArray(cv)) {
+                    currentValSpan.textContent = `${cv.length} élément(s)`;
+                } else if (typeof cv === 'boolean') {
+                    currentValSpan.textContent = cv ? '✓' : '✗';
+                } else {
+                    const str = String(cv);
+                    currentValSpan.textContent = str.length > 40 ? str.slice(0, 37) + '…' : str;
+                }
+            }
+
+            row.appendChild(checkbox);
+            row.appendChild(nameSpan);
+            row.appendChild(newValSpan);
+            row.appendChild(currentValSpan);
+            listEl.appendChild(row);
+        }
+    }
+
+    overlay.classList.add('show');
+
+    // Stocker les données pour le bouton Appliquer
+    overlay._importedData = importedData;
+    overlay._msgEl = msgEl;
+}
+
+document.getElementById('import-merge-cancel').addEventListener('click', () => {
+    document.getElementById('import-merge-overlay').classList.remove('show');
+});
+
+document.getElementById('import-merge-apply').addEventListener('click', async () => {
+    const overlay      = document.getElementById('import-merge-overlay');
+    const msgEl        = overlay._msgEl || document.getElementById('import-msg');
+    const importedData = overlay._importedData || {};
+
+    // Construire le payload selon les cases cochées
+    const toApplySettings  = {};
+    let   includeHistory   = false;
+    let   includeFavorites = false;
+    let   includePortrait  = false;
+
+    document.querySelectorAll('#import-merge-list input[type="checkbox"]').forEach(cb => {
+        if (!cb.checked) return;
+        const key  = cb.dataset.importKey;
+        const type = cb.dataset.importType;
+        if (type === 'special') {
+            if (key === '_history')       includeHistory   = true;
+            if (key === '_favorites')     includeFavorites = true;
+            if (key === '_portraitWindow') includePortrait  = true;
+        } else {
+            if (key && importedData.settings && importedData.settings[key] !== undefined) {
+                toApplySettings[key] = importedData.settings[key];
+            }
+        }
+    });
+
+    overlay.classList.remove('show');
+
+    const nothingSelected = Object.keys(toApplySettings).length === 0
+        && !includeHistory && !includeFavorites && !includePortrait;
+    if (nothingSelected) return;
+
+    // Détecter en avance si appearance ou language vont changer (pour afficher la bannière)
+    const currentAppearance = currentSettings.appearance || 'auto';
+    const currentLanguage   = currentSettings.language   || 'fr';
+    const willRestartAppearance = toApplySettings.appearance !== undefined
+        && toApplySettings.appearance !== currentAppearance;
+    const willRestartLanguage = toApplySettings.language !== undefined
+        && toApplySettings.language !== currentLanguage;
+    const willNeedRestart = willRestartAppearance || willRestartLanguage;
+
+    // Construire le payload complet
+    const payload = {
+        settings:       toApplySettings,
+        historyEntries: includeHistory   ? (importedData.history   || []) : undefined,
+        favEntries:     includeFavorites ? (importedData.favorites  || []) : undefined,
+        portraitWindow: includePortrait  ? importedData.portraitWindow     : undefined,
+    };
+
+    const result = await window.dualview.importConfigApply(payload);
+
+    if (result && result.success) {
+        // Recharger l'UI des settings pour refléter les nouvelles valeurs
+        const store = await window.dualview.getStore();
+        loadSettingsUI(store.settings);
+
+        if (result.needsRestart || willNeedRestart) {
+            // Afficher le message de succès + avertissement restart
+            msgEl.textContent = t('importOkRestart');
+            msgEl.className = 's-msg show ok';
+            // Réutiliser le dialogue de redémarrage existant
+            showRestartDialog('restartTitle', 'restartImportDesc',
+                () => { /* onConfirm : l'app redémarre via relaunchApp dans le handler */ },
+                () => {
+                    // onCancel : ne pas redémarrer, conserver le message
+                    msgEl.textContent = t('importOkRestartLater');
+                    msgEl.className = 's-msg show ok';
+                    setTimeout(() => msgEl.classList.remove('show'), 6000);
+                }
+            );
+        } else {
+            msgEl.textContent = t('importOk');
+            msgEl.className = 's-msg show ok';
+            setTimeout(() => msgEl.classList.remove('show'), 6000);
+        }
+    } else {
+        msgEl.textContent = t('exportErr') + (result && result.error ? ' — ' + result.error : '');
+        msgEl.className = 's-msg show err';
+    }
+});
 
 // ── Raccourcis clavier (v0.4.1) ────────────────────────────────────────────
 // Même logique que les commandes OBS : on appelle les fonctions UI existantes.

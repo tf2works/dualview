@@ -86,10 +86,11 @@
   - ✅ `installer/build-installer.sh` créé (macOS + Linux)
   - ✅ GitHub Actions mis à jour : 3 jobs séparés (windows/macos/linux) + job release
 
-- [ ] **H. Export / Import de configuration**
+- [x] **H. Export / Import de configuration**
   Bouton "Exporter ma config" (onglets, services, paramètres OBS) en JSON et
   "Importer" dans Paramètres → Général. Facilite les réinstallations et le partage
   de setup entre contributeurs.
+  ✅ Livré en v0.5.2 — section Export/Import dans les Paramètres, export sélectif + import avec merge sélectif.
 
 - [ ] **I. Tests automatisés de base**
   Ajouter 3 à 5 tests Playwright vérifiant :

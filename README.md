@@ -1,4 +1,4 @@
-# DualView v0.5.1
+# DualView v0.5.2
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -45,7 +45,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 ### Windows
 
-1. Double-cliquez sur **`DualView-Setup-0.5.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.5.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -439,7 +439,7 @@ Pendant qu'une publicité est diffusée dans la fenêtre Paysage, un overlay sem
 
 ## Paramètres
 
-Accessible via **⚙️ → Paramètres** — 5 sections :
+Accessible via **⚙️ → Paramètres** — 6 sections :
 
 | Section | Contenu |
 |---------|---------|
@@ -448,6 +448,26 @@ Accessible via **⚙️ → Paramètres** — 5 sections :
 | **Confidentialité** | Gestion des données locales |
 | **OBS** | Activation serveur local, port, URL du dock, token |
 | **Raccourcis clavier** | Tableau complet des raccourcis — Windows/Linux vs macOS |
+| **Export / Import** | Sauvegarde et restauration de la configuration (voir ci-dessous) |
+
+### Export / Import de configuration
+
+Sauvegardez ou restaurez votre configuration depuis **Paramètres → Export / Import**.
+
+**Export sélectif** — 18 éléments répartis en 6 catégories :
+
+| Catégorie | Éléments |
+|---|---|
+| Comportement | Restaurer onglets, Pause auto YouTube, Mute portrait |
+| Page d'accueil | Mode, URL personnalisée, Nouveaux onglets |
+| Interface | Apparence, Langue |
+| Moteur de recherche | ID actif, URL, Nom, Moteurs personnalisés |
+| Autres | Dossier captures, Préréglage portrait, Services personnalisés |
+| Données | Historique de navigation, Favoris, Dimensions fenêtre portrait |
+
+Pour l'historique, 4 options de limite : **500** (défaut) · **1 000** · **5 000** · **Tout**.
+
+**Import avec merge sélectif** — après ouverture du fichier, une modale compare les valeurs importées et actuelles. Chaque élément est sélectionnable individuellement. Historique et favoris sont **fusionnés** sans supprimer l'existant. Si l'apparence ou la langue changent, un redémarrage est proposé automatiquement.
 
 ### Moteur de recherche configurable
 
@@ -555,6 +575,7 @@ Supprimez `%APPDATA%\DualView\` pour effacer toutes les données locales.
 
 | Version | Résumé |
 |---------|--------|
+| 0.5.2 | Export / Import de configuration : 18 éléments sélectionnables (paramètres, historique avec limite, favoris, dimensions portrait), merge sélectif à l'import, restart auto si apparence/langue |
 | 0.5.1 | Section Raccourcis clavier dans Paramètres (Windows/Linux/macOS) ; correctifs topsites (clics, race condition, disparition au 2e onglet) ; `pointer-events` webview vide |
 | 0.5.0 | Mode Focus, Top domaines, fusion Apparence+Langue, réouverture Portrait |
 | 0.4.7 | Favoris (★ toolbar + panneau latéral) |

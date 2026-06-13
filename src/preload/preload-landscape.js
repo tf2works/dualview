@@ -126,6 +126,11 @@ contextBridge.exposeInMainWorld('dualview', {
     favoritesGetAll: ()           => ipcRenderer.invoke('favorites-get-all'),
     favoritesSearch: (query, limit) => ipcRenderer.invoke('favorites-search', { query, limit }),
 
+    // ── Export / Import configuration (v0.5.2) ────────────────
+    exportConfig:      (selection) => ipcRenderer.invoke('export-config',        { selection }),
+    importConfigRead:  ()          => ipcRenderer.invoke('import-config-read'),
+    importConfigApply: (payload)   => ipcRenderer.invoke('import-config-apply',  payload),
+
     // ── Listeners ──────────────────────────────────────────────
     on: (channel, callback) => {
         const valid = [

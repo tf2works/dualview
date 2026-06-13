@@ -7,6 +7,38 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.5.2] — 2026
+
+### Ajouté
+
+- **Export / Import de configuration** (`main.js`, `preload-landscape.js`, `landscape.html`, `landscape-settings.js`, `landscape-i18n.js`, `landscape.css`)
+  - Nouvelle entrée **📤 Export / Import** dans la barre latérale des Paramètres (6e entrée, après Raccourcis clavier)
+  - **Export sélectif** : checklist de 18 éléments regroupés en 6 catégories
+    - *Comportement* : Restaurer onglets, Pause auto YouTube, Mute portrait
+    - *Page d'accueil* : Mode, URL personnalisée, Nouveaux onglets
+    - *Interface* : Apparence, Langue
+    - *Moteur de recherche* : ID actif, URL, Nom, Moteurs personnalisés
+    - *Autres* : Dossier captures, Préréglage portrait, Services personnalisés
+    - *Données* : Historique de navigation, Favoris, Dimensions fenêtre portrait
+  - **Limite d'export pour l'historique** : dropdown visible uniquement quand la case Historique est cochée — 4 options : 500 dernières (défaut), 1 000, 5 000, Tout
+  - Chaque ligne affiche un aperçu de la valeur actuelle (comptage async pour historique et favoris)
+  - Boutons "Tout sélectionner" / "Tout désélectionner"
+  - Boîte de dialogue "Enregistrer sous" → dossier **Téléchargements** par défaut
+  - Nom suggéré : `dualview-backup-YYYY-MM-DD.json`
+  - Format JSON structuré avec signature `_dualview_export: true`, champ `version` et `exportedAt`
+  - **Import avec merge sélectif** : modale affichant côte à côte la valeur importée et la valeur actuelle
+    - Sélection individuelle par case à cocher — import partiel possible
+    - Métadonnées du fichier (date d'export, version source)
+    - Fusion historique et favoris sans suppression de l'existant (déduplication automatique)
+    - Dimensions portrait appliquées en live sur la fenêtre portrait
+    - Si `appearance` ou `language` changent : dialogue de redémarrage proposé automatiquement
+    - Rechargement automatique de l'UI des paramètres après import
+  - Validation stricte des valeurs à l'import (mêmes règles que `save-settings`)
+  - 3 nouveaux handlers IPC : `export-config`, `import-config-read`, `import-config-apply`
+  - 45 nouvelles clés i18n FR/EN
+
+---
+
 ## [0.5.1] — 2026
 
 ### Ajouté

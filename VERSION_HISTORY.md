@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.5.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.5.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -57,6 +57,61 @@
 | `Ctrl+T` / `Ctrl+W` | `⌘+T` / `⌘+W` | Nouvel onglet / Fermer l'onglet actif |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃+Tab` / `⌃+Shift+Tab` | Onglet suivant / précédent |
 | `Ctrl+L` / `F6` | `⌘+L` / `F6` | Focus sur la barre d'adresse |
+
+---
+
+## Nouveautés v0.5.2
+
+### 📤 Export / Import de configuration
+
+Nouvelle section **Export / Import** dans les Paramètres (6e entrée dans la barre latérale, après Raccourcis clavier).
+
+#### Export sélectif
+
+Une checklist de **18 éléments** regroupés en **6 catégories** permet de choisir précisément ce qui sera exporté :
+
+| Catégorie | Éléments |
+|---|---|
+| Comportement | Restaurer onglets, Pause auto YouTube, Mute portrait |
+| Page d'accueil | Mode, URL personnalisée, Nouveaux onglets |
+| Interface | Apparence, Langue |
+| Moteur de recherche | ID actif, URL, Nom, Moteurs personnalisés |
+| Autres | Dossier captures d'écran, Préréglage portrait, Services personnalisés |
+| Données | Historique de navigation, Favoris, Dimensions fenêtre portrait |
+
+**Limite d'export pour l'historique** — un dropdown apparaît sous la case Historique dès qu'elle est cochée :
+
+| Option | Entrées exportées |
+|---|---|
+| 500 dernières *(défaut)* | Les 500 visites les plus récentes |
+| 1 000 dernières | Les 1 000 visites les plus récentes |
+| 5 000 dernières | Les 5 000 visites les plus récentes |
+| Tout exporter | Intégralité de l'historique (jusqu'à 5 000 entrées max en mémoire) |
+
+Autres détails de l'export :
+- Chaque ligne affiche un aperçu de la valeur actuelle (comptage async pour historique et favoris)
+- Boutons **Tout sélectionner** / **Tout désélectionner**
+- Boîte de dialogue "Enregistrer sous" → dossier **Téléchargements** par défaut
+- Nom suggéré : `dualview-backup-YYYY-MM-DD.json`
+- Format JSON lisible, signé `_dualview_export: true` avec `version` et `exportedAt`
+
+#### Import avec merge sélectif
+
+Après sélection du fichier, une **modale de merge** s'affiche :
+
+- Affiche les **métadonnées** du fichier (date d'export, version source)
+- Liste chaque élément avec **valeur importée** (vert) et **valeur actuelle** (gris)
+- Sélection individuelle par case à cocher — import partiel possible
+- **Historique et favoris** : fusion sans suppression de l'existant (déduplication automatique par URL)
+- **Dimensions portrait** : appliquées en live sur la fenêtre portrait ouverte
+- **Apparence ou langue modifiée** : dialogue de redémarrage proposé automatiquement ; si annulé, un message rappelle de redémarrer manuellement
+- Bouton **Appliquer la sélection** → merge immédiat + rechargement de l'UI des paramètres
+- Validation stricte des valeurs (mêmes règles que la sauvegarde normale)
+
+La barre latérale des Paramètres passe de 5 à **6 entrées** :
+```
+Général / Services / Confidentialité / OBS / Raccourcis clavier / Export·Import
+```
 
 ---
 
