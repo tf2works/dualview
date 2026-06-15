@@ -1,37 +1,167 @@
 /*
  * DualView - Onglets, navigation et omnibar
- * Version: 0.4.4
+ * Version: 0.5.3
  *
  * Gestion des onglets (créer, fermer, switcher, persister),
  * commandes OBS, résolution d'URL, barre d'adresse, omnibar
  * (suggestions historique + moteur de recherche), screenshot.
  *
+ * v0.5.3 — Typage des onglets (TAB_TYPE_*) + Drag & Drop avec ligne indicatrice.
+ *
  * Dépendances : landscape-i18n.js, landscape-ui.js, landscape-views.js
  */
 
-// ── Onglets ────────────────────────────────────────────────────────────────────
-function isSettingsTab(tab) { return tab && tab.id === SETTINGS_TAB_ID; }
+// ── Types d'onglets (v0.5.3) ──────────────────────────────────────────────────
+// Permet de conditionner les comportements (nav, drag, webview) selon le type.
+const TAB_TYPE_WEB      = 'web';       // Navigation web normale
+const TAB_TYPE_SETTINGS = 'settings';  // Panneau paramètres intégré
+const TAB_TYPE_BLANK    = 'blank';     // Nouvel onglet vide (top sites)
+
+/**
+ * Retourne le type d'un onglet.
+ * Utilisé pour la migration des onglets persistés sans champ `type`.
+ */
+function getTabType(tab) {
+    if (!tab) return TAB_TYPE_WEB;
+    if (tab.type) return tab.type;
+    // Déduction rétro-compatible pour les sessions sauvegardées avant v0.5.3
+    if (tab.id === SETTINGS_TAB_ID) return TAB_TYPE_SETTINGS;
+    if (!tab.url || tab.url === '') return TAB_TYPE_BLANK;
+    return TAB_TYPE_WEB;
+}
+
+function isSettingsTab(tab) { return getTabType(tab) === TAB_TYPE_SETTINGS; }
+function isWebTab(tab)      { return getTabType(tab) === TAB_TYPE_WEB; }
+
+// ── Drag & Drop — état interne (v0.5.3) ──────────────────────────────────────
+let _dragSrcId      = null;   // id de l'onglet en cours de drag
+let _dragIndicator  = null;   // élément <div class="tab-drop-indicator"> dans le DOM
 
 function renderTabs() {
-    const bar = document.getElementById('tab-bar');
+    const bar    = document.getElementById('tab-bar');
     const addBtn = document.getElementById('add-tab-btn');
+    // Retirer les onglets précédents (mais pas l'indicateur ni le bouton +)
     bar.querySelectorAll('.tab').forEach(el => el.remove());
+
     tabs.forEach(tab => {
-        const el = document.createElement('div');
-        el.className = 'tab' + (tab.id === activeTabId ? ' active' : '') + (isSettingsTab(tab) ? ' settings-tab' : '');
-        el.dataset.id = tab.id;
+        const type = getTabType(tab);
+        const el   = document.createElement('div');
+        el.className = 'tab'
+            + (tab.id === activeTabId  ? ' active'       : '')
+            + (type === TAB_TYPE_SETTINGS ? ' settings-tab' : '');
+        el.dataset.id   = tab.id;
+        el.dataset.type = type;
+        el.draggable    = true;
+
         const title = document.createElement('span');
         title.className = 'tab-title';
-        title.textContent = isSettingsTab(tab) ? '⚙ ' + t('settings') : (tab.title || t('newTab'));
+        title.textContent = (type === TAB_TYPE_SETTINGS)
+            ? '⚙ ' + t('settings')
+            : (tab.title || t('newTab'));
         el.appendChild(title);
+
         const closeBtn = document.createElement('button');
-        closeBtn.className = 'tab-close';
-        closeBtn.innerHTML = '&times;';
+        closeBtn.className  = 'tab-close';
+        closeBtn.innerHTML  = '&times;';
         closeBtn.addEventListener('click', e => { e.stopPropagation(); closeTab(tab.id); });
         el.appendChild(closeBtn);
+
         el.addEventListener('click', () => switchTab(tab.id));
+
+        // ── Drag & Drop (v0.5.3) ───────────────────────────────────────────
+        el.addEventListener('dragstart', _onTabDragStart);
+        el.addEventListener('dragend',   _onTabDragEnd);
+        el.addEventListener('dragover',  _onTabDragOver);
+        el.addEventListener('dragleave', _onTabDragLeave);
+        el.addEventListener('drop',      _onTabDrop);
+
         bar.insertBefore(el, addBtn);
     });
+}
+
+// ── Drag & Drop — handlers (v0.5.3) ──────────────────────────────────────────
+
+function _onTabDragStart(e) {
+    _dragSrcId = e.currentTarget.dataset.id;
+    e.currentTarget.classList.add('tab-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox exige setData pour déclencher le drag
+    e.dataTransfer.setData('text/plain', _dragSrcId);
+}
+
+function _onTabDragEnd(e) {
+    e.currentTarget.classList.remove('tab-dragging');
+    _dragSrcId = null;
+    _removeDropIndicator();
+}
+
+function _onTabDragOver(e) {
+    if (!_dragSrcId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const targetEl = e.currentTarget;
+    const targetId = targetEl.dataset.id;
+    if (targetId === _dragSrcId) { _removeDropIndicator(); return; }
+
+    // Déterminer si le curseur est dans la moitié gauche ou droite de l'onglet cible
+    const rect   = targetEl.getBoundingClientRect();
+    const isLeft = (e.clientX - rect.left) < rect.width / 2;
+
+    const bar    = document.getElementById('tab-bar');
+    const addBtn = document.getElementById('add-tab-btn');
+
+    if (!_dragIndicator) {
+        _dragIndicator = document.createElement('div');
+        _dragIndicator.className = 'tab-drop-indicator';
+    }
+
+    // Positionner l'indicateur avant ou après l'onglet cible
+    if (isLeft) {
+        bar.insertBefore(_dragIndicator, targetEl);
+    } else {
+        bar.insertBefore(_dragIndicator, targetEl.nextSibling || addBtn);
+    }
+}
+
+function _onTabDragLeave(e) {
+    // Ne retirer l'indicateur que si on quitte la tab-bar (pas juste un onglet)
+    if (!e.currentTarget.parentElement.contains(e.relatedTarget)) {
+        _removeDropIndicator();
+    }
+}
+
+function _onTabDrop(e) {
+    e.preventDefault();
+    if (!_dragSrcId) return;
+
+    const targetId = e.currentTarget.dataset.id;
+    if (targetId === _dragSrcId) { _removeDropIndicator(); return; }
+
+    const fromIdx = tabs.findIndex(t => t.id === _dragSrcId);
+    const toIdx   = tabs.findIndex(t => t.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) { _removeDropIndicator(); return; }
+
+    // Insérer avant ou après la cible selon la position du curseur
+    const rect   = e.currentTarget.getBoundingClientRect();
+    const isLeft = (e.clientX - rect.left) < rect.width / 2;
+    const insertIdx = isLeft ? toIdx : toIdx + 1;
+
+    // Réordonner le tableau tabs[]
+    const [moved] = tabs.splice(fromIdx, 1);
+    const adjustedIdx = insertIdx > fromIdx ? insertIdx - 1 : insertIdx;
+    tabs.splice(adjustedIdx, 0, moved);
+
+    _removeDropIndicator();
+    renderTabs();
+    saveTabs();
+}
+
+function _removeDropIndicator() {
+    if (_dragIndicator && _dragIndicator.parentElement) {
+        _dragIndicator.parentElement.removeChild(_dragIndicator);
+    }
+    _dragIndicator = null;
 }
 
 function switchTab(id) {
@@ -94,7 +224,8 @@ function openSettingsTab(section) {
     if (existing) {
         switchTab(SETTINGS_TAB_ID);
     } else {
-        tabs.push({ id: SETTINGS_TAB_ID, title: 'Paramètres', url: 'dualview://settings' });
+        // v0.5.3 : typage explicite
+        tabs.push({ id: SETTINGS_TAB_ID, title: 'Paramètres', url: 'dualview://settings', type: TAB_TYPE_SETTINGS });
         switchTab(SETTINGS_TAB_ID);
     }
     if (section) {
@@ -114,9 +245,11 @@ function activateSettingsSection(section) {
 }
 
 function addTab() {
-    const id = 'tab-' + Date.now();
+    const id  = 'tab-' + Date.now();
     const url = getNewTabUrl();
-    tabs.push({ id, title: url ? '' : t('newTab'), url });
+    // v0.5.3 : typage explicite de l'onglet
+    const type = url ? TAB_TYPE_WEB : TAB_TYPE_BLANK;
+    tabs.push({ id, title: url ? '' : t('newTab'), url, type });
     // Ne pas appeler createWebview ici : switchTab détecte isNewWebview=true
     // et crée la webview lui-même, évitant un appel canGoBack() avant dom-ready.
     switchTab(id);
@@ -127,7 +260,8 @@ function addTabWithUrl(url) {
     const id = 'tab-' + Date.now();
     let title = '';
     try { title = new URL(url).hostname.replace('www.', ''); } catch { title = url.slice(0, 20); }
-    tabs.push({ id, title, url });
+    // v0.5.3 : typage explicite
+    tabs.push({ id, title, url, type: TAB_TYPE_WEB });
     // Ne pas appeler createWebview ici : switchTab gère la création.
     switchTab(id);
 }

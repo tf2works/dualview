@@ -1,4 +1,4 @@
-# DualView - Architecture v0.5.0
+# DualView - Architecture v0.5.3
 
 ## Vue d'ensemble
 
@@ -38,6 +38,7 @@ main.js
   |     Onglet vide : top 10 domaines visités (historique toutes sessions) (v0.5.0)
   |     Paramètres : Apparence + Langue fusionnés dans Général (v0.5.0)
   |     Menu ⚙️ : bouton "Rouvrir le portrait" si portrait fermé (v0.5.0)
+  |     Onglets déplaçables Drag & Drop + typage TAB_TYPE_* (v0.5.3)
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     Pool de webviews mobile (miroir du pool landscape)
@@ -420,6 +421,9 @@ dualview/
     |   |-- session-security.js Bloqueur pub réseau + permissions
     |   |-- url-guard.js      sanitizeUrl, isAuthUrl, isLoginPage, detectServiceKey
     |   |-- context-menu.js   Menu contextuel clic droit natif
+    |   |                     + shell.openExternal (lien système) [v0.5.3]
+    |   |                     + copyImageAt, ouvrir image onglet, mailto [v0.5.3]
+    |   |                     + selectAll, undo, redo (champ éditable) [v0.5.3]
     |
     |-- preload/              Scripts de pont IPC (main world → renderer)
     |   |-- preload-auth.js   Anti-détection Electron (authWin)
@@ -450,7 +454,8 @@ dualview/
         |-- obs-dock.html     Page dock OBS
         |
         |-- css/
-        |   |-- landscape.css Styles fenêtre paysage v0.5.0
+        |   |-- landscape.css Styles fenêtre paysage v0.5.3
+        |   |                 + .tab-dragging, .tab-drop-indicator (Drag & Drop) [v0.5.3]
         |   |                 + Mode Focus (.focus-mode, #focus-trigger, #focus-badge) [v0.5.0]
         |   |                 + Top domaines (.has-topsites, #topsites-grid, .topsite-*) [v0.5.0]
         |   |                 + #favorite-btn (états ☆/★), #favorites-panel, .fav-* [v0.4.7]
@@ -473,6 +478,8 @@ dualview/
             |                        + Guard try/catch canGoBack() avant dom-ready [v0.5.0]
             |                        + refreshFavoriteBtnForUrl après did-navigate [v0.4.7]
             |-- landscape-tabs.js    Onglets, navigation URL, omnibar, screenshot
+            |                        + TAB_TYPE_WEB/SETTINGS/BLANK + getTabType() [v0.5.3]
+            |                        + Drag & Drop avec ligne indicatrice (Option A) [v0.5.3]
             |                        + refreshFavoriteBtnForUrl après switchTab/update-addressbar [v0.4.7]
             |-- landscape-settings.js Paramètres v0.5.0
             |                         + Raccourcis Ctrl+Shift+H / F11 (Mode Focus) [v0.5.0]

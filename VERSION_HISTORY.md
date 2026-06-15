@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.5.2.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.5.3.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -57,6 +57,42 @@
 | `Ctrl+T` / `Ctrl+W` | `⌘+T` / `⌘+W` | Nouvel onglet / Fermer l'onglet actif |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃+Tab` / `⌃+Shift+Tab` | Onglet suivant / précédent |
 | `Ctrl+L` / `F6` | `⌘+L` / `F6` | Focus sur la barre d'adresse |
+
+---
+
+## Nouveautés v0.5.3
+
+### 🗂️ Onglets déplaçables (Drag & Drop)
+
+Tous les onglets de la fenêtre paysage sont maintenant déplaçables par glisser-déposer, y compris l'onglet Paramètres.
+
+- **Glissez** un onglet avec la souris pour le déplacer
+- Une **ligne verticale bleue** (couleur accent) apparaît entre les onglets pour indiquer précisément où l'onglet sera déposé (style Chrome)
+- L'onglet glissé devient **semi-transparent** (opacité 0.4) pendant le déplacement
+- L'ordre est **automatiquement sauvegardé** et restauré à la prochaine session
+
+### 🏷️ Typage des onglets
+
+Chaque onglet dispose maintenant d'un champ `type` explicite :
+
+| Type | Valeur | Description |
+|------|--------|-------------|
+| Web | `web` | Navigation web normale |
+| Paramètres | `settings` | Panneau de configuration intégré |
+| Vide | `blank` | Nouvel onglet sans URL (top sites) |
+
+Les sessions sauvegardées avant v0.5.3 sont automatiquement migrées sans action requise.
+
+### 🖱️ Menu contextuel — 6 nouvelles options
+
+| Contexte | Option | Action |
+|----------|--------|--------|
+| Lien | Ouvrir dans le navigateur système | Ouvre le lien dans le navigateur OS par défaut |
+| Image | Copier l'image | Copie l'image dans le presse-papiers |
+| Image | Ouvrir l'image dans un nouvel onglet | Ouvre l'URL de l'image dans un nouvel onglet |
+| Lien mailto | Copier l'adresse email | Copie l'adresse email sans le préfixe `mailto:` |
+| Champ éditable | Annuler / Rétablir | Annule ou rétablit la dernière action de saisie |
+| Champ éditable | Sélectionner tout | Sélectionne tout le texte du champ |
 
 ---
 
@@ -625,3 +661,5 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.4.7 | Favoris : favorites-manager.js, bouton ★ toolbar, panneau latéral, entrée ⚙️. Fix services personnalisés (add-custom-service IPC). GitHub/GitLab dans KNOWN_SERVICES. Fix portrait : getSettings() + language-changed. Fix MaxListenersExceededWarning : setMaxListeners(50) webviews pool + authWin. |
 | 0.5.0 | **Mode Focus** Ctrl+Shift+H / F11 (masque toolbar, bande 8px, badge). **Top domaines** sur onglet vide (top 10 par hostname, toutes sessions, paysage + portrait). **Fusion Apparence + Langue dans Général** (nav 4 entrées). **Réouverture portrait** depuis ⚙️ (reconstruction complète pool via dom-ready). Fix canGoBack() avant dom-ready. Fix réouverture portrait : dom-ready vs did-finish-load. |
 | 0.5.1 | **Section Raccourcis clavier** dans Paramètres (5e entrée, 3 tableaux Windows/Linux/macOS, 18 clés i18n). Fix topsites : clics bloqués par webview `about:blank` (`pointer-events: none` via `.is-blank`), race condition `maybeShowTopSites` (guard `activeTabId`), `style.display` inline remplacé par `.hidden` dans `showWebview`, `switchTab` et handler `load-url`. |
+| 0.5.2 | **Export / Import de configuration** : export sélectif (18 éléments, 6 catégories), import avec merge sélectif côte à côte, fusion historique/favoris sans perte, redémarrage auto si apparence/langue changent. 3 IPC, 45 clés i18n. |
+| 0.5.3 | **Onglets déplaçables** Drag & Drop avec ligne indicatrice verticale (style Chrome) + opacité. **Typage des onglets** (`TAB_TYPE_WEB/SETTINGS/BLANK`) + `getTabType()` rétro-compatible. **Menu contextuel** : 6 nouvelles options (ouvrir lien dans navigateur système, copier image, ouvrir image dans onglet, copier email mailto, annuler/rétablir, sélectionner tout). |

@@ -7,6 +7,35 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.5.3] — 2026
+
+### Ajouté
+
+- **Onglets déplaçables — Drag & Drop** (`landscape-tabs.js`, `landscape.css`)
+  - Tous les onglets (web, paramètres, vide) sont déplaçables par glisser-déposer
+  - Ligne indicatrice verticale (couleur accent) entre les onglets pour indiquer la position de dépôt, style Chrome
+  - Opacité réduite (0.4) sur l'onglet en cours de glissement
+  - Curseur `grab` au survol, `grabbing` pendant le drag
+  - L'ordre est persisté automatiquement via `saveTabs()` après chaque déplacement
+  - Compatible Firefox (appel `dataTransfer.setData` ajouté)
+
+- **Typage des onglets** (`landscape-tabs.js`)
+  - Nouvelles constantes `TAB_TYPE_WEB`, `TAB_TYPE_SETTINGS`, `TAB_TYPE_BLANK`
+  - Fonction `getTabType(tab)` : détermine le type avec déduction rétro-compatible pour les sessions sauvegardées avant v0.5.3 (pas de migration nécessaire)
+  - `isSettingsTab()` et `isWebTab()` basés sur `getTabType()` — plus robustes que la comparaison d'ID
+  - Tous les nouveaux onglets créés (`addTab`, `addTabWithUrl`, `openSettingsTab`) incluent le champ `type`
+
+- **Menu contextuel — 6 nouvelles options** (`context-menu.js`)
+  - **Lien** : *Ouvrir dans le navigateur système* (`shell.openExternal`) — coexiste avec "Ouvrir dans un nouvel onglet"
+  - **Image** : *Copier l'image* (`wvContents.copyImageAt`) — copie dans le presse-papiers OS
+  - **Image** : *Ouvrir l'image dans un nouvel onglet* — réutilise l'action `open-link-new-tab` existante
+  - **Lien mailto** : *Copier l'adresse email* — extrait l'adresse du schéma `mailto:` et la copie
+  - **Champ éditable** : *Annuler* / *Rétablir* (`wvContents.undo()` / `wvContents.redo()`) — affichés uniquement quand le champ est vide de sélection
+  - **Champ éditable** : *Sélectionner tout* (`wvContents.selectAll()`) — affiché uniquement quand le champ est vide de sélection
+  - `shell` ajouté aux imports Electron dans `context-menu.js`
+
+---
+
 ## [0.5.2] — 2026
 
 ### Ajouté

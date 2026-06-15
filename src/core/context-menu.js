@@ -9,11 +9,17 @@
  * contrairement à l'événement 'context-menu' d'une <webview> côté renderer.
  *
  * Extrait de main.js v0.4.5 pour améliorer la maintenabilité open source.
+ *
+ * v0.5.3 — Nouvelles options :
+ *   Lien     : Ouvrir dans le navigateur système
+ *   Image    : Copier l'image, Ouvrir dans un nouvel onglet
+ *   mailto   : Copier l'adresse email
+ *   Éditable : Sélectionner tout, Annuler, Rétablir
  */
 
 'use strict';
 
-const { app, Menu, MenuItem, dialog, clipboard } = require('electron');
+const { app, Menu, MenuItem, dialog, clipboard, shell } = require('electron');
 const path   = require('path');
 const logger = require('./logger');
 
@@ -34,13 +40,30 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
     const menu  = new Menu();
     const isFr  = (configGet('settings.language') || 'fr') === 'fr';
 
-    // ── Lien ──────────────────────────────────────────────────────────────────
+    // ── Lien mailto (v0.5.3) — avant le bloc http pour priorité ─────────────
+    if (params.linkURL && params.linkURL.startsWith('mailto:')) {
+        const email = params.linkURL.replace(/^mailto:/i, '').split('?')[0].trim();
+        if (email) {
+            menu.append(new MenuItem({
+                label: isFr ? "Copier l'adresse email" : 'Copy email address',
+                click() { clipboard.writeText(email); },
+            }));
+            menu.append(new MenuItem({ type: 'separator' }));
+        }
+    }
+
+    // ── Lien http/https ───────────────────────────────────────────────────────
     if (params.linkURL && params.linkURL.startsWith('http')) {
         menu.append(new MenuItem({
             label: isFr ? 'Ouvrir dans un nouvel onglet' : 'Open in new tab',
             click() {
                 landscapeWin.webContents.send('context-menu-action', { action: 'open-link-new-tab', url: params.linkURL });
             },
+        }));
+        // v0.5.3 — Ouvrir dans le navigateur système
+        menu.append(new MenuItem({
+            label: isFr ? 'Ouvrir dans le navigateur système' : 'Open in system browser',
+            click() { shell.openExternal(params.linkURL); },
         }));
         menu.append(new MenuItem({
             label: isFr ? "Copier l'adresse du lien" : 'Copy link address',
@@ -68,6 +91,18 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
                 // global lira _pendingImageSavePath et laissera passer ce téléchargement.
                 setPendingImageSavePath(filePath);
                 wvContents.downloadURL(params.srcURL);
+            },
+        }));
+        // v0.5.3 — Copier l'image dans le presse-papiers
+        menu.append(new MenuItem({
+            label: isFr ? "Copier l'image" : 'Copy image',
+            click() { wvContents.copyImageAt(params.x, params.y); },
+        }));
+        // v0.5.3 — Ouvrir l'image dans un nouvel onglet (réutilise open-link-new-tab)
+        menu.append(new MenuItem({
+            label: isFr ? "Ouvrir l'image dans un nouvel onglet" : 'Open image in new tab',
+            click() {
+                landscapeWin.webContents.send('context-menu-action', { action: 'open-link-new-tab', url: params.srcURL });
             },
         }));
         menu.append(new MenuItem({
@@ -108,9 +143,24 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
 
     // ── Champ de saisie sans sélection ───────────────────────────────────────
     if (params.isEditable && !(params.selectionText && params.selectionText.trim())) {
+        // v0.5.3 — Annuler / Rétablir (toujours affichés, comportement natif OS)
+        menu.append(new MenuItem({
+            label: isFr ? 'Annuler' : 'Undo',
+            click() { wvContents.undo(); },
+        }));
+        menu.append(new MenuItem({
+            label: isFr ? 'Rétablir' : 'Redo',
+            click() { wvContents.redo(); },
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
         menu.append(new MenuItem({
             label: isFr ? 'Coller' : 'Paste',
             click() { wvContents.paste(); },
+        }));
+        // v0.5.3 — Sélectionner tout
+        menu.append(new MenuItem({
+            label: isFr ? 'Sélectionner tout' : 'Select all',
+            click() { wvContents.selectAll(); },
         }));
         menu.append(new MenuItem({ type: 'separator' }));
     }
