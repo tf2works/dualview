@@ -1,4 +1,4 @@
-# DualView v0.5.2
+# DualView v0.5.4
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -575,6 +575,8 @@ Supprimez `%APPDATA%\DualView\` pour effacer toutes les données locales.
 
 | Version | Résumé |
 |---------|--------|
+| 0.5.4 | Menu contextuel : retour/avance grisés, imprimer via PDF natif OS, code source dans onglet dédié, inspecter élément, impression page avec aperçu logiciel natif dans l'OS  |
+| 0.5.3 | Onglets déplaçables : Drag & Drop avec ligne indicatrice verticale et opacité de l'onglet déplacé, typage des onglets (web, paramètres, vide) |
 | 0.5.2 | Export / Import de configuration : 18 éléments sélectionnables (paramètres, historique avec limite, favoris, dimensions portrait), merge sélectif à l'import, restart auto si apparence/langue |
 | 0.5.1 | Section Raccourcis clavier dans Paramètres (Windows/Linux/macOS) ; correctifs topsites (clics, race condition, disparition au 2e onglet) ; `pointer-events` webview vide |
 | 0.5.0 | Mode Focus, Top domaines, fusion Apparence+Langue, réouverture Portrait |

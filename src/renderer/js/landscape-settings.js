@@ -1523,6 +1523,41 @@ window.dualview.on('context-menu-action', ({ action, url, text, x, y }) => {
         case 'inspect':
             if (wv && wv.openDevTools) wv.openDevTools();
             break;
+        // ── v0.5.4 — Navigation ───────────────────────────────────────────────
+        case 'nav-back':
+            if (!backBtn.disabled) window.dualview.navBack();
+            break;
+        case 'nav-forward':
+            if (!forwardBtn.disabled) window.dualview.navForward();
+            break;
+        // ── v0.5.4 — Code source ──────────────────────────────────────────────
+        case 'view-source':
+            if (wv) {
+                wv.executeJavaScript('document.documentElement.outerHTML')
+                    .then(html => {
+                        // Construire un titre lisible : "Source — example.com"
+                        let host = '';
+                        try { host = new URL(wv.getURL ? wv.getURL() : '').hostname.replace('www.', ''); } catch { }
+                        const title = (host ? 'Source \u2014 ' + host : 'Source');
+                        // Encoder le HTML brut dans un data: URL pour l'ouvrir dans un onglet
+                        const escaped = html
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+                        const dataUrl = 'data:text/html;charset=utf-8,'
+                            + encodeURIComponent(
+                                '<!DOCTYPE html><html><head><meta charset="utf-8">'
+                                + '<title>' + title + '</title>'
+                                + '<style>body{margin:0;padding:1rem;font-family:monospace;'
+                                + 'font-size:13px;white-space:pre-wrap;word-break:break-all;'
+                                + 'background:#1e1e1e;color:#d4d4d4;line-height:1.6}</style>'
+                                + '</head><body>' + escaped + '</body></html>'
+                            );
+                        addTabWithUrl(dataUrl, title);
+                    })
+                    .catch(() => { });
+            }
+            break;
         default:
             break;
     }

@@ -1,52 +1,4 @@
-# DualView v0.5.1 - Instructions d'installation
-
-## Nouveautés v0.5.1
-
-- **Section Raccourcis clavier dans les Paramètres** : nouvelle entrée ⚓ dans la barre latérale, trois tableaux distincts (Navigation, Onglets, Interface) avec colonnes Windows/Linux vs macOS
-- **Correctifs topsites** : clics sur les icônes du top 10 désormais fonctionnels (webview `about:blank` ne bloque plus les événements souris) ; le top 10 reste visible à l'ouverture de plusieurs onglets vides consécutifs
-
-## Nouveautés v0.5.0
-
-- **Mode Focus** (`Ctrl+Shift+H` ou `F11`) : masque la toolbar pour maximiser la capture OBS. Bande de détection 8 px, badge discret, toast de confirmation.
-- **Top 10 domaines** sur onglet vide (mode "Page vide") : sites les plus visités avec favicon, visibles dans les deux fenêtres. Clic = navigation directe.
-- **Fusion Apparence + Langue dans Général** : Paramètres simplifiés à 4 entrées.
-- **Réouverture Portrait** : bouton ⚙️ → "Rouvrir le portrait" si la fenêtre portrait est fermée, reconstruction complète du pool d'onglets.
-
-## Nouveautés v0.4.5
-
-- **Support macOS** : installeur `.dmg` (x64 + arm64), compatible macOS 12 Monterey et supérieur
-- **Support Linux** : installeur `.AppImage` + `.deb` (x64), compatible Ubuntu 20.04+, Fedora 36+, Arch…
-- **Script OBS Lua cross-platform** : le script `dualview-obs-hotkeys.lua` fonctionne sur Windows, macOS et Linux
-- **Build cross-platform** : script `installer/build-installer.sh` pour macOS et Linux ; GitHub Actions génère automatiquement les 3 plateformes sur chaque release
-
-## Nouveautés v0.4.4
-
-- **Refactoring open source** : `landscape.html` (4 441 → 419 lignes) et `portrait.html` (996 → 63 lignes) découpés en modules CSS et JS séparés
-- **i18n portrait** : indicateur sync, overlay pub et textes statiques traduits dynamiquement selon la langue sélectionnée dans Paramètres
-- **Restructuration `src/`** : dossiers `core/`, `preload/`, `renderer/` pour une meilleure lisibilité du code source
-
-## Nouveautés v0.4.3
-
-- **Correction boucle vidéo YouTube** : la vidéo portrait ne tourne plus en boucle sur les 5 premières secondes au lancement, après une pause, ou après repositionnement de la timeline
-- **Protocole sync séquencé** : `pause → seek-to` et `seek-to → play` avec délais garantis
-- **Drift-check conditionnel** : la correction périodique de dérive ne s'applique plus que si la vidéo portrait est à l'arrêt
-
-## Nouveautés v0.4.2
-
-- **Pause automatique YouTube** : vidéos classiques pausées au chargement dans les deux fenêtres (option désactivable dans Paramètres)
-- **Overlay pub** : message "Publicité en cours" + compte à rebours dans la fenêtre portrait pendant les pubs
-- **Bouton remute** : bouton rouge dans portrait si la vidéo a été démutée accidentellement
-- **Bloqueur pub renforcé** : 3 niveaux (réseau 50+ domaines, CSS cosmétique, stub IMA)
-
-## Nouveautés v0.4.0
-
-- **Redimensionnement Portrait repensé** : **⚙️ → Redimensionner** avec préréglages (iPhone 15, Pixel 8, Galaxy S24, iPad) + taille libre. Le bouton ✅ de la toolbar est supprimé.
-- **Capture instantanée** : bouton 📷 dans la toolbar — PNG horodaté des deux vues, dossier configurable dans Paramètres
-- **Omnibar** : sélection auto au clic, Échap annule, suggestions (historique, domaine, recherche), navigation ↑↓
-- **Moteur de recherche configurable** : DuckDuckGo par défaut, Google / Bing / Brave / Qwant prédéfinis + moteurs personnalisés
-- **Historique de navigation** : panneau latéral (⚙️ → Historique) groupé par date, recherche fulltext, suppression ; dropdown sur ← →
-
----
+# DualView vX.X.X - Instructions d'installation
 
 ## Installation (utilisateurs)
 
@@ -54,7 +6,7 @@
 
 **Prérequis** : Windows 11 (Build 22000+)
 
-1. Téléchargez **`DualView-Setup-0.5.1.exe`** depuis les [Releases GitHub](https://github.com/<org>/dualview/releases)
+1. Téléchargez **`DualView-Setup-x.x.x.exe`** depuis les [Releases GitHub](https://github.com/<org>/dualview/releases)
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur si demandée
 
@@ -180,13 +132,13 @@ Les Shorts (`youtube.com/shorts/...`) sont exemptés du bloqueur de publicités.
 
 ## Paramètres
 
-**⚙️ → Paramètres** — 5 sections depuis v0.5.1 :
+**⚙️ → Paramètres** — 5 sections depuis vX.X.X :
 
 - **Général** : restauration onglets, pause auto YouTube, page d'accueil, nouveaux onglets, moteur de recherche, dossier captures, apparence, langue
 - **Services connectés** : gestion des connexions (9 services + URL personnalisée)
 - **Confidentialité** : informations sur les protections actives
 - **OBS** : activation serveur local, port, URL dock, token
-- **Raccourcis clavier** *(v0.5.1)* : tableaux Navigation / Onglets / Interface avec distinction Windows/Linux vs macOS
+- **Raccourcis clavier** *(vX.X.X)* : tableaux Navigation / Onglets / Interface avec distinction Windows/Linux vs macOS
 
 ---
 
@@ -221,9 +173,9 @@ Guide complet pas à pas : **obs-integration/OBS_INTEGRATION.md**.
 
 | Plateforme | Commande | Artefact produit |
 |---|---|---|
-| Windows | `installer\build-installer.bat` | `dist/DualView-Setup-0.5.1.exe` (~150 Mo) |
-| macOS | `./installer/build-installer.sh --mac` | `dist/DualView-0.5.1.dmg` |
-| Linux | `./installer/build-installer.sh --linux` | `dist/DualView-0.5.1.AppImage` + `.deb` |
+| Windows | `installer\build-installer.bat` | `dist/DualView-Setup-X.X.X.exe` (~150 Mo) |
+| macOS | `./installer/build-installer.sh --mac` | `dist/DualView-X.X.X.dmg` |
+| Linux | `./installer/build-installer.sh --linux` | `dist/DualView-X.X.X.AppImage` + `.deb` |
 
 Voir `assets/README.txt` pour générer les icônes `icon.icns` (macOS) et `icon.png` (Linux) avant le premier build.
 

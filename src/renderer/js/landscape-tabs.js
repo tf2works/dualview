@@ -256,10 +256,13 @@ function addTab() {
 }
 
 // Ouvre un nouvel onglet avec une URL spécifique (v0.4.1 — new-window redirect)
-function addTabWithUrl(url) {
+// title optionnel : utilisé par view-source (v0.5.4) pour afficher "Source — example.com"
+function addTabWithUrl(url, title) {
     const id = 'tab-' + Date.now();
-    let title = '';
-    try { title = new URL(url).hostname.replace('www.', ''); } catch { title = url.slice(0, 20); }
+    if (!title) {
+        title = '';
+        try { title = new URL(url).hostname.replace('www.', ''); } catch { title = url.slice(0, 20); }
+    }
     // v0.5.3 : typage explicite
     tabs.push({ id, title, url, type: TAB_TYPE_WEB });
     // Ne pas appeler createWebview ici : switchTab gère la création.

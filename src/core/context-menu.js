@@ -1,46 +1,52 @@
 /**
  * DualView - Context Menu
+ * Version: 0.5.4
  *
  * Construction et affichage du menu contextuel natif OS sur clic droit
- * dans les webviews paysage (v0.4.1).
+ * dans les webviews paysage.
  *
  * Appelé depuis did-attach-webview → wvContents.on('context-menu').
  * Les params Electron sont complets ici (linkURL, mediaType, selectionText…)
  * contrairement à l'événement 'context-menu' d'une <webview> côté renderer.
  *
- * Extrait de main.js v0.4.5 pour améliorer la maintenabilité open source.
- *
- * v0.5.3 — Nouvelles options :
- *   Lien     : Ouvrir dans le navigateur système
- *   Image    : Copier l'image, Ouvrir dans un nouvel onglet
- *   mailto   : Copier l'adresse email
- *   Éditable : Sélectionner tout, Annuler, Rétablir
+ * Historique :
+ *   v0.4.1 — création (extrait de main.js v0.4.5)
+ *   v0.5.3 — mailto, ouvrir navigateur système, copier image, ouvrir image onglet,
+ *             sélectionner tout, annuler, rétablir
+ *   v0.5.4 — retour/avance (TAB_TYPE_WEB uniquement), imprimer via printToPDF+shell.openExternal,
+ *             code source (TAB_TYPE_WEB), inspecter élément (tous onglets, sans guard IS_DEV)
+ *   v0.5.4b — fix canGoBack/Forward deprecated → navigationHistory API
+ *              fix impression → printToPDF + fichier temp + shell.openExternal (aperçu OS complet)
+ *              suppression @cliqz/adblocker-electron (dépendance inutilisée → logs parasites)
  */
 
 'use strict';
 
 const { app, Menu, MenuItem, dialog, clipboard, shell } = require('electron');
-const path   = require('path');
-const logger = require('./logger');
+const path = require('path');
+const fs   = require('fs');
+const os   = require('os');
 
 /**
  * Construit et affiche le menu contextuel natif en fonction du contexte du clic.
  *
- * @param {Electron.ContextMenuParams} params        Paramètres Electron du clic droit
- * @param {Electron.WebContents}       wvContents    WebContents de la webview ciblée
+ * @param {Electron.ContextMenuParams} params           Paramètres Electron du clic droit
+ * @param {Electron.WebContents}       wvContents       WebContents de la webview ciblée
  * @param {object}                     opts
- * @param {Function}                   opts.getLandscapeWin        getter → BrowserWindow|null
- * @param {Function}                   opts.configGet              getter config (keyPath → value)
+ * @param {Function}                   opts.getLandscapeWin         getter → BrowserWindow|null
+ * @param {Function}                   opts.configGet               getter config (keyPath → value)
  * @param {Function}                   opts.setPendingImageSavePath setter du flag téléchargement image
+ * @param {string}                     opts.activeTabType           type de l'onglet actif (TAB_TYPE_*)
  */
-async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, configGet, setPendingImageSavePath }) {
+async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, configGet, setPendingImageSavePath, activeTabType }) {
     const landscapeWin = getLandscapeWin();
     if (!landscapeWin || landscapeWin.isDestroyed()) return;
 
-    const menu  = new Menu();
-    const isFr  = (configGet('settings.language') || 'fr') === 'fr';
+    const menu    = new Menu();
+    const isFr    = (configGet('settings.language') || 'fr') === 'fr';
+    const isWeb   = activeTabType === 'web';
 
-    // ── Lien mailto (v0.5.3) — avant le bloc http pour priorité ─────────────
+    // ── Lien mailto (v0.5.3) ─────────────────────────────────────────────────
     if (params.linkURL && params.linkURL.startsWith('mailto:')) {
         const email = params.linkURL.replace(/^mailto:/i, '').split('?')[0].trim();
         if (email) {
@@ -87,8 +93,6 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
                     filters:     [{ name: 'Images', extensions: [ext, 'png', 'jpg', 'webp'] }],
                 });
                 if (canceled || !filePath) return;
-                // Positionner le flag AVANT downloadURL : le handler will-download
-                // global lira _pendingImageSavePath et laissera passer ce téléchargement.
                 setPendingImageSavePath(filePath);
                 wvContents.downloadURL(params.srcURL);
             },
@@ -98,7 +102,7 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
             label: isFr ? "Copier l'image" : 'Copy image',
             click() { wvContents.copyImageAt(params.x, params.y); },
         }));
-        // v0.5.3 — Ouvrir l'image dans un nouvel onglet (réutilise open-link-new-tab)
+        // v0.5.3 — Ouvrir l'image dans un nouvel onglet
         menu.append(new MenuItem({
             label: isFr ? "Ouvrir l'image dans un nouvel onglet" : 'Open image in new tab',
             click() {
@@ -141,9 +145,8 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
         menu.append(new MenuItem({ type: 'separator' }));
     }
 
-    // ── Champ de saisie sans sélection ───────────────────────────────────────
+    // ── Champ éditable sans sélection (v0.5.3) ───────────────────────────────
     if (params.isEditable && !(params.selectionText && params.selectionText.trim())) {
-        // v0.5.3 — Annuler / Rétablir (toujours affichés, comportement natif OS)
         menu.append(new MenuItem({
             label: isFr ? 'Annuler' : 'Undo',
             click() { wvContents.undo(); },
@@ -157,7 +160,6 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
             label: isFr ? 'Coller' : 'Paste',
             click() { wvContents.paste(); },
         }));
-        // v0.5.3 — Sélectionner tout
         menu.append(new MenuItem({
             label: isFr ? 'Sélectionner tout' : 'Select all',
             click() { wvContents.selectAll(); },
@@ -165,7 +167,7 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
         menu.append(new MenuItem({ type: 'separator' }));
     }
 
-    // ── Page (toujours présent) ───────────────────────────────────────────────
+    // ── Page ─────────────────────────────────────────────────────────────────
     menu.append(new MenuItem({
         label: isFr ? 'Recharger' : 'Reload',
         click() { landscapeWin.webContents.send('context-menu-action', { action: 'reload' }); },
@@ -175,14 +177,79 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
         click() { landscapeWin.webContents.send('context-menu-action', { action: 'copy-page-url' }); },
     }));
 
-    // Mode dev uniquement : Inspecter l'élément
-    if (logger.IS_DEV) {
+    // ── Navigation (v0.5.4 — TAB_TYPE_WEB uniquement) ────────────────────────
+    if (isWeb) {
+        // v0.5.4 fix : navigationHistory.canGoBack/Forward remplace l'API dépréciée
+        let canBack    = false;
+        let canForward = false;
+        try {
+            const nh = wvContents.navigationHistory;
+            canBack    = nh ? nh.canGoBack()    : false;
+            canForward = nh ? nh.canGoForward() : false;
+        } catch { }
+
         menu.append(new MenuItem({ type: 'separator' }));
         menu.append(new MenuItem({
-            label: isFr ? 'Inspecter' : 'Inspect element',
-            click() { wvContents.inspectElement(params.x, params.y); },
+            label:   isFr ? 'Retour' : 'Back',
+            enabled: canBack,
+            click() { landscapeWin.webContents.send('context-menu-action', { action: 'nav-back' }); },
+        }));
+        menu.append(new MenuItem({
+            label:   isFr ? 'Avance' : 'Forward',
+            enabled: canForward,
+            click() { landscapeWin.webContents.send('context-menu-action', { action: 'nav-forward' }); },
         }));
     }
+
+    // ── Imprimer (v0.5.4 — TAB_TYPE_WEB uniquement) ──────────────────────────
+    // printToPDF → fichier temp → shell.openExternal (aperçu OS natif + impression complète)
+    if (isWeb) {
+        menu.append(new MenuItem({ type: 'separator' }));
+        menu.append(new MenuItem({
+            label: isFr ? 'Imprimer…' : 'Print…',
+            async click() {
+                try {
+                    const pdfData = await wvContents.printToPDF({
+                        printBackground:  true,
+                        pageSize:         'A4',
+                        landscape:        false,
+                        marginsType:      0,   // marges par défaut
+                        generateTaggedPDF: false,
+                    });
+                    // Fichier temporaire dans le dossier temp OS
+                    const tmpPath = path.join(os.tmpdir(), `dualview-print-${Date.now()}.pdf`);
+                    fs.writeFileSync(tmpPath, pdfData);
+                    // Ouvrir dans le lecteur PDF système (aperçu natif + Enregistrer sous)
+                    await shell.openExternal(`file://${tmpPath}`);
+                    // Nettoyage différé (30 s) — le lecteur PDF a le temps de charger le fichier
+                    setTimeout(() => { try { fs.unlinkSync(tmpPath); } catch { } }, 30000);
+                } catch (e) {
+                    // Afficher une dialog d'erreur si printToPDF échoue (ex. page non chargée)
+                    dialog.showErrorBox(
+                        isFr ? 'Erreur d\'impression' : 'Print error',
+                        isFr ? `Impossible de générer le PDF.\n${e.message}` : `Could not generate PDF.\n${e.message}`
+                    );
+                }
+            },
+        }));
+    }
+
+    // ── Code source (v0.5.4 — TAB_TYPE_WEB uniquement) ───────────────────────
+    if (isWeb) {
+        menu.append(new MenuItem({
+            label: isFr ? 'Afficher le code source' : 'View page source',
+            click() {
+                landscapeWin.webContents.send('context-menu-action', { action: 'view-source' });
+            },
+        }));
+    }
+
+    // ── Inspecter l'élément (v0.5.4 — tous onglets, sans guard IS_DEV) ───────
+    menu.append(new MenuItem({ type: 'separator' }));
+    menu.append(new MenuItem({
+        label: isFr ? 'Inspecter l\'élément' : 'Inspect element',
+        click() { wvContents.inspectElement(params.x, params.y); },
+    }));
 
     menu.popup({ window: landscapeWin });
 }

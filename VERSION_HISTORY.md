@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.5.3.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.5.4.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -57,6 +57,40 @@
 | `Ctrl+T` / `Ctrl+W` | `⌘+T` / `⌘+W` | Nouvel onglet / Fermer l'onglet actif |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃+Tab` / `⌃+Shift+Tab` | Onglet suivant / précédent |
 | `Ctrl+L` / `F6` | `⌘+L` / `F6` | Focus sur la barre d'adresse |
+
+---
+
+## Nouveautés v0.5.4
+
+### 🖱️ Menu contextuel — 4 nouvelles options
+
+| Contexte | Option | Condition | Action |
+|----------|--------|-----------|--------|
+| Page | Retour | `TAB_TYPE_WEB` uniquement | Retour dans l'historique (grisé si indisponible) |
+| Page | Avance | `TAB_TYPE_WEB` uniquement | Avance dans l'historique (grisé si indisponible) |
+| Page | Imprimer… | `TAB_TYPE_WEB` uniquement | Ouvre la dialog d'impression OS native |
+| Page | Afficher le code source | `TAB_TYPE_WEB` uniquement | Ouvre le HTML DOM dans un nouvel onglet |
+| Tous | Inspecter l'élément | Tous les onglets | Ouvre les DevTools Electron sur l'élément cliqué |
+
+#### Code source — détail technique
+L'option "Afficher le code source" extrait le HTML via `executeJavaScript` (état DOM courant, pas la source serveur originale) et l'affiche dans un nouvel onglet avec :
+- Titre `Source — example.com`
+- Rendu monospace sur fond sombre
+- Évite le schéma `view-source:` incompatible avec `url-guard.js`
+
+### 🔧 Suppression du mode `--dev`
+
+Le flag `npm start -- --dev` et le script `start-dev` sont supprimés. Les **DevTools Electron** restent accessibles via `Ctrl+Maj+I` sur n'importe quelle fenêtre.
+
+Le **logger** (`dualview.log`) est désormais **toujours actif** — les logs sont écrits à chaque session dans :
+
+| Plateforme | Emplacement |
+|---|---|
+| Windows | `%AppData%\DualView\dualview.log` |
+| macOS | `~/Library/Application Support/DualView/dualview.log` |
+| Linux | `~/.config/DualView/dualview.log` |
+
+Le fichier `src/preload/preload-dev.js` est **supprimé** (plus jamais chargé).
 
 ---
 
@@ -663,3 +697,4 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.5.1 | **Section Raccourcis clavier** dans Paramètres (5e entrée, 3 tableaux Windows/Linux/macOS, 18 clés i18n). Fix topsites : clics bloqués par webview `about:blank` (`pointer-events: none` via `.is-blank`), race condition `maybeShowTopSites` (guard `activeTabId`), `style.display` inline remplacé par `.hidden` dans `showWebview`, `switchTab` et handler `load-url`. |
 | 0.5.2 | **Export / Import de configuration** : export sélectif (18 éléments, 6 catégories), import avec merge sélectif côte à côte, fusion historique/favoris sans perte, redémarrage auto si apparence/langue changent. 3 IPC, 45 clés i18n. |
 | 0.5.3 | **Onglets déplaçables** Drag & Drop avec ligne indicatrice verticale (style Chrome) + opacité. **Typage des onglets** (`TAB_TYPE_WEB/SETTINGS/BLANK`) + `getTabType()` rétro-compatible. **Menu contextuel** : 6 nouvelles options (ouvrir lien dans navigateur système, copier image, ouvrir image dans onglet, copier email mailto, annuler/rétablir, sélectionner tout). |
+| 0.5.4 | **Menu contextuel** : retour/avance grisés, imprimer via PDF natif OS, code source dans onglet dédié (`Source — example.com`), inspecter élément en production. **Suppression mode `--dev`** : logger toujours actif (`dualview.log`), `preload-dev.js` supprimé, `start-dev` retiré. **Fix** : `canGoBack/Forward` → `navigationHistory` API ; impression → `printToPDF` + aperçu OS complet ; suppression `@cliqz` (dépendance inutilisée → logs parasites). |

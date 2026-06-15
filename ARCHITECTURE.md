@@ -1,4 +1,4 @@
-# DualView - Architecture v0.5.3
+# DualView - Architecture v0.5.4
 
 ## Vue d'ensemble
 
@@ -39,6 +39,7 @@ main.js
   |     Paramètres : Apparence + Langue fusionnés dans Général (v0.5.0)
   |     Menu ⚙️ : bouton "Rouvrir le portrait" si portrait fermé (v0.5.0)
   |     Onglets déplaçables Drag & Drop + typage TAB_TYPE_* (v0.5.3)
+  |     tabTypes Map → activeTabType passé au menu contextuel (v0.5.4)
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     Pool de webviews mobile (miroir du pool landscape)
@@ -372,7 +373,7 @@ ATTENTION : ne pas installer de handler onBeforeSendHeaders
 
 ```
 dualview/
-|-- package.json              v0.5.0 (build:win / build:mac / build:linux)
+|-- package.json              v0.5.4 — script start-dev retiré (build:win / build:mac / build:linux)
 |-- ARCHITECTURE.md           Ce fichier
 |-- CHANGELOG.md              Historique des versions (Keep a Changelog)
 |-- CONTRIBUTING.md           Guide de contribution (prérequis, branches, PR)
@@ -398,7 +399,9 @@ dualview/
 |       |-- build.yml         CI/CD : build Windows + GitHub Release sur tag v*
 |
 |-- src/
-    |-- main.js               Processus principal v0.5.0
+    |-- main.js               Processus principal v0.5.4
+    |   |                     + tabTypes Map → activeTabType pour menu contextuel [v0.5.4]
+    |   |                     + retrait IS_DEV, preload-dev, --dev-source, toggle-dev-tools [v0.5.4]
     |   |                     + IPC reopen-portrait (dom-ready, reconstruction pool) [v0.5.0]
     |   |                     + IPC send-to-portrait (relais canal whitelist) [v0.5.0]
     |   |                     + Événement closed portraitWin → portrait-status:false [v0.5.0]
@@ -416,7 +419,7 @@ dualview/
     |   |-- favorites-manager.js Favoris persistants (favorites.json) [v0.4.7]
     |   |                         add / isFavorite / getAll / search / deleteUrl / saveNow
     |   |-- history-manager.js Historique persistant (history.json)
-    |   |-- logger.js         Système de debug --dev
+    |   |-- logger.js         Logger toujours actif → dualview.log (v0.5.4 : plus de --dev)
     |   |-- obs-control.js    Serveur HTTP + WebSocket OBS (v0.3.2)
     |   |-- session-security.js Bloqueur pub réseau + permissions
     |   |-- url-guard.js      sanitizeUrl, isAuthUrl, isLoginPage, detectServiceKey
@@ -424,11 +427,16 @@ dualview/
     |   |                     + shell.openExternal (lien système) [v0.5.3]
     |   |                     + copyImageAt, ouvrir image onglet, mailto [v0.5.3]
     |   |                     + selectAll, undo, redo (champ éditable) [v0.5.3]
+    |   |                     + retour/avance grisés (TAB_TYPE_WEB) [v0.5.4]
+    |   |                     + imprimer (TAB_TYPE_WEB) [v0.5.4]
+    |   |                     + code source via executeJavaScript (TAB_TYPE_WEB) [v0.5.4]
+    |   |                     + inspecter élément (tous onglets, sans IS_DEV) [v0.5.4]
+    |   |                     + activeTabType reçu depuis main.js [v0.5.4]
     |
     |-- preload/              Scripts de pont IPC (main world → renderer)
     |   |-- preload-auth.js   Anti-détection Electron (authWin)
-    |   |-- preload-dev.js    DevTools en mode --dev
-    |   |-- preload-landscape.js  API IPC renderer landscape v0.5.0
+    |   |-- preload-landscape.js  API IPC renderer landscape v0.5.4
+    |   |                         + retrait getIsDev() et toggleDevTools() [v0.5.4]
     |   |                         + reopenPortrait() [v0.5.0]
     |   |                         + sendToPortrait(channel, data) [v0.5.0]
     |   |                         + addCustomService() [v0.4.7]
@@ -480,12 +488,14 @@ dualview/
             |-- landscape-tabs.js    Onglets, navigation URL, omnibar, screenshot
             |                        + TAB_TYPE_WEB/SETTINGS/BLANK + getTabType() [v0.5.3]
             |                        + Drag & Drop avec ligne indicatrice (Option A) [v0.5.3]
+            |                        + addTabWithUrl(url, title?) — title optionnel [v0.5.4]
             |                        + refreshFavoriteBtnForUrl après switchTab/update-addressbar [v0.4.7]
             |-- landscape-settings.js Paramètres v0.5.0
             |                         + Raccourcis Ctrl+Shift+H / F11 (Mode Focus) [v0.5.0]
             |                         + Apparence + Langue retirées de la nav latérale [v0.5.0]
             |                         + panneau favoris complet [v0.4.7]
             |-- landscape-pollers.js Polling pub/vidéo/scroll + initialisation
+            |                        + retrait getIsDev / toggleDevTools / dev-btn / F12 [v0.5.4]
             |                        + refreshFavoriteBtnForUrl à l'init [v0.4.7]
             |-- portrait-i18n.js     Traductions FR/EN portrait v0.5.0
             |                        + topSitesTitle [v0.5.0]

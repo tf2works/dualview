@@ -7,6 +7,70 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.5.4] — 2026
+
+### Ajouté
+
+- **Menu contextuel — Retour / Avance** (`context-menu.js`, `landscape-settings.js`)
+  - Visible uniquement sur les onglets `TAB_TYPE_WEB`
+  - Items grisés (`enabled: false`) quand la navigation n'est pas disponible
+  - Guard `try/catch` autour de `canGoBack()` / `canGoForward()` (erreur possible avant `dom-ready`)
+  - Réutilise les canaux IPC `navBack` / `navForward` existants via les boutons toolbar désactivés
+
+- **Menu contextuel — Imprimer** (`context-menu.js`)
+  - Visible uniquement sur les onglets `TAB_TYPE_WEB`
+  - `wvContents.print({ silent: false, printBackground: true })` — dialog d'impression OS native
+
+- **Menu contextuel — Afficher le code source** (`context-menu.js`, `landscape-settings.js`, `landscape-tabs.js`)
+  - Visible uniquement sur les onglets `TAB_TYPE_WEB`
+  - Extraction via `wvContents.executeJavaScript('document.documentElement.outerHTML')` (DOM courant)
+  - Ouverture dans un nouvel onglet `TAB_TYPE_WEB` avec titre `"Source — example.com"`
+  - Rendu monoespace sur fond sombre (`#1e1e1e`) avec coloration syntaxique minimale
+  - Évite le schéma `view-source:` bloqué par `url-guard.js`
+  - `addTabWithUrl(url, title)` : paramètre `title` optionnel ajouté (rétro-compatible)
+
+- **Menu contextuel — Inspecter l'élément** (`context-menu.js`)
+  - Disponible sur **tous les onglets** en production (guard `logger.IS_DEV` retiré)
+  - `Ctrl+Maj+I` reste le raccourci natif Electron pour les DevTools de la fenêtre
+
+- **Typage des onglets dans `main.js`** (`main.js`)
+  - `tabTypes: Map<tabId, TAB_TYPE>` — mémorisé depuis `save-tabs` IPC
+  - Passé comme `activeTabType` à `buildAndShowContextMenu` pour conditionner les options
+
+### Modifié
+
+- **Suppression du mode `--dev`** (`logger.js`, `main.js`, `preload-landscape.js`, `landscape-pollers.js`, `package.json`)
+  - `logger.js` v0.5.4 : le logger écrit **toujours** dans `dualview.log` (userData), plus de condition `--dev`
+  - `IS_DEV`, `setupIpc()`, `setupDevTools()`, `openAuthDevTools()` supprimés de `logger.js`
+  - `main.js` : retrait de `logger.IS_DEV`, `logger.setupIpc()`, `logger.setupDevTools()`, des deux blocs `registerPreloadScript('preload-dev.js')`, des arguments `--dev-source=landscape/portrait`, des IPC `get-is-dev` et `toggle-dev-tools`
+  - `preload-landscape.js` : retrait de `getIsDev()` et `toggleDevTools()` de l'API exposée
+  - `landscape-pollers.js` : retrait du bloc `getIsDev().then(...)` — bouton `dev-btn`, raccourcis `F12`/`Ctrl+F12` et classe CSS `dev-mode` supprimés
+  - `package.json` : script `start-dev` supprimé
+  - `preload-dev.js` : **fichier supprimé** (plus jamais chargé)
+  - Les DevTools restent accessibles via `Ctrl+Maj+I` (raccourci natif Electron)
+
+### Supprimé
+
+- `src/preload/preload-dev.js` — plus nécessaire après suppression du mode `--dev`
+
+### Corrigé
+
+- **`webContents.canGoBack/Forward` dépréciée** (`context-menu.js`)
+  - Migration vers `wvContents.navigationHistory.canGoBack/Forward()` (Electron 42+)
+  - Supprime les warnings de dépréciation dans la console au démarrage
+
+- **Impression incomplète et aperçu non supporté** (`context-menu.js`)
+  - `wvContents.print()` remplacé par `wvContents.printToPDF()` + fichier temporaire + `shell.openExternal()`
+  - Le lecteur PDF natif de l'OS s'ouvre avec la page complète (pas seulement la partie visible)
+  - L'utilisateur peut sauvegarder le PDF via "Enregistrer sous" du lecteur PDF système
+  - Nettoyage automatique du fichier temp après 30 secondes
+
+- **Logs parasites `Render frame was disposed`** (`package.json`)
+  - Suppression de `@cliqz/adblocker-electron` — dépendance installée mais jamais utilisée dans le code
+  - Electron 42 chargeait automatiquement son preload dans chaque frame, y compris celles détruites pendant la navigation, générant des dizaines d'erreurs `Render frame was disposed` dans la console à chaque session
+
+---
+
 ## [0.5.3] — 2026
 
 ### Ajouté

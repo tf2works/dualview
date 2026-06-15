@@ -1,10 +1,13 @@
 /*
  * DualView - Pollers et initialisation
- * Version: 0.4.4
+ * Version: 0.5.4
  *
  * Polling pub YouTube (500 ms), polling vidéo/drift-check (v0.4.3),
  * polling scroll (100 ms).
  * Initialisation complète de l'application au chargement.
+ *
+ * v0.5.4 : suppression du bloc getIsDev / toggleDevTools / dev-btn / F12.
+ *   DevTools accessibles via Ctrl+Maj+I (natif Electron).
  *
  * Dépendances : tous les modules landscape-*.js
  */
@@ -144,40 +147,8 @@ setInterval(pollScroll, 100);
 // ── Initialisation ─────────────────────────────────────────────────────────────
 window.dualview.getSyncState().then(state => updateSyncUI(state));
 
-// Mode dev : activer classe CSS + raccourci bouton 🔧
-window.dualview.getIsDev().then(isDev => {
-    if (!isDev) return;
-
-    document.body.classList.add('dev-mode');
-
-    // ── Bouton 🔧 : DevTools de la webview active ──────────────────────────
-    document.getElementById('dev-btn').addEventListener('click', () => {
-        const wv = getActiveWebview();
-        if (!wv) return;
-        if (wv.isDevToolsOpened()) wv.closeDevTools();
-        else wv.openDevTools();
-    });
-
-    // ── F12 : DevTools de la fenêtre landscape (renderer) ──────────────────
-    // Géré dans le renderer car main n'a pas accès aux webviews du pool.
-    window.addEventListener('keydown', (e) => {
-        if (e.key !== 'F12') return;
-        e.preventDefault();
-
-        if (e.ctrlKey || e.metaKey) {
-            // Ctrl+F12 → DevTools de la webview active
-            const wv = getActiveWebview();
-            if (!wv) return;
-            if (wv.isDevToolsOpened()) wv.closeDevTools();
-            else wv.openDevTools();
-        } else {
-            // F12 → DevTools de la fenêtre landscape elle-même
-            // Passe par IPC car le renderer ne peut pas appeler
-            // webContents.openDevTools() sur sa propre fenêtre directement
-            window.dualview.toggleDevTools();
-        }
-    });
-});
+// v0.5.4 : bloc getIsDev / toggleDevTools / dev-btn / F12 supprimé.
+// DevTools accessibles via Ctrl+Maj+I (natif Electron, toutes les fenêtres).
 
 window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings }) => {
     loadSettingsUI(settings || {});

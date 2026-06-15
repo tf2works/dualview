@@ -81,8 +81,6 @@ contextBridge.exposeInMainWorld('dualview', {
     cancelCustomAuth: () => ipcRenderer.send('auth-custom-cancelled'),
 
     // ── Store / persistance ────────────────────────────────────
-    getIsDev: () => ipcRenderer.invoke('get-is-dev'),
-    toggleDevTools: () => ipcRenderer.send('toggle-dev-tools'),
     getStore: () => ipcRenderer.invoke('get-store'),
     saveTabs: (data) => ipcRenderer.send('save-tabs', data),
     saveSettings: (settings) => ipcRenderer.send('save-settings', settings),

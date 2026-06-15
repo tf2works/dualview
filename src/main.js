@@ -58,11 +58,8 @@ const { sanitizeUrl, isAuthUrl, isLoginPage, detectServiceKeyFromUrl } = require
 const { setupSessionSecurity }      = require('./core/session-security');
 const { buildAndShowContextMenu }   = require('./core/context-menu');
 
-// ── Mode dev ──────────────────────────────────────────────────────────────────
-// Activer avec : npm start -- --dev
-// Logs dans %AppData%/DualView/dualview.log
+// ── Logger (v0.5.4 : toujours actif, plus de --dev) ──────────────────────────
 logger.init();
-logger.setupIpc();
 
 // ── Historique de navigation (v0.4.0) ─────────────────────────────────────────
 // app.getPath est disponible avant app.whenReady() sur Electron moderne.
@@ -80,6 +77,7 @@ function getAppIcon() {
 
 // ── État global ───────────────────────────────────────────────────────────────
 let tabUrls      = new Map();
+let tabTypes     = new Map();   // tabId → 'web' | 'settings' | 'blank' (v0.5.4)
 let activeTabId  = null;
 let syncState    = 'paused';    // 'active' | 'paused' — démarre en pause, activé après 3 s
 let syncStartTimer = null;
@@ -254,7 +252,6 @@ function createLandscapeWindow() {
             webviewTag:         true,
             additionalArguments: [
                 `--initial-theme=${getTheme()}`,
-                ...(logger.IS_DEV ? ['--dev-source=landscape'] : []),
             ],
         },
         autoHideMenuBar: true,
@@ -265,14 +262,6 @@ function createLandscapeWindow() {
 
     landscapeWin.loadFile(path.join(__dirname, 'renderer', 'landscape.html'));
     landscapeWin.webContents.setMaxListeners(50);
-
-    if (logger.IS_DEV) {
-        landscapeWin.webContents.session.registerPreloadScript({
-            id:       'dev-preload-landscape',
-            type:     'frame',
-            filePath: path.join(__dirname, 'preload', 'preload-dev.js'),
-        });
-    }
 
     landscapeWin.once('ready-to-show', () => {
         landscapeWin.show();
@@ -314,6 +303,8 @@ function createLandscapeWindow() {
                 getLandscapeWin:        () => landscapeWin,
                 configGet,
                 setPendingImageSavePath: p => { _pendingImageSavePath = p; },
+                // v0.5.4 : type de l'onglet actif pour conditionner les options
+                activeTabType: tabTypes.get(activeTabId) || 'web',
             });
         });
     });
@@ -339,7 +330,6 @@ function createPortraitWindow() {
             webviewTag:         true,
             additionalArguments: [
                 `--initial-theme=${getTheme()}`,
-                ...(logger.IS_DEV ? ['--dev-source=portrait'] : []),
             ],
         },
         autoHideMenuBar: true,
@@ -354,14 +344,6 @@ function createPortraitWindow() {
     portraitWin.webContents.on('did-attach-webview', (_event, wvContents) => {
         wvContents.setMaxListeners(50);
     });
-
-    if (logger.IS_DEV) {
-        portraitWin.webContents.session.registerPreloadScript({
-            id:       'dev-preload-portrait',
-            type:     'frame',
-            filePath: path.join(__dirname, 'preload', 'preload-dev.js'),
-        });
-    }
 
     portraitWin.once('ready-to-show', () => {
         if (landscapeWin && !landscapeWin.isDestroyed() && landscapeWin.isVisible()) {
@@ -651,19 +633,9 @@ ipcMain.on('auth-custom-cancelled', () => { });
 
 // ── Divers ────────────────────────────────────────────────────────────────────
 ipcMain.handle('get-theme',       () => getTheme());
-ipcMain.handle('get-is-dev',      () => logger.IS_DEV);
 ipcMain.handle('get-version',     () => app.getVersion());
 ipcMain.handle('get-homepage-url',() => getHomepageUrl());
 ipcMain.handle('get-sync-state',  () => syncState);
-
-ipcMain.on('toggle-dev-tools', () => {
-    if (!logger.IS_DEV || !landscapeWin || landscapeWin.isDestroyed()) return;
-    if (landscapeWin.webContents.isDevToolsOpened()) {
-        landscapeWin.webContents.closeDevTools();
-    } else {
-        landscapeWin.webContents.openDevTools({ mode: 'detach' });
-    }
-});
 
 // ── Config / store ────────────────────────────────────────────────────────────
 ipcMain.handle('get-store', () => ({
@@ -686,6 +658,8 @@ ipcMain.on('save-tabs', (event, data) => {
     configSet('activeTabId', data.activeTabId || data.tabs[0].id);
     for (const tab of data.tabs) {
         if (tab.url) tabUrls.set(tab.id, tab.url);
+        // v0.5.4 : mémoriser le type pour conditionner le menu contextuel
+        if (tab.type) tabTypes.set(tab.id, tab.type);
     }
     if (data.activeTabId) activeTabId = data.activeTabId;
     obsTabs = data.tabs.map(t => ({ id: t.id, title: t.title || '', url: t.url || '' }));
@@ -1311,9 +1285,6 @@ app.whenReady().then(() => {
     createPortraitWindow();
     nativeTheme.on('updated', broadcastTheme);
     startObsServerIfEnabled();
-    if (logger.IS_DEV) {
-        logger.setupDevTools({ landscapeWin, portraitWin });
-    }
 });
 
 app.on('window-all-closed', () => {
