@@ -85,6 +85,46 @@ Switch sans rechargement, état préservé en mémoire.
 
 ---
 
+## Navigation URL — flux unique v0.6.0
+
+### Problème résolu
+`navigate()` (landscape-tabs.js) assignait `wv.src` **directement** sur la
+webview active, puis envoyait l'IPC `navigate` à `main.js`, qui relayait
+`load-url` vers `landscapeWin` — où un second handler réassignait `wv.src`
+sur la même webview. Deux navigations concurrentes vers la même URL :
+Chromium annule la première au profit de la seconde → `ERR_ABORTED (-3)`
+visible en logs sur chaque saisie d'adresse, et pic de listeners internes
+`executeJavaScript`/`did-stop-loading` pouvant approcher la limite
+`setMaxListeners(50)` (v0.4.7).
+
+### Flux correct (source unique)
+```
+Utilisateur tape une URL / clique un résultat omnibar
+  → navigate(rawInput)            [landscape-tabs.js]
+      • résout l'input (resolveInput), met à jour tab.url/title, renderTabs/saveTabs
+      • PAS d'assignation wv.src ici
+      • window.dualview.navigate(url)
+  → ipcMain 'navigate'            [main.js]
+      • sanitizeUrl(url)
+      • tabUrls.set(activeTabId, safe)
+      • landscapeWin.send('load-url', safe)
+      • si syncState === 'active' && !isAuthUrl(safe) :
+          portraitWin.send('load-url', { tabId: activeTabId, url: safe })
+  → window.dualview.on('load-url', …)   [landscape-tabs.js]
+      • seule assignation de wv.src pour cette navigation
+```
+
+Le même canal `load-url` sert donc à la fois la fenêtre landscape (retour
+d'IPC) et la synchronisation vers le portrait — une seule navigation est
+déclenchée par saisie, quelle que soit la fenêtre.
+
+### Règle de prévention
+Ne jamais assigner `wv.src` à la fois de façon synchrone dans le handler
+qui initie la navigation et dans le handler IPC qui la reçoit en retour.
+Un seul point d'assignation par navigation logique.
+
+---
+
 ## Synchronisation v0.3.0
 
 ### Démarrage différé (3 secondes)
@@ -263,6 +303,45 @@ portrait (portrait-app.js + portrait-webview.js)
   Timer de sécurité 3s stocké et annulé (clearTimeout) à chaque dom-ready / did-navigate
     → évite l'accumulation de listeners did-stop-loading (MaxListenersExceededWarning)
 ```
+
+---
+
+## Favicons d'onglets v0.6.0
+
+### Cascade de repli
+```
+1. Extraction réelle (priorité)
+   wv.addEventListener('dom-ready', () => extractFaviconFromWebview(wv, tabId))
+     → wv.executeJavaScript(_FAVICON_EXTRACT_SCRIPT)
+     → cherche dans l'ordre :
+         link[rel="icon"], link[rel="shortcut icon"], link[rel~="icon"],
+         link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"],
+         link[rel="mask-icon"]
+     → résolution automatique en URL absolue via el.href (DOM)
+     → résultat mis en cache (_faviconCache) ; renderTabs() si changement
+
+2. Repli deviné (si aucune balise trouvée / page sans accès JS, ex. file://)
+   _getFaviconUrl(tab) → <origin>/favicon.ico (non vérifié à l'avance)
+
+3. Repli final (si l'image échouée n'a pas déjà basculé)
+   _onFaviconError(img, tabId) → assets/favicon-default.svg
+   Garde anti-boucle : img.dataset.fallbackApplied évite de retenter
+   indéfiniment si le SVG lui-même est introuvable (chemin incorrect, etc.)
+```
+
+### Invalidation du cache
+```
+_faviconCache.delete(tabId) appelé :
+  • à la fermeture de l'onglet (closeTab)
+  • sur changement d'URL (window.dualview.on('update-addressbar', …))
+→ force un repli temporaire sur /favicon.ico deviné jusqu'au prochain
+  dom-ready, qui ré-exécute extractFaviconFromWebview et republie l'icône réelle
+```
+
+### Chemin du fallback SVG
+`landscape.html` est dans `src/renderer/` ; `favicon-default.svg` est dans
+`assets/` à la racine du projet → chemin relatif `../../assets/favicon-default.svg`
+(deux niveaux, pas un seul).
 
 ---
 

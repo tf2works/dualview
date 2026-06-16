@@ -545,10 +545,23 @@
         </div>
     </div>
 
+    <!-- Dialogue renommage de groupe (v0.6.0) -->
+    <div id="group-rename-overlay" class="hidden">
+        <div class="group-rename-dialog">
+            <h3 data-i18n="renameGroup">Renommer le groupe</h3>
+            <input id="group-rename-input" type="text" maxlength="60" />
+            <div class="group-rename-actions">
+                <button id="group-rename-cancel" data-i18n="cancel">Annuler</button>
+                <button id="group-rename-ok" class="primary" data-i18n="rename">Renommer</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/landscape-i18n.js"></script>
     <script src="js/landscape-webview.js"></script>
     <script src="js/landscape-ui.js"></script>
     <script src="js/landscape-views.js"></script>
+    <script src="js/landscape-groups.js"></script>
     <script src="js/landscape-tabs.js"></script>
     <script src="js/landscape-settings.js"></script>
     <script src="js/landscape-pollers.js"></script>

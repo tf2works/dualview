@@ -642,6 +642,9 @@ ipcMain.handle('get-store', () => ({
     tabs:        configGet('tabs')        || DEFAULTS.tabs,
     activeTabId: configGet('activeTabId') || DEFAULTS.activeTabId,
     settings:    configGet('settings')    || Object.assign({}, SETTINGS_DEFAULTS),
+    // v0.6.0 : groupes d'onglets
+    groups:      configGet('tabGroups')   || [],
+    tabGroupOf:  configGet('tabGroupOf')  || {},
 }));
 
 // Expose les settings seuls (utilisé par la fenêtre portrait)
@@ -656,6 +659,9 @@ ipcMain.on('save-tabs', (event, data) => {
     if (!data || !Array.isArray(data.tabs)) return;
     configSet('tabs', data.tabs);
     configSet('activeTabId', data.activeTabId || data.tabs[0].id);
+    // v0.6.0 : persister les groupes d'onglets
+    if (data.groups !== undefined)    configSet('tabGroups',   data.groups);
+    if (data.tabGroupOf !== undefined) configSet('tabGroupOf', data.tabGroupOf);
     for (const tab of data.tabs) {
         if (tab.url) tabUrls.set(tab.id, tab.url);
         // v0.5.4 : mémoriser le type pour conditionner le menu contextuel
@@ -1259,6 +1265,135 @@ ipcMain.handle('import-config-apply', async (event, { settings: imported, histor
         console.warn('import-config-apply error:', e.message);
         return { success: false, error: e.message };
     }
+});
+
+// ── Menu contextuel onglets (v0.6.0) ─────────────────────────────────────────
+//
+// Le renderer envoie 'show-tab-context-menu' avec le contexte de l'onglet.
+// main.js construit et affiche le menu natif OS, puis renvoie l'action choisie
+// via 'tab-context-menu-action'.
+//
+// Même pattern que buildAndShowContextMenu (context-menu.js) pour la cohérence.
+
+ipcMain.on('show-tab-context-menu', (event, ctx) => {
+    if (!landscapeWin || landscapeWin.isDestroyed()) return;
+    const { Menu, MenuItem } = require('electron');
+    const settings  = require('./core/config-manager').configGet('settings') || {};
+    const isFr      = (settings.language || 'fr') === 'fr';
+
+    const send = (action, extra) => {
+        if (!landscapeWin.isDestroyed())
+            landscapeWin.webContents.send('tab-context-menu-action', { action, tabId: ctx.tabId, ...extra });
+    };
+
+    const menu = new Menu();
+
+    // ── Rouvrir l'onglet fermé ────────────────────────────────────────────────
+    menu.append(new MenuItem({
+        label:   isFr ? "Rouvrir l'onglet fermé" : 'Reopen closed tab',
+        enabled: !!ctx.hasClosedTab,
+        click()  { send('reopen-closed'); },
+    }));
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    // ── Épingler / Désépingler ────────────────────────────────────────────────
+    if (ctx.isPinned) {
+        menu.append(new MenuItem({
+            label: isFr ? "Désépingler l'onglet" : 'Unpin tab',
+            click() { send('unpin'); },
+        }));
+    } else {
+        menu.append(new MenuItem({
+            label: isFr ? "Épingler l'onglet" : 'Pin tab',
+            click() { send('pin'); },
+        }));
+    }
+
+    // ── Groupes (non disponible pour les épinglés) ────────────────────────────
+    if (!ctx.isPinned) {
+        menu.append(new MenuItem({ type: 'separator' }));
+
+        if (ctx.inGroup) {
+            menu.append(new MenuItem({
+                label: isFr ? 'Retirer du groupe' : 'Remove from group',
+                click() { send('remove-from-group'); },
+            }));
+        }
+
+        // Sous-menu "Ajouter à un groupe"
+        const groupSubmenu = new Menu();
+
+        // Groupes existants
+        if (ctx.groups && ctx.groups.length > 0) {
+            ctx.groups.forEach(g => {
+                groupSubmenu.append(new MenuItem({
+                    label: g.name,
+                    enabled: ctx.groupId !== g.id,   // grisé si déjà dans ce groupe
+                    click() { send('add-to-group', { groupId: g.id }); },
+                }));
+            });
+            groupSubmenu.append(new MenuItem({ type: 'separator' }));
+        }
+
+        // Nouveau groupe
+        groupSubmenu.append(new MenuItem({
+            label: isFr ? 'Nouveau groupe…' : 'New group…',
+            click() { send('add-to-group', { groupId: 'new' }); },
+        }));
+
+        menu.append(new MenuItem({
+            label:   isFr ? 'Ajouter à un groupe' : 'Add to group',
+            submenu: groupSubmenu,
+        }));
+    }
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    // ── Fermer l'onglet ───────────────────────────────────────────────────────
+    menu.append(new MenuItem({
+        label: isFr ? "Fermer l'onglet" : 'Close tab',
+        click() { send('close'); },
+    }));
+
+    menu.popup({ window: landscapeWin });
+});
+
+// ── Menu contextuel groupe d'onglets (v0.6.0) ─────────────────────────────────
+// Déclenché par clic droit sur le label de groupe → propose Renommer / Supprimer.
+
+ipcMain.on('show-group-context-menu', (event, ctx) => {
+    if (!landscapeWin || landscapeWin.isDestroyed()) return;
+    const { Menu, MenuItem, dialog } = require('electron');
+    const settings = require('./core/config-manager').configGet('settings') || {};
+    const isFr     = (settings.language || 'fr') === 'fr';
+
+    const send = (action, extra) => {
+        if (!landscapeWin.isDestroyed())
+            landscapeWin.webContents.send('group-context-menu-action', { action, groupId: ctx.groupId, ...extra });
+    };
+
+    const menu = new Menu();
+
+    menu.append(new MenuItem({
+        label: isFr ? 'Renommer le groupe…' : 'Rename group…',
+        async click() {
+            // dialog.showInputBox n'existe pas dans Electron → on utilise
+            // showMessageBox avec champ simulé ou on délègue au renderer
+            // via un canal IPC dédié 'group-rename-prompt'.
+            if (!landscapeWin.isDestroyed())
+                landscapeWin.webContents.send('group-rename-prompt', { groupId: ctx.groupId, currentName: ctx.name });
+        },
+    }));
+
+    menu.append(new MenuItem({ type: 'separator' }));
+
+    menu.append(new MenuItem({
+        label: isFr ? 'Supprimer le groupe' : 'Delete group',
+        click() { send('delete'); },
+    }));
+
+    menu.popup({ window: landscapeWin });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

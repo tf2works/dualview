@@ -76,6 +76,7 @@ src/
         ├── landscape-ui.js     État, sync, thème, toast, nav, redimensionnement
         ├── landscape-views.js  Pool de webviews + popup login
         ├── landscape-tabs.js   Onglets, URL, omnibar, screenshot
+        ├── landscape-groups.js Groupes d'onglets + onglets épinglés (v0.6.0)
         ├── landscape-settings.js Paramètres, services, historique, favoris, raccourcis (v0.5.1)
         ├── landscape-pollers.js  Polling pub/vidéo/scroll + initialisation
         ├── portrait-i18n.js    Traductions portrait + tp() + applyPortraitTranslations()

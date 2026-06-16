@@ -1465,6 +1465,12 @@ document.addEventListener('keydown', (e) => {
         if (tabs.length > 1) closeTab(activeTabId);
         return;
     }
+    // Ctrl+Shift+T — Rouvrir l'onglet fermé (v0.6.0)
+    if (e.key === 'T' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+        e.preventDefault();
+        if (typeof reopenLastClosedTab === 'function') reopenLastClosedTab();
+        return;
+    }
     // Ctrl+Tab — Onglet suivant
     if (e.key === 'Tab' && e.ctrlKey && !e.shiftKey) {
         e.preventDefault();
@@ -1562,3 +1568,76 @@ window.dualview.on('context-menu-action', ({ action, url, text, x, y }) => {
             break;
     }
 });
+// ── Dialogue renommage de groupe (v0.6.0) ────────────────────────────────────
+// Le main.js envoie 'group-rename-prompt' → on affiche l'overlay HTML custom
+// (Electron n'a pas de dialog.showInputBox natif).
+//
+// Important : les éléments DOM sont récupérés à chaque appel (pas mis en cache
+// à l'IIFE) car ce script s'exécute AVANT que le markup de l'overlay (placé en
+// fin de <body>, après les <script>) ne soit parsé. Un cache pris trop tôt
+// vaudrait `null` et désactiverait silencieusement tout le dialogue.
+
+(function setupGroupRenameDialog() {
+    let _pendingGroupId = null;
+    let _listenersBound = false;
+
+    function els() {
+        return {
+            overlay:   document.getElementById('group-rename-overlay'),
+            input:     document.getElementById('group-rename-input'),
+            okBtn:     document.getElementById('group-rename-ok'),
+            cancelBtn: document.getElementById('group-rename-cancel'),
+        };
+    }
+
+    function bindListenersOnce() {
+        if (_listenersBound) return;
+        const { overlay, input, okBtn, cancelBtn } = els();
+        if (!overlay || !input || !okBtn || !cancelBtn) return; // DOM pas encore prêt, retentera au prochain appel
+        _listenersBound = true;
+
+        okBtn.addEventListener('click', confirmRename);
+        cancelBtn.addEventListener('click', closeDialog);
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter')  { e.preventDefault(); confirmRename(); }
+            if (e.key === 'Escape') { e.preventDefault(); closeDialog(); }
+        });
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) closeDialog();
+        });
+    }
+
+    function openDialog(groupId, currentName) {
+        bindListenersOnce();
+        const { overlay, input } = els();
+        if (!overlay || !input) return; // garde défensive : DOM toujours indisponible
+        _pendingGroupId = groupId;
+        input.value     = currentName || '';
+        input.maxLength = 60;
+        overlay.classList.remove('hidden');
+        setTimeout(() => { input.focus(); input.select(); }, 50);
+    }
+
+    function closeDialog() {
+        const { overlay } = els();
+        if (overlay) overlay.classList.add('hidden');
+        _pendingGroupId = null;
+    }
+
+    function confirmRename() {
+        const { input } = els();
+        const name = input ? input.value.trim().slice(0, 60) : '';
+        if (name && _pendingGroupId && typeof groupRename === 'function') {
+            groupRename(_pendingGroupId, name);
+            if (typeof renderTabs === 'function') renderTabs();
+            if (typeof saveTabs  === 'function') saveTabs();
+        }
+        closeDialog();
+    }
+
+    // Écouter le canal IPC entrant depuis main.js — toujours enregistré,
+    // indépendamment de la présence du DOM à cet instant.
+    window.dualview.on('group-rename-prompt', ({ groupId, currentName }) => {
+        openDialog(groupId, currentName);
+    });
+})();

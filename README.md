@@ -1,4 +1,4 @@
-# DualView v0.5.4
+# DualView v0.6.0
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -142,6 +142,7 @@ Les raccourcis utilisent `Ctrl` sur Windows/Linux et `⌘ Cmd` sur macOS. Les to
 |--------|----------------|-------|
 | Nouvel onglet | `Ctrl+T` | `⌘+T` |
 | Fermer l'onglet actif | `Ctrl+W` | `⌘+W` |
+| Rouvrir l'onglet fermé | `Ctrl+Shift+T` | `⌘+Shift+T` |
 | Onglet suivant | `Ctrl+Tab` | `⌃+Tab` |
 | Onglet précédent | `Ctrl+Shift+Tab` | `⌃+Shift+Tab` |
 
@@ -175,8 +176,31 @@ L'option **"Enregistrer l'image sous…"** ouvre un dialogue système natif (seu
 - Cliquez pour sélectionner (sans rechargement — pool de webviews)
 - **`×`** pour fermer (minimum 1 onglet)
 - `Ctrl+T` / `Ctrl+W` pour ouvrir / fermer via clavier
+- Chaque onglet affiche le favicon réel du site, avec repli automatique sur une icône générique si indisponible
 
 > **Recommandation OBS** : ≤ 5 onglets (~80–150 Mo RAM par onglet)
+
+### Rouvrir l'onglet fermé
+
+`Ctrl+Shift+T`, ou clic droit sur n'importe quel onglet → *Rouvrir l'onglet fermé*. Historique illimité en mémoire pendant la session.
+
+### Groupes d'onglets
+
+Organisez vos onglets par glisser-déposer, comme dans Chrome ou Edge.
+
+- Clic droit sur un onglet → *Ajouter à un groupe* → groupe existant ou *Nouveau groupe…*
+- Chaque groupe reçoit une couleur automatique et un nom générique non dupliqué, personnalisable via clic droit sur le label (60 caractères max)
+- Clic sur le label pour réduire / déplier le groupe
+- Glisser-déposer un onglet hors du groupe pour le retirer ; un groupe disparaît automatiquement s'il lui reste moins de 2 membres
+- Les groupes sont conservés entre les sessions
+
+### Onglets épinglés
+
+Clic droit sur un onglet → *Épingler l'onglet*. Affichés en icône seule à l'extrême gauche de la barre, jusqu'à 5 onglets épinglés simultanément. Non déplaçables, non ajoutables à un groupe, et **non restaurés** au redémarrage.
+
+### Menu contextuel onglet
+
+Clic droit sur un onglet : *Rouvrir l'onglet fermé* · *Épingler/Désépingler* · *Ajouter à un groupe* · *Retirer du groupe* · *Fermer l'onglet*.
 
 ---
 
@@ -516,6 +540,7 @@ Pour l'historique, 4 options de limite : **500** (défaut) · **1 000** · **5 0
 | Position / taille des fenêtres | `%APPDATA%\DualView\dualview-config.json` |
 | Position / taille des fenêtres | `%APPDATA%\DualView\dualview-config.json` |
 | Onglets & URLs | idem |
+| Groupes d'onglets | idem |
 | Paramètres & Services | idem |
 | Historique de navigation | `%APPDATA%\DualView\history.json` |
 | Favoris | `%APPDATA%\DualView\favorites.json` |

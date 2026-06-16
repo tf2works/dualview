@@ -7,6 +7,72 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.6.0] — 2026
+
+### Ajouté
+
+- **Rouvrir l'onglet fermé** (`landscape-tabs.js`)
+  - Historique illimité en mémoire (réinitialisé à la fermeture de l'application)
+  - Accessible via clic droit sur n'importe quel onglet → "Rouvrir l'onglet fermé"
+  - Raccourci clavier `Ctrl+Shift+T` (standard navigateur)
+  - Item grisé si aucun onglet n'a été fermé depuis le démarrage
+
+- **Groupes d'onglets** (`landscape-groups.js`, `landscape-tabs.js`, `main.js`)
+  - Création de groupes nommés avec couleur automatique (palette 10 couleurs, attribution séquentielle)
+  - Minimum 2 onglets par groupe ; le groupe est supprimé si moins de 2 membres restent
+  - Label cliquable affiché à gauche du premier onglet du groupe (expand/collapse)
+  - Renommage du groupe via clic droit sur le label → dialog HTML natif (max 60 caractères)
+  - Noms génériques auto-incrémentés non dupliqués ("Groupe 1", "Groupe 2", …)
+  - Drag & Drop : entrer dans un groupe (drop sur un onglet membre ou sur le label)
+  - Drag & Drop : sortir d'un groupe (drop hors du groupe → suppression si < 2 membres)
+  - Drag inter-groupes : drop sur onglet d'un autre groupe → rejoindre ce groupe
+  - Persistance entre sessions (`tabGroups` et `tabGroupOf` dans la config)
+  - Groupe collapsed : seul le label est affiché, les onglets sont masqués
+
+- **Onglets épinglés** (`landscape-groups.js`, `landscape-tabs.js`, `main.js`)
+  - Groupe virtuel spécial affiché à gauche, séparé par un diviseur vertical
+  - Maximum 5 onglets épinglés simultanément
+  - Onglets épinglés affichés en mode icon-only (favicon uniquement, sans titre)
+  - Épingle/désépingle via clic droit sur l'onglet
+  - Les épinglés ne peuvent pas être drag-and-droppés hors de la zone épinglés
+  - Les épinglés ne peuvent pas être ajoutés à un groupe normal
+  - **Non restaurés** entre sessions (réinitialisés à chaque démarrage)
+
+- **Favicons sur tous les onglets** (`landscape-tabs.js`, `assets/favicon-default.svg`)
+  - Favicon 16×16 chargée depuis `<origin>/favicon.ico`
+  - Fallback vers `assets/favicon-default.svg` (icône globe générique vectorielle) en cas d'échec
+  - Cache par onglet ; invalidé lors d'un changement d'URL
+  - Favicon absente sur l'onglet Paramètres (icône ⚙ dans le titre)
+
+- **Menu contextuel natif OS sur les onglets** (`main.js`, `preload-landscape.js`, `landscape-tabs.js`)
+  - Déclenché par clic droit sur n'importe quel onglet
+  - Entrées : Rouvrir l'onglet fermé · Épingler/Désépingler · Ajouter à un groupe (sous-menu) · Retirer du groupe · Fermer l'onglet
+  - Sous-menu "Ajouter à un groupe" : groupes existants + "Nouveau groupe…"
+  - Menu contextuel sur le label de groupe : Renommer · Supprimer
+  - Cohérent avec le menu contextuel webview existant (même pattern IPC main↔renderer)
+
+### Modifié
+
+- `landscape-tabs.js` — refactorisé pour intégrer groupes, épinglés, favicons, historique fermés
+- `landscape-settings.js` — ajout raccourci `Ctrl+Shift+T` + dialog renommage groupe
+- `landscape-pollers.js` — restauration des groupes depuis le store au démarrage
+- `main.js` — `save-tabs` persiste `groups`/`tabGroupOf` ; `get-store` les retourne
+- `preload-landscape.js` — nouveaux canaux IPC exposés
+
+### Nouveau fichier
+
+- `src/renderer/js/landscape-groups.js` — module autonome gérant groupes et épinglés
+- `assets/favicon-default.svg` — favicon fallback vectorielle
+
+### Corrigé
+
+- **Chemin du favicon de repli erroné** : `FAVICON_FALLBACK` pointait vers `src/assets/favicon-default.svg` (un niveau au-dessus de `renderer/`) au lieu de `assets/favicon-default.svg` à la racine du projet (deux niveaux au-dessus) → `ERR_FILE_NOT_FOUND` en boucle. Chemin corrigé en `../../assets/favicon-default.svg` ; garde anti-boucle ajoutée sur l'`<img>` pour éviter qu'un fallback lui-même introuvable ne redéclenche indéfiniment l'event `error` (`landscape-tabs.js`)
+- **Dialogue de renommage de groupe inopérant** : le markup `#group-rename-overlay` était placé après les balises `<script>` dans `landscape.html` ; `document.getElementById()` retournait `null` au moment de l'initialisation, désactivant silencieusement tout le dialogue (clic sans effet, clavier sans effet). Markup déplacé avant les scripts ; logique réécrite pour interroger le DOM à la demande plutôt qu'en cache à l'IIFE, robuste à un futur changement d'ordre (`landscape.html`, `landscape-settings.js`). Suppression au passage d'un appel mort à `window.dualview.emit` (méthode inexistante dans le preload)
+- **Favicon limité à `/favicon.ico` deviné** : remplacé par une extraction réelle des balises `<link rel="icon"|"shortcut icon"|"apple-touch-icon"|"apple-touch-icon-precomposed"|"mask-icon">` de la page, via un script injecté dans la webview au `dom-ready`. Repli en cascade conservé : balises de la page → `<origin>/favicon.ico` deviné → SVG générique (`landscape-tabs.js` : `extractFaviconFromWebview`, `_FAVICON_EXTRACT_SCRIPT` ; `landscape-views.js` : appel ajouté dans `attachWebviewListeners`)
+- **`ERR_ABORTED (-3)` à chaque navigation** (`github.com`, `myinstants.com`, observé dans les logs) : `navigate()` assignait `wv.src` directement **et** déclenchait l'IPC `navigate`, qui revient via `main.js` → canal `load-url` → réassignation de `wv.src` une seconde fois sur la même webview. La seconde navigation annulait systématiquement la première (comportement Chromium standard sur navigation concurrente), généralement sans impact visible mais bruyant en logs et source du pic `MaxListenersExceededWarning` (51 listeners `did-stop-loading`, juste au-dessus du seuil `setMaxListeners(50)` fixé en v0.4.7). Assignation directe retirée de `navigate()` ; le round-trip IPC (`navigate` → `main.js` → `load-url`) reste l'unique déclencheur de la navigation, cohérent avec le mécanisme déjà utilisé pour la synchronisation portrait (`landscape-tabs.js`)
+
+---
+
 ## [0.5.4] — 2026
 
 ### Ajouté

@@ -83,6 +83,10 @@ contextBridge.exposeInMainWorld('dualview', {
     // ── Store / persistance ────────────────────────────────────
     getStore: () => ipcRenderer.invoke('get-store'),
     saveTabs: (data) => ipcRenderer.send('save-tabs', data),
+
+    // ── Menu contextuel onglets / groupes (v0.6.0) ────────────────────────
+    showTabContextMenu:   (ctx) => ipcRenderer.send('show-tab-context-menu',   ctx),
+    showGroupContextMenu: (ctx) => ipcRenderer.send('show-group-context-menu', ctx),
     saveSettings: (settings) => ipcRenderer.send('save-settings', settings),
     getVersion: () => ipcRenderer.invoke('get-version'),
     getHomepageUrl: () => ipcRenderer.invoke('get-homepage-url'),
@@ -140,6 +144,9 @@ contextBridge.exposeInMainWorld('dualview', {
             'obs-command',
             'mouse-nav', 'context-menu-action',
             'portrait-status',
+            // v0.6.0 — menus contextuels onglets / groupes
+            'tab-context-menu-action', 'group-context-menu-action',
+            'group-rename-prompt',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.5.4.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.6.0.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -57,6 +57,53 @@
 | `Ctrl+T` / `Ctrl+W` | `⌘+T` / `⌘+W` | Nouvel onglet / Fermer l'onglet actif |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃+Tab` / `⌃+Shift+Tab` | Onglet suivant / précédent |
 | `Ctrl+L` / `F6` | `⌘+L` / `F6` | Focus sur la barre d'adresse |
+
+---
+
+## Nouveautés v0.6.0
+
+### 🗂️ Groupes d'onglets
+
+Organisez vos onglets en groupes colorés, comme dans Chrome ou Edge.
+
+| Action | Comment |
+|---|---|
+| Créer un groupe | Clic droit sur un onglet → *Ajouter à un groupe* → *Nouveau groupe…* |
+| Renommer un groupe | Clic droit sur le label du groupe → *Renommer le groupe…* (60 caractères max) |
+| Réduire / déplier un groupe | Clic sur le label du groupe |
+| Sortir un onglet du groupe | Glisser-déposer l'onglet hors de la zone du groupe |
+| Faire entrer un onglet dans un groupe | Glisser-déposer l'onglet sur un membre du groupe ou sur son label |
+| Supprimer un groupe | Automatique dès qu'il reste moins de 2 onglets membres |
+
+Chaque groupe reçoit une couleur automatique (palette de 10 teintes, attribution séquentielle) et un nom générique non dupliqué ("Groupe 1", "Groupe 2"…). Les groupes sont conservés entre les sessions.
+
+### 📌 Onglets épinglés
+
+| Règle | Détail |
+|---|---|
+| Activation | Clic droit sur un onglet → *Épingler l'onglet* |
+| Limite | 5 onglets épinglés maximum |
+| Affichage | Réduits à leur favicon, à l'extrême gauche de la barre d'onglets |
+| Restrictions | Non déplaçables hors de leur zone ; non ajoutables à un groupe normal |
+| Persistance | **Non conservés** entre les sessions (réinitialisés à chaque démarrage) |
+
+### ↩️ Rouvrir l'onglet fermé
+
+Historique illimité en mémoire pendant la session. Disponible via clic droit sur n'importe quel onglet → *Rouvrir l'onglet fermé*, ou le raccourci `Ctrl+Shift+T` (`⌘+Shift+T` sur macOS).
+
+### 🌐 Favicons sur tous les onglets
+
+Chaque onglet affiche désormais l'icône réelle du site (16×16), extraite des balises déclarées par la page (`<link rel="icon">` et variantes). À défaut, DualView tente `<origin>/favicon.ico`, puis affiche une icône générique si aucune des deux n'est disponible.
+
+### 🖱️ Menu contextuel onglet (natif OS)
+
+Clic droit sur un onglet : *Rouvrir l'onglet fermé* · *Épingler/Désépingler* · *Ajouter à un groupe* (sous-menu) · *Retirer du groupe* · *Fermer l'onglet*. Clic droit sur un label de groupe : *Renommer* · *Supprimer*.
+
+### 🔧 Corrigé
+
+- **Double navigation sur changement d'URL** (`ERR_ABORTED` visible en logs sur des sites comme github.com) : la barre d'adresse déclenchait deux navigations concurrentes vers la même page sur chaque saisie. La seconde annulait systématiquement la première au niveau du moteur de rendu — sans casser la navigation finale, mais générant des erreurs en console et un pic de charge interne. Un seul chemin de navigation est maintenant utilisé.
+- **Icône de repli des favicons introuvable** : le chemin vers l'icône générique était incorrect et provoquait un rechargement en boucle silencieux en cas d'échec de chargement d'une icône de site. Chemin corrigé, et une protection empêche désormais toute boucle si l'icône de repli elle-même venait à manquer.
+- **Renommage de groupe sans effet** : la fenêtre de renommage ne s'ouvrait jamais (clic et clavier sans réaction) car son contenu était chargé après l'initialisation des scripts qui le pilotent. Réorganisé pour fonctionner de façon fiable.
 
 ---
 
@@ -698,3 +745,4 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.5.2 | **Export / Import de configuration** : export sélectif (18 éléments, 6 catégories), import avec merge sélectif côte à côte, fusion historique/favoris sans perte, redémarrage auto si apparence/langue changent. 3 IPC, 45 clés i18n. |
 | 0.5.3 | **Onglets déplaçables** Drag & Drop avec ligne indicatrice verticale (style Chrome) + opacité. **Typage des onglets** (`TAB_TYPE_WEB/SETTINGS/BLANK`) + `getTabType()` rétro-compatible. **Menu contextuel** : 6 nouvelles options (ouvrir lien dans navigateur système, copier image, ouvrir image dans onglet, copier email mailto, annuler/rétablir, sélectionner tout). |
 | 0.5.4 | **Menu contextuel** : retour/avance grisés, imprimer via PDF natif OS, code source dans onglet dédié (`Source — example.com`), inspecter élément en production. **Suppression mode `--dev`** : logger toujours actif (`dualview.log`), `preload-dev.js` supprimé, `start-dev` retiré. **Fix** : `canGoBack/Forward` → `navigationHistory` API ; impression → `printToPDF` + aperçu OS complet ; suppression `@cliqz` (dépendance inutilisée → logs parasites). |
+| 0.6.0 | **Groupes d'onglets** colorés, nommables (60 car. max), drag & drop in/out, collapse/expand, persistants. **Onglets épinglés** (max 5, icône seule, non persistés). **Rouvrir l'onglet fermé** (historique illimité, `Ctrl+Shift+T`). **Favicons réels** extraits des balises `<link rel="icon">` de la page (repli `/favicon.ico` puis SVG générique). **Menu contextuel natif OS** sur onglets et labels de groupe. **Fix** : double navigation `ERR_ABORTED` sur changement d'URL (assignation `wv.src` dupliquée) ; chemin du favicon de repli incorrect ; dialogue de renommage de groupe inopérant (DOM interrogé avant son insertion). |

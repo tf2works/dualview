@@ -85,6 +85,8 @@ function attachWebviewListeners(wv, tabId) {
         }, 5000);
         if (tabId === activeTabId) sendNavState(wv);
         applyWebviewTheme(wv);
+        // v0.6.0 — extraction du favicon réel de la page (balises <link rel="icon">)
+        if (typeof extractFaviconFromWebview === 'function') extractFaviconFromWebview(wv, tabId);
     });
 
     // ── Liens target="_blank" → nouvel onglet DualView (v0.4.1) ──────────

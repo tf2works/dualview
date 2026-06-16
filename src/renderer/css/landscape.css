@@ -211,6 +211,192 @@ body {
         border-color: var(--accent)
     }
 
+/*
+ * DualView - Additions CSS v0.6.0
+ * À ajouter dans landscape.css, section "── Onglets (#tab-bar, .tab)"
+ *
+ * Couvre :
+ *   - Favicon dans les onglets
+ *   - Onglets épinglés
+ *   - Séparateur épinglés
+ *   - Labels de groupes d'onglets
+ *   - Onglets membres d'un groupe (bordure colorée)
+ *   - Indicateur de groupe en drag
+ */
+
+/* ── Favicon (v0.6.0) ─────────────────────────────────────────────────────── */
+.tab-favicon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border-radius: 2px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+/* ── Onglets épinglés (v0.6.0) ────────────────────────────────────────────── */
+.tab.tab-pinned {
+    max-width: 34px;
+    min-width: 34px;
+    padding: 4px 8px;
+    justify-content: center;
+}
+
+/* Séparateur visuel entre les épinglés et les onglets normaux */
+.tab-pinned-divider {
+    width: 1px;
+    min-width: 1px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 1px;
+    align-self: center;
+    flex-shrink: 0;
+    margin: 0 4px;
+}
+
+/* ── Groupes d'onglets (v0.6.0) ───────────────────────────────────────────── */
+
+/* Label affiché à gauche du premier onglet du groupe */
+.tab-group-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    height: 24px;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
+    transition: opacity 0.15s;
+    /* Bande colorée en bas */
+    border-bottom: 2px solid var(--group-color, #888);
+}
+
+.tab-group-label:hover {
+    opacity: 0.8;
+}
+
+/* Pastille colorée */
+.tab-group-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--group-color, #888);
+    flex-shrink: 0;
+}
+
+/* Nom du groupe */
+.tab-group-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--group-color, #888);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Groupe réduit (collapsed) : label plus compact */
+.tab-group-label.collapsed .tab-group-name {
+    font-style: italic;
+    opacity: 0.85;
+}
+
+/* Highlight du label de groupe quand on drag un onglet dessus */
+.tab-group-label.drag-target-group {
+    background: color-mix(in srgb, var(--group-color, #888) 20%, transparent);
+    outline: 2px dashed var(--group-color, #888);
+    outline-offset: -2px;
+}
+
+/* Onglet membre d'un groupe : bande colorée en bas */
+.tab.tab-in-group {
+    border-bottom: 3px solid var(--tab-group-color, #888);
+    padding-bottom: 1px; /* compensation visuelle */
+}
+
+/* ── Prompt de renommage de groupe (v0.6.0) ───────────────────────────────── */
+/* Overlay affiché par le renderer suite à group-rename-prompt (IPC) */
+#group-rename-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+#group-rename-overlay.hidden {
+    display: none;
+}
+
+.group-rename-dialog {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    min-width: 320px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.group-rename-dialog h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg);
+    margin: 0;
+}
+
+.group-rename-dialog input {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--fg);
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.group-rename-dialog input:focus {
+    border-color: var(--accent);
+}
+
+.group-rename-dialog .group-rename-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.group-rename-dialog button {
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--nav-btn);
+    color: var(--fg);
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s;
+}
+
+.group-rename-dialog button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.group-rename-dialog button:hover:not(.primary) {
+    background: var(--nav-btn-h);
+}
+
+.group-rename-dialog button.primary:hover {
+    opacity: 0.9;
+}
+
+
 /* ── Toolbar ── */
 #toolbar {
     display: flex;
