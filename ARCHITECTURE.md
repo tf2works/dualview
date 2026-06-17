@@ -1,4 +1,4 @@
-# DualView - Architecture v0.5.4
+# DualView - Architecture v0.6.2
 
 ## Vue d'ensemble
 
@@ -10,7 +10,8 @@ main.js
   |     Gestion fenêtres d'authentification services connectés
   |     checkKnownServiceCookies / checkAllServicesStatus / disconnectService
   |     openAuthWindow → BrowserWindow indépendante (persist:dualview)
-  |                      preload: preload-auth.js (anti-détection Electron)
+  |                      preload: preload-auth.js (anti-détection Electron
+  |                      + clés d'accès WebAuthn désactivées, v0.6.2)
   |
   |-- session.fromPartition('persist:dualview')
   |     webRequest.onBeforeRequest -> bloque ads (50+ domaines) + schémas non autorisés
@@ -485,6 +486,31 @@ ATTENTION : ne pas installer de handler onBeforeSendHeaders
   et sa suppression retire TOUS les handlers → ERR_ABORTED généralisé.
 ```
 
+### Clés d'accès désactivées — WebAuthn (preload-auth.js, v0.6.2)
+```
+Avant v0.6.2 : authWin étant une BrowserWindow Electron complète (pas une
+webview restreinte), elle bénéficiait sans configuration explicite du
+support WebAuthn natif de Chromium → Windows Hello, Touch ID et clés FIDO2
+fonctionnaient dans la fenêtre de connexion à un service.
+
+Depuis v0.6.2 : désactivé volontairement, toutes plateformes, pour tous
+les services (connus et personnalisés) — ajouté en fin de script injecté
+(Couche 2, après les 5 signaux anti-détection) :
+
+  6a. window.PublicKeyCredential → undefined (Object.defineProperty get)
+      → les services qui testent cette interface avant d'afficher un
+        bouton "clé d'accès" ne l'affichent plus du tout.
+
+  6b. navigator.credentials.create() / .get() interceptés :
+      → si options.publicKey est présent → Promise.reject(NotAllowedError)
+      → sinon → délégué à l'implémentation d'origine (bind() conservé)
+      → ne casse pas les usages mot de passe/fédérés de la même API.
+
+Seul email/mot de passe reste disponible dans authWin. Implémentation
+strictement scoped à preload-auth.js (authWin) — n'affecte ni les
+webviews landscape/portrait, ni le reste de l'application.
+```
+
 ---
 
 ## Structure des fichiers
@@ -717,6 +743,7 @@ portraitPreset    | iphone15 / pixel8 / galaxys24 / ipad | Via modale redimensio
 | 0.4.7 | **Favoris** : favorites-manager.js (core), favorites.json, bouton ★ toolbar, panneau latéral, entrée ⚙️. **Fix services personnalisés** : add-custom-service IPC (enregistrement immédiat), open-auth-window ne crée plus l'entrée. **GitHub/GitLab** ajoutés dans KNOWN_SERVICES et SERVICE_LABELS. Filtre isNowKnownService() anti-doublons. **Fix portrait** : getSettings() + canal language-changed dans preload-view.js. **Fix MaxListenersExceededWarning** : setMaxListeners(50) sur webviews pool (did-attach-webview) + authWin.webContents. |
 | 0.5.0 | **Mode Focus** (F) : Ctrl+Shift+H / F11, masque toolbar, bande de détection 8px, badge discret, survol maintenu. **Top domaines** : onglet vide affiche le top 10 domaines les plus visités (historique toutes sessions, dédoublonné par hostname, max disponible) dans landscape et portrait (données relayées via IPC show-topsites). **Fusion paramètres** : Apparence + Langue déplacés dans Général, nav latérale réduite à 4 entrées. **Réouverture portrait** : bouton "Rouvrir le portrait" dans ⚙️ (visible si portrait fermé), reconstruction complète du pool via dom-ready (tous onglets + onglet actif + URL). **Fix canGoBack avant dom-ready** : guard try/catch dans switchTab (landscape-tabs.js). |
 | 0.6.1 | **Fix** drag & drop : dépôt dans un espace vide de la barre d'onglets retire désormais l'onglet de son groupe (zone de repli sur `#tab-bar`). **Fix** onglets épinglés persistés entre sessions (`pinnedTabs` dans `get-store`/`save-tabs`). **Fix** groupe orphelin ("zombie") lors du déplacement d'un onglet vers un nouveau groupe (`groupAddTab` nettoie l'ancien groupe). **Fix** erreurs favicon en console DevTools : fetch HTTP déporté dans le main process (`net.request`, nouveau canal IPC `fetch-favicon`), le renderer n'assigne plus que des data: URL déjà vérifiées. |
+| 0.6.2 | **Sécurité** : clés d'accès (WebAuthn) désactivées dans la fenêtre d'authentification des services connectés, toutes plateformes — Windows Hello, Touch ID et clés FIDO2 ne sont plus proposés, email/mot de passe uniquement. `window.PublicKeyCredential` masqué + `navigator.credentials.create()`/`.get()` interceptés pour rejeter les requêtes `publicKey` (`preload-auth.js`). |
 
 ---
 

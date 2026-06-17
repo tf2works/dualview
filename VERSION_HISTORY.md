@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.6.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.6.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -57,6 +57,14 @@
 | `Ctrl+T` / `Ctrl+W` | `⌘+T` / `⌘+W` | Nouvel onglet / Fermer l'onglet actif |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃+Tab` / `⌃+Shift+Tab` | Onglet suivant / précédent |
 | `Ctrl+L` / `F6` | `⌘+L` / `F6` | Focus sur la barre d'adresse |
+
+---
+
+## Nouveautés v0.6.2
+
+### 🔒 Sécurité
+
+- **Clés d'accès (WebAuthn) désactivées dans la fenêtre de connexion aux services** : Windows Hello, Touch ID et les clés de sécurité FIDO2 ne sont plus proposés lors de l'authentification à un service connecté (connu ou personnalisé). Email/mot de passe reste le seul mode de connexion supporté. Le changement est appliqué côté `preload-auth.js`, injecté avant le chargement de toute page de connexion : la détection de fonctionnalité (`window.PublicKeyCredential`) est masquée, et toute tentative malgré tout d'appel `navigator.credentials.create()` / `.get()` avec une option `publicKey` échoue comme en l'absence d'authentificateur. Les usages mot de passe/fédérés de la même API restent inchangés.
 
 ---
 
@@ -664,6 +672,7 @@ Plateformes : YouTube, TikTok, Instagram, générique.
 - Navigation limitée à `http://`, `https://`, `file://`
 - Bloqueur pub 3 niveaux : réseau (50+ domaines) + CSS cosmétique + stub SDK IMA
 - YouTube Shorts : exemptés du bloqueur (pas de pré-roll)
+- Clés d'accès (Windows Hello / Touch ID / FIDO2) désactivées dans la fenêtre de connexion aux services connectés *(v0.6.2)* : email/mot de passe uniquement
 
 ---
 

@@ -101,7 +101,7 @@ La synchronisation démarre automatiquement 3 secondes après l'ouverture.
 ### Services pré-configurés
 Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam.
 
-La connexion s'effectue dans une fenêtre dédiée qui contourne les restrictions des webviews Electron (clés d'accès Windows Hello, FIDO2, et email/mot de passe sont supportés).
+La connexion s'effectue dans une fenêtre dédiée qui contourne les restrictions des webviews Electron (email/mot de passe). Les clés d'accès (Windows Hello, Touch ID, clés de sécurité FIDO2) sont volontairement désactivées dans cette fenêtre depuis la v0.6.2, pour des raisons de sécurité.
 
 ### Service personnalisé
 Cliquez **+ Ajouter un service**, entrez un nom et une URL, puis **Connecter**. Un bouton **"✓ J'ai terminé"** apparaît dans la fenêtre d'auth. Cliquez-le une fois connecté et confirmez.

@@ -1,4 +1,4 @@
-# DualView v0.6.1
+# DualView v0.6.2
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -45,7 +45,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 ### Windows
 
-1. Double-cliquez sur **`DualView-Setup-0.6.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.6.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -307,9 +307,6 @@ Dropdown **← →** : survolez un bouton pendant 500 ms pour afficher l'histori
 ## Captures d'écran
 
 Le bouton **📷** capture simultanément les deux vues en PNG horodaté :
-## Captures d'écran
-
-Le bouton **📷** capture simultanément les deux vues en PNG horodaté :
 
 - Nommage : `dualview_YYYY-MM-DD_HH-mm-ss_paysage.png` + `_portrait.png`
 - Dossier configurable dans **Paramètres → Général → Captures d'écran** (par défaut : dossier Images)
@@ -352,52 +349,11 @@ Si la fenêtre Portrait est fermée accidentellement, rouvrez-la sans redémarre
 
 ## Services connectés
 
----
-
-## Page de démarrage — Top domaines
-
-Quand **Paramètres → Général → Nouveaux onglets** est réglé sur **"Page vide"**, les onglets vides affichent automatiquement vos sites les plus fréquentés :
-
-- Jusqu'à **10 domaines** classés par nombre de visites (toutes sessions confondues)
-- Aucun doublon (normalisé par hostname, `www.` ignoré)
-- Favicon de chaque site avec fallback sur l'initiale du domaine
-- Visible dans **les deux fenêtres** — Paysage et Portrait affichent la même grille
-- Clic → navigation directe dans l'onglet actif
-
----
-
-## Redimensionnement Portrait
-
-**⚙️ → Redimensionner** ouvre une modale avec :
-
-- **Préréglages** : iPhone 15 (390×844), Pixel 8 (412×915), Galaxy S24 (360×780), iPad (768×1024)
-- **Taille libre** : redimensionnez manuellement la fenêtre Portrait (contour orange)
-- **Valider** verrouille la taille. **Annuler** restaure la taille précédente.
-
----
-
-## Réouverture de la fenêtre Portrait
-
-Si la fenêtre Portrait est fermée accidentellement, rouvrez-la sans redémarrer DualView :
-
-1. Cliquez sur **⚙️** dans la toolbar Paysage
-2. Sélectionnez **"Rouvrir le portrait"** (entrée visible uniquement si Portrait fermé)
-3. La fenêtre se rouvre à sa **dernière position et taille connue**
-4. Tous les onglets ouverts dans Paysage sont **automatiquement reconstruits** dans le Portrait
-
----
-
-## Services connectés
-
 Connexion aux services web depuis **Paramètres → Services connectés** :
 
 - **9 services pré-configurés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam
-- Connexion dans une **fenêtre dédiée** : compatibilité Windows Hello, FIDO2, email/mot de passe
-- **URL personnalisée** avec bouton "J'ai terminé" + confirmation
-- **Détection automatique de connexion** par cookies
-
-- **9 services pré-configurés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam
-- Connexion dans une **fenêtre dédiée** : compatibilité Windows Hello, FIDO2, email/mot de passe
+- Connexion dans une **fenêtre dédiée** qui contourne les restrictions des webviews Electron : email/mot de passe
+- **Clés d'accès désactivées** *(depuis v0.6.2)* : Windows Hello, Touch ID et clés de sécurité FIDO2 ne sont plus proposés dans la fenêtre de connexion, pour des raisons de sécurité
 - **URL personnalisée** avec bouton "J'ai terminé" + confirmation
 - **Détection automatique de connexion** par cookies
 
@@ -600,6 +556,7 @@ Supprimez `%APPDATA%\DualView\` pour effacer toutes les données locales.
 
 | Version | Résumé |
 |---------|--------|
+| 0.6.2 | **Sécurité** : clés d'accès (WebAuthn — Windows Hello, Touch ID, FIDO2) désactivées dans la fenêtre d'authentification des services connectés ; email/mot de passe uniquement |
 | 0.6.1 | Fixes : drag & drop hors groupe (zone de repli), onglets épinglés persistés entre sessions, groupe orphelin lors d'un déplacement inter-groupes, console silencieuse pour les favicons (fetch déporté au main process) |
 | 0.6.0 | Groupes d'onglets, onglets épinglés, rouvrir l'onglet fermé, favicons réels, menu contextuel natif |
 | 0.5.4 | Menu contextuel : retour/avance grisés, imprimer via PDF natif OS, code source dans onglet dédié, inspecter élément, impression page avec aperçu logiciel natif dans l'OS  |

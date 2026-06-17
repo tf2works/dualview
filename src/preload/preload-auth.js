@@ -1,16 +1,26 @@
 /**
  * DualView - Preload Auth Window
- * Version: 0.3.0
+ * Version: 0.6.2
+ *
+ * Changements v0.6.2 :
+ * - Clés d'accès (WebAuthn) désactivées dans la fenêtre d'authentification :
+ *   Windows Hello, Touch ID et clés de sécurité FIDO2 ne sont plus proposés
+ *   pour aucun service (connu ou personnalisé). Seul email/mot de passe
+ *   reste disponible. Voir section 6 ci-dessous.
  *
  * Injecté dans la BrowserWindow d'authentification AVANT que la page de
- * login commence à charger. Neutralise les signaux de détection Electron.
+ * login commence à charger. Neutralise les signaux de détection Electron
+ * et désactive les clés d'accès (passkeys).
  *
- * Signaux neutralisés :
+ * Signaux neutralisés (anti-détection) :
  *  1. navigator.webdriver         → undefined (signal principal Google)
  *  2. navigator.userAgentData     → brands sans "Electron"
  *  3. window.chrome               → complété (app, runtime, csi, loadTimes)
  *  4. navigator.plugins/mimeTypes → 3 plugins PDF simulés (Chrome en a 2+)
  *  5. navigator.permissions       → query patché
+ *
+ * Fonctionnalité désactivée :
+ *  6. Clés d'accès (WebAuthn)     → toutes plateformes, voir détail § 6
  */
 const { webFrame } = require('electron');
 
@@ -139,6 +149,39 @@ webFrame.executeJavaScript(`
             }
             return origQuery(params);
         };
+    } catch(e) {}
+
+    // ── 6. Clés d'accès (WebAuthn) désactivées ──────────────────────────────
+    // Windows Hello, Touch ID et clés de sécurité FIDO2 ne doivent plus être
+    // proposés dans la fenêtre d'authentification, sur aucune plateforme.
+    // Email/mot de passe reste le seul mode de connexion supporté.
+    try {
+        // 6a. Masquer la détection de fonctionnalité : les services qui testent
+        // window.PublicKeyCredential avant d'afficher un bouton "clé d'accès"
+        // (ou une suggestion de saisie conditionnelle) ne l'afficheront plus.
+        Object.defineProperty(window, 'PublicKeyCredential', {
+            get: () => undefined,
+            configurable: true,
+        });
+    } catch(e) {}
+    try {
+        // 6b. Filet de sécurité : si un service appelle malgré tout
+        // navigator.credentials.create()/get() avec une option publicKey
+        // (sans passer par la détection ci-dessus), la requête échoue comme
+        // en l'absence de tout authentificateur — comportement standard du
+        // navigateur, pas une erreur visible inhabituelle pour l'utilisateur.
+        // Les appels mot de passe/fédérés (sans publicKey) restent inchangés.
+        if (navigator.credentials && navigator.credentials.create && navigator.credentials.get) {
+            const origCreate = navigator.credentials.create.bind(navigator.credentials);
+            const origGet = navigator.credentials.get.bind(navigator.credentials);
+            const denyWebAuthn = () => Promise.reject(
+                new DOMException('The operation either timed out or was not allowed.', 'NotAllowedError')
+            );
+            navigator.credentials.create = (options) =>
+                (options && options.publicKey) ? denyWebAuthn() : origCreate(options);
+            navigator.credentials.get = (options) =>
+                (options && options.publicKey) ? denyWebAuthn() : origGet(options);
+        }
     } catch(e) {}
 
 })();

@@ -7,6 +7,18 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.6.2] — 2026
+
+### Sécurité
+
+- **Clés d'accès (WebAuthn) désactivées dans la fenêtre d'authentification des services connectés** : Windows Hello, Touch ID et les clés de sécurité FIDO2 ne sont plus proposés lors de la connexion à un service (connu ou personnalisé) — email/mot de passe reste le seul mode supporté. La fenêtre d'authentification (`auth-window.js`) est une `BrowserWindow` Electron complète et bénéficiait jusqu'ici, sans configuration explicite, du support WebAuthn natif de Chromium. `preload-auth.js` masque désormais `window.PublicKeyCredential` (empêche les services de proposer le bouton clé d'accès) et intercepte `navigator.credentials.create()` / `.get()` pour rejeter spécifiquement toute requête contenant l'option `publicKey`, comme en l'absence d'authentificateur — les usages mot de passe/fédérés de la même API ne sont pas affectés (`preload-auth.js`)
+
+### Corrigé
+
+- **Documentation** : suppression d'un bloc de contenu dupliqué dans `README.md` (sections Captures d'écran → Services connectés répétées deux fois à la suite d'une édition antérieure)
+
+---
+
 ## [0.6.1] — 2026
 
 ### Corrigé
