@@ -2,7 +2,7 @@
 
 > Améliorations et nouvelles fonctionnalités identifiées à partir de la v0.3.2.
 > Classées par priorité. Cocher une case une fois l'item livré et reporté dans `CHANGELOG.md`.
-> Dernière version livrée : **v0.6.0**.
+> Dernière version livrée : **v0.6.1**.
 
 ---
 
@@ -23,11 +23,13 @@
 
 - [x] **M. Groupes d'onglets, onglets épinglés, rouvrir l'onglet fermé, favicons**
   Demandé hors backlog initial. Groupes colorés nommables avec drag & drop in/out
-  et persistance ; onglets épinglés (max 5, non persistés) ; historique illimité
-  des onglets fermés (`Ctrl+Shift+T`) ; favicons réels extraits des balises de la
-  page avec repli en cascade. Menu contextuel natif OS sur les onglets et les
-  labels de groupe.
-  ✅ Livré en v0.6.0.
+  et persistance ; onglets épinglés (max 5, persistés depuis v0.6.1) ; historique
+  illimité des onglets fermés (`Ctrl+Shift+T`) ; favicons réels extraits des
+  balises de la page avec repli en cascade. Menu contextuel natif OS sur les
+  onglets et les labels de groupe.
+  ✅ Livré en v0.6.0. Correctifs en v0.6.1 : drag & drop hors groupe, persistance
+  épinglés, groupe orphelin lors d'un déplacement inter-groupes, console
+  DevTools silencieuse pour les favicons (fetch déporté au main process).
 
 ---
 

@@ -349,8 +349,6 @@ function openAuthWindow(opts) {
         authWin.once('ready-to-show', () => {
             authWin.show();
             logger.log('auth', 'LOG', [`authWin ouvert: ${serviceLabel} → ${startUrl}`]);
-            // Mode dev : ouvrir DevTools de la fenêtre auth
-            logger.openAuthDevTools(authWin);
         });
         authWin.on('closed', () => {
             logger.log('auth', 'LOG', [`authWin fermé: ${serviceLabel} resolved=${resolved}`]);

@@ -1,4 +1,4 @@
-# DualView v0.6.0
+# DualView v0.6.1
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -45,7 +45,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 ### Windows
 
-1. Double-cliquez sur **`DualView-Setup-0.5.2.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.6.1.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -196,7 +196,7 @@ Organisez vos onglets par glisser-déposer, comme dans Chrome ou Edge.
 
 ### Onglets épinglés
 
-Clic droit sur un onglet → *Épingler l'onglet*. Affichés en icône seule à l'extrême gauche de la barre, jusqu'à 5 onglets épinglés simultanément. Non déplaçables, non ajoutables à un groupe, et **non restaurés** au redémarrage.
+Clic droit sur un onglet → *Épingler l'onglet*. Affichés en icône seule à l'extrême gauche de la barre, jusqu'à 5 onglets épinglés simultanément. Non déplaçables, non ajoutables à un groupe ; **conservés entre les sessions** (depuis v0.6.1).
 
 ### Menu contextuel onglet
 
@@ -600,6 +600,8 @@ Supprimez `%APPDATA%\DualView\` pour effacer toutes les données locales.
 
 | Version | Résumé |
 |---------|--------|
+| 0.6.1 | Fixes : drag & drop hors groupe (zone de repli), onglets épinglés persistés entre sessions, groupe orphelin lors d'un déplacement inter-groupes, console silencieuse pour les favicons (fetch déporté au main process) |
+| 0.6.0 | Groupes d'onglets, onglets épinglés, rouvrir l'onglet fermé, favicons réels, menu contextuel natif |
 | 0.5.4 | Menu contextuel : retour/avance grisés, imprimer via PDF natif OS, code source dans onglet dédié, inspecter élément, impression page avec aperçu logiciel natif dans l'OS  |
 | 0.5.3 | Onglets déplaçables : Drag & Drop avec ligne indicatrice verticale et opacité de l'onglet déplacé, typage des onglets (web, paramètres, vide) |
 | 0.5.2 | Export / Import de configuration : 18 éléments sélectionnables (paramètres, historique avec limite, favoris, dimensions portrait), merge sélectif à l'import, restart auto si apparence/langue |

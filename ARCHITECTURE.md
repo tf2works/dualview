@@ -306,7 +306,18 @@ portrait (portrait-app.js + portrait-webview.js)
 
 ---
 
-## Favicons d'onglets v0.6.0
+## Favicons d'onglets v0.6.0 (fetch déporté au main process en v0.6.1)
+
+### Pourquoi le fetch HTTP a été déplacé dans le main process (v0.6.1)
+Chromium logge automatiquement dans la console DevTools tout échec de
+chargement d'une ressource déclarée en markup (`<img src>`), quel que soit
+le gestionnaire `onerror` posé en JS — ce comportement ne peut pas être
+désactivé depuis le renderer. Pour qu'un favicon.ico/icon.ico introuvable ne
+pollue plus la console de la fenêtre paysage, la requête HTTP elle-même doit
+avoir lieu ailleurs que dans cette fenêtre : elle est donc effectuée dans le
+process principal (dont la console n'est jamais visible depuis les DevTools
+du renderer), via `net.request`. Le renderer n'assigne plus jamais une URL
+distante non vérifiée à `<img src>`.
 
 ### Cascade de repli
 ```
@@ -318,24 +329,52 @@ portrait (portrait-app.js + portrait-webview.js)
          link[rel="apple-touch-icon"], link[rel="apple-touch-icon-precomposed"],
          link[rel="mask-icon"]
      → résolution automatique en URL absolue via el.href (DOM)
-     → résultat mis en cache (_faviconCache) ; renderTabs() si changement
+     → candidat transmis à _resolveFavicon(tabId, candidat)
 
 2. Repli deviné (si aucune balise trouvée / page sans accès JS, ex. file://)
-   _getFaviconUrl(tab) → <origin>/favicon.ico (non vérifié à l'avance)
+   _guessFaviconUrl(tab) → <origin>/favicon.ico (candidat textuel uniquement,
+   jamais assigné directement à <img src>)
 
-3. Repli final (si l'image échouée n'a pas déjà basculé)
-   _onFaviconError(img, tabId) → assets/favicon-default.svg
-   Garde anti-boucle : img.dataset.fallbackApplied évite de retenter
-   indéfiniment si le SVG lui-même est introuvable (chemin incorrect, etc.)
+3. Vérification + récupération côté main process (v0.6.1)
+   _resolveFavicon(tabId, candidat)
+     → window.dualview.fetchFavicon(candidat)   [IPC invoke 'fetch-favicon']
+     → main.js : fetchFaviconAsDataUrl(url)
+         · whitelist protocole http(s) uniquement
+         · garde anti-SSRF : rejette les hôtes privés/locaux
+           (loopback, 10/8, 172.16/12, 192.168/16, 169.254/16 incl.
+           métadonnées cloud, ::1, fe80:, fc00::/7)
+         · timeout 5 s (request.abort())
+         · limite de taille 2 Mo (abort si dépassée)
+         · valide chaque redirection (même garde anti-SSRF) avant de la suivre
+         · valide le Content-Type de la réponse (image/* ou absent/octet-stream
+           accepté ; le reste — ex. page d'erreur HTML servie en 200 — rejeté)
+         · succès (2xx) → résout en data: URL (base64) ; tout échec → résout
+           en null, SANS jamais appeler console.error (échec silencieux,
+           routine pour un favicon manquant)
+     → résultat mis en cache (_faviconCache) ; renderTabs() si data: URL obtenue
+
+4. Repli final (si la résolution échoue ou n'est pas encore terminée)
+   <img src> = assets/favicon-default.svg directement (jamais de tentative
+   réseau visible par le renderer)
+   _onFaviconError(img, tabId) reste une garde anti-boucle défensive, mais
+   ne devrait quasiment plus jamais se déclencher : seules des data: URL
+   déjà validées par le main process sont assignées (hors repli SVG).
 ```
 
 ### Invalidation du cache
 ```
-_faviconCache.delete(tabId) appelé :
+_faviconCache.delete(tabId) ET _faviconPending.delete(tabId) appelés :
   • à la fermeture de l'onglet (closeTab)
   • sur changement d'URL (window.dualview.on('update-addressbar', …))
-→ force un repli temporaire sur /favicon.ico deviné jusqu'au prochain
-  dom-ready, qui ré-exécute extractFaviconFromWebview et republie l'icône réelle
+→ force une nouvelle résolution (via _resolveFavicon) au prochain dom-ready
+  ou au prochain renderTabs() si aucune icône n'est encore en cache
+```
+
+### Nouveau canal IPC
+```
+preload-landscape.js : fetchFavicon(url) → ipcRenderer.invoke('fetch-favicon', url)
+main.js               : ipcMain.handle('fetch-favicon', ...) → fetchFaviconAsDataUrl(url)
+                         renvoie une data: URL (succès) ou null (échec)
 ```
 
 ### Chemin du fallback SVG
@@ -677,6 +716,7 @@ portraitPreset    | iphone15 / pixel8 / galaxys24 / ipad | Via modale redimensio
 | 0.4.6 | Fix AUTO_PAUSE_SCRIPT landscape (flag posé avant de trouver la vidéo → retries bloqués). Fix AUTO_PAUSE_SCRIPT Shorts portrait (garde primaire déplacée côté renderer Electron, isYouTubeShort). Fix retries orphelins portrait (__dualviewAutoPauseAborted). Fix MaxListenersExceededWarning (timer de sécurité annulable). Fix thème portrait au démarrage (initialTheme via contextBridge, backgroundColor dynamique). |
 | 0.4.7 | **Favoris** : favorites-manager.js (core), favorites.json, bouton ★ toolbar, panneau latéral, entrée ⚙️. **Fix services personnalisés** : add-custom-service IPC (enregistrement immédiat), open-auth-window ne crée plus l'entrée. **GitHub/GitLab** ajoutés dans KNOWN_SERVICES et SERVICE_LABELS. Filtre isNowKnownService() anti-doublons. **Fix portrait** : getSettings() + canal language-changed dans preload-view.js. **Fix MaxListenersExceededWarning** : setMaxListeners(50) sur webviews pool (did-attach-webview) + authWin.webContents. |
 | 0.5.0 | **Mode Focus** (F) : Ctrl+Shift+H / F11, masque toolbar, bande de détection 8px, badge discret, survol maintenu. **Top domaines** : onglet vide affiche le top 10 domaines les plus visités (historique toutes sessions, dédoublonné par hostname, max disponible) dans landscape et portrait (données relayées via IPC show-topsites). **Fusion paramètres** : Apparence + Langue déplacés dans Général, nav latérale réduite à 4 entrées. **Réouverture portrait** : bouton "Rouvrir le portrait" dans ⚙️ (visible si portrait fermé), reconstruction complète du pool via dom-ready (tous onglets + onglet actif + URL). **Fix canGoBack avant dom-ready** : guard try/catch dans switchTab (landscape-tabs.js). |
+| 0.6.1 | **Fix** drag & drop : dépôt dans un espace vide de la barre d'onglets retire désormais l'onglet de son groupe (zone de repli sur `#tab-bar`). **Fix** onglets épinglés persistés entre sessions (`pinnedTabs` dans `get-store`/`save-tabs`). **Fix** groupe orphelin ("zombie") lors du déplacement d'un onglet vers un nouveau groupe (`groupAddTab` nettoie l'ancien groupe). **Fix** erreurs favicon en console DevTools : fetch HTTP déporté dans le main process (`net.request`, nouveau canal IPC `fetch-favicon`), le renderer n'assigne plus que des data: URL déjà vérifiées. |
 
 ---
 

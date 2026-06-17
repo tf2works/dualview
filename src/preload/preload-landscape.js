@@ -1,6 +1,10 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.4.7
+ * Version: 0.6.1
+ *
+ * Changements v0.6.1 :
+ * - fetchFavicon(url) ajouté — invoke 'fetch-favicon' (récupération sécurisée
+ *   d'une icône côté main process, voir main.js)
  *
  * Changements v0.4.7 :
  * - API favoris exposée via contextBridge :
@@ -83,6 +87,12 @@ contextBridge.exposeInMainWorld('dualview', {
     // ── Store / persistance ────────────────────────────────────
     getStore: () => ipcRenderer.invoke('get-store'),
     saveTabs: (data) => ipcRenderer.send('save-tabs', data),
+
+    // ── Favicons (v0.6.1) — récupération côté process principal ────────────
+    // Le fetch HTTP se fait dans main.js : un échec n'apparaît donc jamais
+    // dans la console DevTools de cette fenêtre (qui n'affiche que le
+    // process renderer). Résout en data: URL (succès) ou null (échec).
+    fetchFavicon: (url) => ipcRenderer.invoke('fetch-favicon', url),
 
     // ── Menu contextuel onglets / groupes (v0.6.0) ────────────────────────
     showTabContextMenu:   (ctx) => ipcRenderer.send('show-tab-context-menu',   ctx),

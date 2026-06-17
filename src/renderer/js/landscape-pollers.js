@@ -1,10 +1,13 @@
 /*
  * DualView - Pollers et initialisation
- * Version: 0.5.4
+ * Version: 0.6.1
  *
  * Polling pub YouTube (500 ms), polling vidéo/drift-check (v0.4.3),
  * polling scroll (100 ms).
  * Initialisation complète de l'application au chargement.
+ *
+ * v0.6.1 : restauration des onglets épinglés au démarrage (pinnedTabs
+ *   transmis à groupsLoad — désormais persistés entre sessions).
  *
  * v0.5.4 : suppression du bloc getIsDev / toggleDevTools / dev-btn / F12.
  *   DevTools accessibles via Ctrl+Maj+I (natif Electron).
@@ -150,7 +153,7 @@ window.dualview.getSyncState().then(state => updateSyncUI(state));
 // v0.5.4 : bloc getIsDev / toggleDevTools / dev-btn / F12 supprimé.
 // DevTools accessibles via Ctrl+Maj+I (natif Electron, toutes les fenêtres).
 
-window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings, groups, tabGroupOf }) => {
+window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings, groups, tabGroupOf, pinnedTabs }) => {
     loadSettingsUI(settings || {});
     const restore = settings && settings.restoreTabs !== false;
     let initTabs, initActiveId;
@@ -161,9 +164,10 @@ window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings, groups, 
         initTabs = [{ id: 'tab-1', title: homepageUrl ? '' : t('newTab'), url: homepageUrl }];
         initActiveId = 'tab-1';
     }
-    // v0.6.0 : restaurer les groupes depuis le store (les épinglés ne sont pas restaurés)
+    // v0.6.0 : restaurer les groupes depuis le store
+    // v0.6.1 : restaurer aussi les onglets épinglés (désormais persistés entre sessions)
     if (typeof groupsLoad === 'function') {
-        groupsLoad({ groups: groups || [], tabGroupOf: tabGroupOf || {} });
+        groupsLoad({ groups: groups || [], tabGroupOf: tabGroupOf || {}, pinnedTabs: pinnedTabs || [] });
     }
     tabs = initTabs; activeTabId = initActiveId;
     tabs.forEach(tab => { if (!isSettingsTab(tab)) createWebview(tab.id, tab.url || ''); });

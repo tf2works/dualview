@@ -1,10 +1,18 @@
 /*
  * DualView - Onglets, navigation et omnibar
- * Version: 0.6.0
+ * Version: 0.6.1
  *
  * Gestion des onglets (créer, fermer, switcher, persister),
  * commandes OBS, résolution d'URL, barre d'adresse, omnibar
  * (suggestions historique + moteur de recherche), screenshot.
+ *
+ * v0.6.1 — Corrections :
+ *   • Drag & Drop : zone de repli sur #tab-bar — dropper un onglet hors
+ *     d'un onglet/label de groupe le retire désormais de son groupe
+ *     (auparavant sans effet en dehors d'un drop direct sur une cible).
+ *   • Favicons : fetch HTTP déporté dans le main process (voir main.js),
+ *     le renderer n'assigne plus jamais d'URL distante non vérifiée à
+ *     <img src> → plus d'erreurs "Failed to load resource" en console.
  *
  * v0.6.0 — Nouvelles fonctionnalités onglets :
  *   • Rouvrir l'onglet fermé (historique illimité, Ctrl+Shift+T, menu contextuel onglet)
@@ -65,15 +73,31 @@ let _dragSrcId      = null;
 let _dragIndicator  = null;
 let _dragOverGroup  = null;   // v0.6.0 : groupId survolé pendant le drag
 
-// ── Favicon (v0.6.0) ──────────────────────────────────────────────────────────
+// ── Favicon (v0.6.0, fetch déporté vers le process principal en v0.6.1) ───────
 // Stratégie en cascade, comme un navigateur classique :
 //   1. Balises <link rel="icon"|"shortcut icon"|"apple-touch-icon"|...> de la page
 //      (extraites via executeJavaScript dans la webview au dom-ready)
-//   2. Repli sur <origin>/favicon.ico (deviné, sans vérification préalable)
+//   2. Repli sur <origin>/favicon.ico (deviné, sans garantie d'existence)
 //   3. Repli final sur le SVG générique assets/favicon-default.svg
 //
-// tabId → favicon URL (string) | null (pas encore résolu / échec confirmé)
+// v0.6.1 : la récupération HTTP réelle des étapes 1 et 2 ci-dessus se fait
+// désormais dans le process principal (window.dualview.fetchFavicon, voir
+// main.js). Le renderer n'assigne plus JAMAIS une URL distante non vérifiée
+// à <img src> : uniquement une data: URL déjà validée par le main process,
+// ou le SVG de repli local. Un favicon.ico / icon.ico / logo.ico introuvable
+// ne déclenche donc plus d'erreur "Failed to load resource" dans la console
+// DevTools de cette fenêtre — la requête HTTP qui échoue a lieu côté main
+// process, dont la console n'est jamais visible depuis les DevTools du
+// renderer.
+//
+// tabId → 'data:...' (icône valide) | null (résolu, aucune icône trouvée)
+// Un tabId absent du Map = pas encore résolu.
 const _faviconCache = new Map();
+// tabId → URL candidate actuellement en cours de résolution. Permet à une
+// résolution plus fiable (balise <link> déclarée par la page) de superséder
+// une résolution moins fiable encore en vol (repli /favicon.ico deviné),
+// au lieu d'être bloquée par elle : voir _resolveFavicon().
+const _faviconPending = new Map();
 // landscape.html est dans src/renderer/ ; favicon-default.svg est dans assets/
 // à la racine du projet → deux niveaux au-dessus de renderer/.
 const FAVICON_FALLBACK = '../../assets/favicon-default.svg';
@@ -102,34 +126,12 @@ const _FAVICON_EXTRACT_SCRIPT = `
 `;
 
 /**
- * Extrait le favicon réel de la page chargée dans la webview (balises <link>)
- * et met à jour le cache + re-render si une icône différente est trouvée.
- * Appelée depuis attachWebviewListeners (landscape-views.js) au dom-ready.
+ * Devine une URL de favicon par défaut (<origin>/favicon.ico) quand la page
+ * ne déclare aucune balise <link rel="icon">. Simple candidat textuel —
+ * n'est jamais assigné directement à <img src> : doit passer par
+ * _resolveFavicon() qui le fait vérifier par le main process.
  */
-function extractFaviconFromWebview(wv, tabId) {
-    if (!wv || !wv.executeJavaScript) return;
-    wv.executeJavaScript(_FAVICON_EXTRACT_SCRIPT)
-        .then(href => {
-            if (!tabs.some(t => t.id === tabId)) return; // onglet fermé entre-temps
-            const resolved = (typeof href === 'string' && href) ? href : null;
-            const previous = _faviconCache.get(tabId);
-            if (resolved !== previous) {
-                _faviconCache.set(tabId, resolved);
-                renderTabs();
-            }
-        })
-        .catch(() => { /* page sans accès JS (pdf, file://, etc.) → on garde le repli */ });
-}
-
-/**
- * Retourne l'URL favicon à utiliser pour un onglet, dans l'ordre de préférence :
- * cache (extrait de la page) → deviné depuis l'origine → null (déclenche le SVG).
- */
-function _getFaviconUrl(tab) {
-    if (_faviconCache.has(tab.id)) {
-        const cached = _faviconCache.get(tab.id);
-        if (cached) return cached;
-    }
+function _guessFaviconUrl(tab) {
     if (!tab.url || tab.url === 'about:blank') return null;
     try {
         const origin = new URL(tab.url).origin;
@@ -137,18 +139,82 @@ function _getFaviconUrl(tab) {
     } catch { return null; }
 }
 
+/**
+ * Résout un favicon de façon sûre : délègue la requête HTTP au process
+ * principal (window.dualview.fetchFavicon), qui renvoie soit une data: URL
+ * (icône valide, déjà téléchargée et encodée) soit null (échec — jamais
+ * loggé dans la console de cette fenêtre). Met à jour le cache et déclenche
+ * un nouveau rendu si le résultat diffère de ce qui est déjà affiché.
+ *
+ * Anti-doublon sensible au candidat : un appel avec exactement le même
+ * candidat qu'une résolution déjà en vol est ignoré. Un appel avec un
+ * candidat DIFFÉRENT (typiquement : l'icône réelle déclarée par la page,
+ * arrivant après que le repli /favicon.ico deviné a déjà été lancé) prend
+ * le relais immédiatement ; le résultat de l'ancienne requête, à son retour,
+ * est alors silencieusement ignoré (obsolète) plutôt que d'écraser le
+ * résultat plus fiable.
+ */
+function _resolveFavicon(tabId, candidateUrl) {
+    if (!candidateUrl) { if (!_faviconCache.has(tabId)) _faviconCache.set(tabId, null); return; }
+    if (_faviconPending.get(tabId) === candidateUrl) return; // déjà en vol pour ce même candidat
+    _faviconPending.set(tabId, candidateUrl);
+    window.dualview.fetchFavicon(candidateUrl)
+        .then(dataUrl => {
+            if (_faviconPending.get(tabId) !== candidateUrl) return; // supersédé : résultat obsolète
+            if (!tabs.some(t => t.id === tabId)) return; // onglet fermé entre-temps
+            const previous = _faviconCache.get(tabId);
+            _faviconCache.set(tabId, dataUrl || null);
+            _faviconPending.delete(tabId);
+            if (dataUrl && dataUrl !== previous) renderTabs();
+        })
+        .catch(() => {
+            if (_faviconPending.get(tabId) !== candidateUrl) return; // supersédé
+            if (!_faviconCache.has(tabId)) _faviconCache.set(tabId, null);
+            _faviconPending.delete(tabId);
+        });
+}
+
+/**
+ * Extrait le favicon réel déclaré par la page chargée dans la webview
+ * (balises <link>) et le fait vérifier/résoudre par le main process ; à
+ * défaut de balise déclarée, retombe sur l'URL deviné (<origin>/favicon.ico).
+ * Appelée depuis attachWebviewListeners (landscape-views.js) au dom-ready.
+ */
+function extractFaviconFromWebview(wv, tabId) {
+    if (!wv || !wv.executeJavaScript) return;
+    wv.executeJavaScript(_FAVICON_EXTRACT_SCRIPT)
+        .then(href => {
+            if (!tabs.some(t => t.id === tabId)) return; // onglet fermé entre-temps
+            const declared = (typeof href === 'string' && href) ? href : null;
+            const tab = tabs.find(t => t.id === tabId);
+            _resolveFavicon(tabId, declared || (tab ? _guessFaviconUrl(tab) : null));
+        })
+        .catch(() => {
+            // Page sans accès JS (pdf, file://, etc.) → tenter le repli deviné
+            const tab = tabs.find(t => t.id === tabId);
+            if (tab) _resolveFavicon(tabId, _guessFaviconUrl(tab));
+        });
+}
+
+/**
+ * Retourne l'URL favicon déjà résolue et vérifiée pour un onglet (data: URL),
+ * ou null si non résolue / aucune icône valide. Ne déclenche elle-même
+ * aucune requête réseau — voir _resolveFavicon().
+ */
+function _getFaviconUrl(tab) {
+    return _faviconCache.get(tab.id) || null;
+}
+
 function _onFaviconLoad(img, tabId) {
     // Si l'image se charge correctement on ne fait rien (déjà affichée)
 }
 
 function _onFaviconError(img, tabId) {
-    // Garde anti-boucle : si l'image qui échoue est déjà le fallback,
-    // ne pas retenter (évite une boucle infinie si le fallback est introuvable).
+    // Garde anti-boucle conservée par sécurité, même si ce cas devrait être
+    // quasi impossible désormais : seules des data: URL déjà validées par
+    // le main process sont assignées à <img src> (hors repli SVG local).
     if (img.dataset.fallbackApplied === '1') return;
     img.dataset.fallbackApplied = '1';
-    // Ne pas écraser une icône valide trouvée par extractFaviconFromWebview :
-    // seul le repli /favicon.ico deviné est invalidé ici.
-    if (!_faviconCache.get(tabId)) _faviconCache.set(tabId, null);
     img.src = FAVICON_FALLBACK;
 }
 
@@ -231,7 +297,7 @@ function _buildTabEl(tab, isPinned) {
         el.style.setProperty('--tab-group-color', groupColorOf(gid));
     }
 
-    // ── Favicon (v0.6.0) ────────────────────────────────────────────────────
+    // ── Favicon (v0.6.0, résolution sûre via main process depuis v0.6.1) ────
     if (type !== TAB_TYPE_SETTINGS) {
         const faviconUrl = _getFaviconUrl(tab);
         const img = document.createElement('img');
@@ -242,6 +308,11 @@ function _buildTabEl(tab, isPinned) {
             img.src = faviconUrl;
         } else {
             img.src = FAVICON_FALLBACK;
+            // Pas encore résolu : tenter une résolution en arrière-plan (le
+            // résultat, s'il y en a un, ne s'affichera qu'au prochain rendu).
+            if (!_faviconCache.has(tab.id) && !_faviconPending.has(tab.id)) {
+                _resolveFavicon(tab.id, _guessFaviconUrl(tab));
+            }
         }
         img.addEventListener('load',  () => _onFaviconLoad(img, tab.id));
         img.addEventListener('error', () => _onFaviconError(img, tab.id));
@@ -524,6 +595,62 @@ function _removeDropIndicator() {
     _dragIndicator = null;
 }
 
+// ── Zone de drop "hors groupe" sur la barre elle-même (v0.6.1) ───────────────
+// _onTabDragOver/_onTabDrop (sur un onglet) et le gestionnaire de
+// _buildGroupLabelEl (sur un label) ne couvrent que les drops effectués
+// directement SUR un élément cible. Déposer un onglet dans un espace vide
+// de la barre (après le dernier onglet, avant le bouton "+", ou dans un
+// interstice) n'avait donc aucun effet : l'onglet restait dans son groupe.
+// Ces deux gestionnaires, posés une fois sur le conteneur statique #tab-bar,
+// couvrent ce cas en filtrant sur e.target === bar (ignore les événements
+// qui bouillonnent depuis un onglet/label enfant, déjà traités ailleurs).
+function _onTabBarDragOver(e) {
+    if (!_dragSrcId) return;
+    if (e.target !== e.currentTarget) return; // bulle depuis un enfant → déjà géré
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const bar    = e.currentTarget;
+    const addBtn = document.getElementById('add-tab-btn');
+    if (!_dragIndicator) {
+        _dragIndicator = document.createElement('div');
+        _dragIndicator.className = 'tab-drop-indicator';
+    }
+    bar.insertBefore(_dragIndicator, addBtn);
+}
+
+function _onTabBarDrop(e) {
+    if (!_dragSrcId) return;
+    if (e.target !== e.currentTarget) return;
+    e.preventDefault();
+
+    const srcId   = _dragSrcId;
+    const fromIdx = tabs.findIndex(t => t.id === srcId);
+    if (fromIdx !== -1) {
+        // Déplacer l'onglet en fin de liste, cohérent avec l'indicateur
+        // affiché juste avant le bouton "+".
+        const [moved] = tabs.splice(fromIdx, 1);
+        tabs.push(moved);
+
+        // Retirer du groupe (c'est tout le sens de ce drop "hors groupe") ;
+        // les onglets épinglés ne sont jamais draggable donc srcId ne
+        // devrait jamais en être un, mais on vérifie par défense.
+        if (!pinnedHas(srcId) && groupIdOf(srcId)) {
+            groupRemoveTab(srcId);
+        }
+
+        renderTabs();
+        saveTabs();
+    }
+
+    _dragSrcId     = null;
+    _dragOverGroup = null;
+    _removeDropIndicator();
+}
+
+document.getElementById('tab-bar').addEventListener('dragover', _onTabBarDragOver);
+document.getElementById('tab-bar').addEventListener('drop',     _onTabBarDrop);
+
 // ── switchTab ─────────────────────────────────────────────────────────────────
 
 function switchTab(id) {
@@ -629,6 +756,7 @@ function closeTab(id) {
     groupRemoveTab(id);
     pinnedRemove(id);
     _faviconCache.delete(id);
+    _faviconPending.delete(id);
 
     tabs = tabs.filter(t => t.id !== id);
     destroyWebview(id);
@@ -642,7 +770,7 @@ function saveTabs() {
     window.dualview.saveTabs({
         tabs:       persist.length ? persist : tabs,
         activeTabId,
-        ...groupPayload,          // groups, tabGroupOf
+        ...groupPayload,          // groups, tabGroupOf, pinnedTabs (v0.6.1)
     });
 }
 
@@ -867,6 +995,7 @@ window.dualview.on('update-addressbar', url => {
         } catch { tab.title = url.slice(0, 20); }
         // Invalider le cache favicon lors d'un changement d'URL
         _faviconCache.delete(tab.id);
+        _faviconPending.delete(tab.id);
         renderTabs(); saveTabs();
     }
     refreshFavoriteBtnForUrl(url);

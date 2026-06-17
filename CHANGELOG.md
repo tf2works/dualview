@@ -7,6 +7,28 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.6.1] — 2026
+
+### Corrigé
+
+- **Glisser un onglet hors d'un groupe sans effet** : seuls les drops effectués directement sur un autre onglet ou sur le label d'un groupe étaient pris en compte. Déposer un onglet dans un espace vide de la barre (après le dernier onglet, avant le bouton "+", ou dans un interstice) n'avait aucun effet — l'onglet restait dans son groupe. Ajout d'une zone de drop de repli sur le conteneur `#tab-bar` lui-même : tout drop hors d'un élément cible retire désormais l'onglet de son groupe et le déplace en fin de liste (`landscape-tabs.js` : `_onTabBarDragOver`, `_onTabBarDrop`)
+
+- **Onglets épinglés non restaurés entre sessions** : comportement volontaire en v0.6.0, désormais traité comme un défaut — les épinglés sont persistés au même titre que les groupes. `groupsSavePayload()` inclut maintenant `pinnedTabs` ; `get-store`/`save-tabs` (`main.js`) et la restauration au démarrage (`landscape-pollers.js`) suivent (`landscape-groups.js`, `main.js`, `landscape-pollers.js`)
+
+- **Un groupe disparaît et se trouve remplacé par un nouveau groupe** : `groupAddTab(tabId, groupId)` affectait un onglet à un nouveau groupe sans le retirer proprement de son groupe précédent. Si ce dernier tombait à 1 membre ou moins, il restait orphelin ("zombie") en mémoire et dans la config persistée — invisible (aucun label affiché) mais jamais supprimé, donnant l'impression qu'il avait été "remplacé" par le nouveau groupe. `groupAddTab` retire désormais proprement l'onglet de son ancien groupe (réutilise `groupRemoveTab`, qui supprime le groupe abandonné s'il tombe sous 2 membres) avant de l'affecter au nouveau — corrige à la fois le menu contextuel "Ajouter à un groupe" et le drag & drop inter-groupes, qui passent tous deux par cette même fonction (`landscape-groups.js`)
+
+- **Erreurs favicon bruyantes dans la console DevTools** (`favicon.ico`, `icon.ico`, `logo.ico`, etc.) : Chromium logge automatiquement tout échec de chargement d'une ressource assignée à `<img src>`, quel que soit le gestionnaire `onerror` posé en JS côté page — impossible à supprimer depuis le renderer. La récupération HTTP des favicons est désormais entièrement déportée vers le process principal (`net.request`, timeout 5 s, limite de taille 2 Mo, validation du type de contenu, garde anti-SSRF basique sur les hôtes privés/locaux). Le renderer n'assigne plus jamais une URL distante non vérifiée à `<img src>` : uniquement une `data:` URL déjà validée par le main process, ou le SVG de repli local. Plus aucune requête favicon n'apparaît donc dans la console de la fenêtre paysage (`main.js` : `fetchFaviconAsDataUrl`, handler IPC `fetch-favicon` ; `preload-landscape.js` : `fetchFavicon` ; `landscape-tabs.js` : section favicon réécrite — `_guessFaviconUrl`, `_resolveFavicon`, `_faviconPending`)
+
+### Modifié
+
+- `landscape-groups.js` — `groupAddTab` nettoie l'ancien groupe avant réaffectation ; `groupsSavePayload` inclut désormais `pinnedTabs` ; `groupsLoad` plafonne la liste restaurée à `PINNED_MAX`
+- `landscape-tabs.js` — section favicon réécrite (fetch via le main process) ; nouvelle zone de drop de repli sur `#tab-bar`
+- `main.js` — nouveau handler IPC `fetch-favicon` ; `get-store`/`save-tabs` exposent et persistent `pinnedTabs`
+- `preload-landscape.js` — nouveau canal exposé `fetchFavicon`
+- `landscape-pollers.js` — restauration de `pinnedTabs` au démarrage, transmise à `groupsLoad`
+
+---
+
 ## [0.6.0] — 2026
 
 ### Ajouté

@@ -1,10 +1,18 @@
 /*
  * DualView - Groupes d'onglets et onglets épinglés
- * Version: 0.6.0
+ * Version: 0.6.1
  *
  * Gestion distincte des groupes d'onglets et du groupe "épinglés" (pinned).
  * Délibérément séparé de landscape-tabs.js pour isoler les responsabilités
  * et éviter les effets de bord sur la logique de navigation existante.
+ *
+ * v0.6.1 :
+ *   - groupAddTab() nettoie désormais l'ancien groupe d'un onglet avant de
+ *     l'affecter à un nouveau groupe (corrige un groupe orphelin "zombie"
+ *     resté invisible en mémoire/config lors d'un déplacement inter-groupes).
+ *   - Les onglets épinglés sont désormais inclus dans groupsSavePayload()
+ *     et donc persistés entre sessions (groupsLoad() les restaurait déjà,
+ *     mais le payload de sauvegarde ne les transmettait jamais).
  *
  * Données :
  *   tabGroups  : Map<groupId, { id, name, color, collapsed }>
@@ -34,7 +42,7 @@
  *   pinnedRemove(tabId)
  *   pinnedHas(tabId)            → bool
  *   pinnedList()                → tabId[]
- *   groupsSavePayload()         → { groups, tabGroupOf, pinnedTabs } pour save-tabs
+ *   groupsSavePayload()         → { groups, tabGroupOf, pinnedTabs } pour save-tabs (persistance complète)
  *
  * Dépendances : aucune (module autonome)
  */
@@ -118,7 +126,7 @@ function groupsLoad(data) {
     }
 
     if (Array.isArray(data.pinnedTabs)) {
-        for (const tabId of data.pinnedTabs) pinnedTabs.add(tabId);
+        for (const tabId of data.pinnedTabs.slice(0, PINNED_MAX)) pinnedTabs.add(tabId);
     }
 
     // Recalibrer le compteur séquentiel pour éviter les doublons
@@ -184,6 +192,15 @@ function groupRename(groupId, name) {
 function groupAddTab(tabId, groupId) {
     if (pinnedTabs.has(tabId)) return false;   // épinglé → groupe spécial, non transférable
     if (!tabGroups.has(groupId)) return false;
+    const previousGroupId = tabGroupOf.get(tabId);
+    if (previousGroupId && previousGroupId !== groupId) {
+        // L'onglet change de groupe : on le retire proprement de l'ancien
+        // (via groupRemoveTab, qui supprime aussi l'ancien groupe s'il
+        // tombe sous 2 membres) avant de l'affecter au nouveau. Sans ça,
+        // l'ancien groupe restait orphelin ("zombie") en mémoire et dans
+        // la config persistée, sans plus jamais être affiché.
+        groupRemoveTab(tabId);
+    }
     tabGroupOf.set(tabId, groupId);
     return true;
 }
@@ -280,8 +297,8 @@ function pinnedList() {
 // ── Persistance ───────────────────────────────────────────────────────────────
 
 /**
- * Retourne le payload à inclure dans save-tabs pour persister les groupes.
- * Les épinglés ne sont PAS persistés (ré-initialisés à chaque session).
+ * Retourne le payload à inclure dans save-tabs pour persister les groupes
+ * et les onglets épinglés.
  */
 function groupsSavePayload() {
     const groups = [...tabGroups.values()].map(g => ({
@@ -292,7 +309,6 @@ function groupsSavePayload() {
     }));
     const tabGroupOfObj = {};
     for (const [tabId, groupId] of tabGroupOf.entries()) tabGroupOfObj[tabId] = groupId;
-    return { groups, tabGroupOf: tabGroupOfObj };
-    // pinnedTabs exclus volontairement (non restaurés entre sessions)
+    return { groups, tabGroupOf: tabGroupOfObj, pinnedTabs: pinnedList() };
 }
 

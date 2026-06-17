@@ -1,6 +1,18 @@
 /**
  * DualView - Main Process
- * Version: 0.4.7
+ * Version: 0.6.1
+ *
+ * Changements v0.6.1 :
+ * - Favicons : nouveau helper fetchFaviconAsDataUrl() + handler IPC
+ *   'fetch-favicon' — récupère l'icône via net.request() côté main process
+ *   (timeout 5s, limite 2 Mo, validation Content-Type, garde anti-SSRF sur
+ *   les hôtes privés/locaux) et la renvoie en data: URL. Permet au renderer
+ *   de ne plus jamais assigner une URL distante non vérifiée à <img src>,
+ *   ce qui supprime les erreurs de chargement favicon de la console DevTools
+ *   de la fenêtre paysage (ce comportement de log est inhérent à Chromium
+ *   et ne peut pas être supprimé depuis le renderer lui-même).
+ * - get-store / save-tabs : ajout de pinnedTabs (onglets épinglés désormais
+ *   persistés entre sessions, au même titre que groups / tabGroupOf).
  *
  * Changements v0.4.7 :
  * - Favoris (marque-pages) : core/favorites-manager.js
@@ -32,7 +44,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, ipcMain, nativeTheme, screen, session, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, screen, session, dialog, net } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 
@@ -73,6 +85,142 @@ function getAppIcon() {
     if (process.platform === 'darwin') return path.join(__dirname, '..', 'assets', 'icon.icns');
     if (process.platform === 'linux')  return path.join(__dirname, '..', 'assets', 'icon.png');
     return path.join(__dirname, '..', 'assets', 'icon.ico'); // win32
+}
+
+// ── Favicons (v0.6.1) — fetch HTTP côté main process ──────────────────────────
+// Pourquoi ici et pas dans le renderer : Chromium logge automatiquement dans
+// la console DevTools tout échec de chargement d'une ressource déclarée en
+// markup (<img src>), quel que soit le gestionnaire onerror posé en JS — ce
+// comportement ne peut pas être désactivé depuis la page elle-même. En
+// déplaçant la requête HTTP ici, dans le process principal, un éventuel échec
+// (404, timeout, hôte injoignable…) ne touche jamais la console de la fenêtre
+// paysage : seul un succès (statut 2xx) renvoie une data: URL au renderer,
+// qui ne l'assigne à <img src> qu'une fois déjà vérifiée.
+const FAVICON_FETCH_TIMEOUT_MS = 5000;
+const FAVICON_MAX_BYTES        = 2 * 1024 * 1024; // 2 Mo, largement suffisant pour un favicon
+
+/**
+ * Détecte les hôtes privés/locaux (loopback, réseaux privés RFC1918,
+ * lien-local incluant la plage métadonnées cloud 169.254.0.0/16, etc.).
+ * Le candidat provient d'une balise <link> d'une page web potentiellement
+ * non fiable ; cette requête est néanmoins émise par le process principal
+ * (privilégié) → on évite qu'elle serve de relais vers le réseau interne
+ * (SSRF) ou les métadonnées d'un environnement cloud.
+ */
+function _isPrivateOrLocalHost(hostname) {
+    if (!hostname) return true;
+    const h = hostname.toLowerCase();
+    if (h === 'localhost' || h.endsWith('.localhost')) return true;
+    if (h === '0.0.0.0' || h === '::1') return true;
+    if (h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return true; // IPv6 lien-local / unique-local
+    const m = h.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+    if (m) {
+        const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+        if (a === 127) return true;                        // loopback
+        if (a === 10)  return true;                         // 10.0.0.0/8
+        if (a === 172 && b >= 16 && b <= 31) return true;    // 172.16.0.0/12
+        if (a === 192 && b === 168) return true;             // 192.168.0.0/16
+        if (a === 169 && b === 254) return true;             // 169.254.0.0/16 (lien-local + métadonnées cloud)
+    }
+    return false;
+}
+
+/**
+ * Télécharge une URL candidate de favicon et la renvoie encodée en data: URL
+ * si la réponse est un succès (2xx) ressemblant à une image. Résout null
+ * dans tous les autres cas (erreur, timeout, contenu trop volumineux, type
+ * de contenu suspect, hôte privé/local) — jamais de rejet, jamais de log
+ * console pour un échec ordinaire (404 etc.), conformément au but de ce
+ * correctif.
+ * @returns {Promise<string|null>}
+ */
+function fetchFaviconAsDataUrl(candidateUrl) {
+    return new Promise((resolve) => {
+        let parsed;
+        try { parsed = new URL(candidateUrl); } catch { resolve(null); return; }
+        if (!['http:', 'https:'].includes(parsed.protocol)) { resolve(null); return; }
+        if (_isPrivateOrLocalHost(parsed.hostname)) { resolve(null); return; }
+
+        let settled = false;
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            resolve(result);
+        };
+
+        let request;
+        try {
+            request = net.request({ method: 'GET', url: parsed.toString() });
+        } catch { finish(null); return; }
+
+        const timer = setTimeout(() => {
+            try { request.abort(); } catch { /* ignoré */ }
+            finish(null);
+        }, FAVICON_FETCH_TIMEOUT_MS);
+
+        // Valider chaque redirection avant de la suivre (même garde SSRF).
+        request.on('redirect', (statusCode, method, redirectUrl) => {
+            try {
+                const r = new URL(redirectUrl);
+                if (['http:', 'https:'].includes(r.protocol) && !_isPrivateOrLocalHost(r.hostname)) {
+                    request.followRedirect();
+                    return;
+                }
+            } catch { /* URL de redirection invalide → on tombe dans l'abandon ci-dessous */ }
+            clearTimeout(timer);
+            finish(null);
+            try { request.abort(); } catch { /* ignoré */ }
+        });
+
+        request.on('response', (response) => {
+            if (response.statusCode < 200 || response.statusCode >= 300) {
+                clearTimeout(timer);
+                finish(null);
+                try { request.abort(); } catch { /* ignoré */ }
+                return;
+            }
+
+            const ctHeader = response.headers['content-type'];
+            const ctRaw    = (Array.isArray(ctHeader) ? ctHeader[0] : ctHeader) || '';
+            const mimeBase = ctRaw.split(';')[0].trim().toLowerCase();
+            // Tolère l'absence d'en-tête ou application/octet-stream (fréquent
+            // pour de vieux serveurs servant un .ico) ; rejette le reste
+            // (ex : text/html — page d'erreur renvoyée avec un statut 200).
+            const looksLikeImage = !mimeBase || mimeBase.startsWith('image/') || mimeBase === 'application/octet-stream';
+            if (!looksLikeImage) {
+                clearTimeout(timer);
+                finish(null);
+                try { request.abort(); } catch { /* ignoré */ }
+                return;
+            }
+            const mime = mimeBase || 'image/x-icon';
+
+            const chunks = [];
+            let total = 0;
+            response.on('data', (chunk) => {
+                if (settled) return;
+                total += chunk.length;
+                if (total > FAVICON_MAX_BYTES) {
+                    clearTimeout(timer);
+                    finish(null);
+                    try { request.abort(); } catch { /* ignoré */ }
+                    return;
+                }
+                chunks.push(chunk);
+            });
+            response.on('end', () => {
+                clearTimeout(timer);
+                if (settled) return;
+                const buffer = Buffer.concat(chunks);
+                if (buffer.length === 0) { finish(null); return; }
+                finish(`data:${mime};base64,${buffer.toString('base64')}`);
+            });
+            response.on('error', () => { clearTimeout(timer); finish(null); });
+        });
+
+        request.on('error', () => { clearTimeout(timer); finish(null); });
+        request.end();
+    });
 }
 
 // ── État global ───────────────────────────────────────────────────────────────
@@ -637,6 +785,17 @@ ipcMain.handle('get-version',     () => app.getVersion());
 ipcMain.handle('get-homepage-url',() => getHomepageUrl());
 ipcMain.handle('get-sync-state',  () => syncState);
 
+// v0.6.1 : favicons — voir fetchFaviconAsDataUrl() ci-dessus. Échec → null,
+// silencieusement (jamais de console.error pour un 404 ordinaire).
+ipcMain.handle('fetch-favicon', async (event, url) => {
+    if (typeof url !== 'string' || !url) return null;
+    try {
+        return await fetchFaviconAsDataUrl(url);
+    } catch {
+        return null;
+    }
+});
+
 // ── Config / store ────────────────────────────────────────────────────────────
 ipcMain.handle('get-store', () => ({
     tabs:        configGet('tabs')        || DEFAULTS.tabs,
@@ -645,6 +804,8 @@ ipcMain.handle('get-store', () => ({
     // v0.6.0 : groupes d'onglets
     groups:      configGet('tabGroups')   || [],
     tabGroupOf:  configGet('tabGroupOf')  || {},
+    // v0.6.1 : onglets épinglés, désormais persistés entre sessions
+    pinnedTabs:  configGet('pinnedTabs')  || [],
 }));
 
 // Expose les settings seuls (utilisé par la fenêtre portrait)
@@ -662,6 +823,8 @@ ipcMain.on('save-tabs', (event, data) => {
     // v0.6.0 : persister les groupes d'onglets
     if (data.groups !== undefined)    configSet('tabGroups',   data.groups);
     if (data.tabGroupOf !== undefined) configSet('tabGroupOf', data.tabGroupOf);
+    // v0.6.1 : persister les onglets épinglés entre sessions
+    if (data.pinnedTabs !== undefined) configSet('pinnedTabs', data.pinnedTabs);
     for (const tab of data.tabs) {
         if (tab.url) tabUrls.set(tab.id, tab.url);
         // v0.5.4 : mémoriser le type pour conditionner le menu contextuel

@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.6.0.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.6.1.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -57,6 +57,17 @@
 | `Ctrl+T` / `Ctrl+W` | `⌘+T` / `⌘+W` | Nouvel onglet / Fermer l'onglet actif |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃+Tab` / `⌃+Shift+Tab` | Onglet suivant / précédent |
 | `Ctrl+L` / `F6` | `⌘+L` / `F6` | Focus sur la barre d'adresse |
+
+---
+
+## Nouveautés v0.6.1
+
+### 🔧 Corrigé
+
+- **Sortir un onglet d'un groupe par glisser-déposer** : déposer un onglet dans un espace vide de la barre (après le dernier onglet, par exemple) n'avait aucun effet. C'est maintenant pris en charge : tout dépôt hors d'un onglet ou d'un label de groupe retire l'onglet de son groupe.
+- **Onglets épinglés non conservés entre les sessions** : ils sont désormais restaurés au redémarrage, comme les groupes.
+- **Un groupe disparaissait à la création d'un second groupe** : déplacer un onglet d'un groupe vers un autre groupe nouvellement créé laissait l'ancien groupe orphelin (invisible mais jamais supprimé), donnant l'impression qu'il avait été remplacé. Les deux groupes coexistent maintenant correctement.
+- **Erreurs favicon dans la console développeur** (`favicon.ico`, `icon.ico`, etc.) : la récupération des icônes se fait désormais en arrière-plan côté application plutôt que depuis la page elle-même, ce qui supprime ces messages de la console.
 
 ---
 
@@ -746,3 +757,4 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.5.3 | **Onglets déplaçables** Drag & Drop avec ligne indicatrice verticale (style Chrome) + opacité. **Typage des onglets** (`TAB_TYPE_WEB/SETTINGS/BLANK`) + `getTabType()` rétro-compatible. **Menu contextuel** : 6 nouvelles options (ouvrir lien dans navigateur système, copier image, ouvrir image dans onglet, copier email mailto, annuler/rétablir, sélectionner tout). |
 | 0.5.4 | **Menu contextuel** : retour/avance grisés, imprimer via PDF natif OS, code source dans onglet dédié (`Source — example.com`), inspecter élément en production. **Suppression mode `--dev`** : logger toujours actif (`dualview.log`), `preload-dev.js` supprimé, `start-dev` retiré. **Fix** : `canGoBack/Forward` → `navigationHistory` API ; impression → `printToPDF` + aperçu OS complet ; suppression `@cliqz` (dépendance inutilisée → logs parasites). |
 | 0.6.0 | **Groupes d'onglets** colorés, nommables (60 car. max), drag & drop in/out, collapse/expand, persistants. **Onglets épinglés** (max 5, icône seule, non persistés). **Rouvrir l'onglet fermé** (historique illimité, `Ctrl+Shift+T`). **Favicons réels** extraits des balises `<link rel="icon">` de la page (repli `/favicon.ico` puis SVG générique). **Menu contextuel natif OS** sur onglets et labels de groupe. **Fix** : double navigation `ERR_ABORTED` sur changement d'URL (assignation `wv.src` dupliquée) ; chemin du favicon de repli incorrect ; dialogue de renommage de groupe inopérant (DOM interrogé avant son insertion). |
+| 0.6.1 | **Fix** : glisser un onglet vers un espace vide de la barre (après le dernier onglet, etc.) ne le retirait pas de son groupe (zone de drop de repli ajoutée sur `#tab-bar`) ; onglets épinglés non restaurés entre sessions (`pinnedTabs` désormais inclus dans la persistance) ; groupe orphelin invisible ("zombie") lors du déplacement d'un onglet vers un nouveau groupe (`groupAddTab` nettoie l'ancien groupe avant réaffectation) ; erreurs `favicon.ico`/`icon.ico`/`logo.ico` polluant la console DevTools (récupération HTTP entièrement déportée vers le process principal via `net.request` ; le renderer n'assigne plus que des `data:` URL déjà vérifiées). |
