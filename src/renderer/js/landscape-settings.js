@@ -1,11 +1,16 @@
 /*
  * DualView - Paramètres, services connectés, historique, favoris
- * Version: 0.4.7
+ * Version: 0.7.0
  *
  * Moteurs de recherche personnalisés, intégration OBS (settings),
  * chargement/sauvegarde des paramètres, services connectés,
  * panneau historique, panneau favoris, bouton étoile favoris,
  * dropdown nav hist, raccourcis clavier, boutons souris, menu contextuel.
+ *
+ * v0.7.0 : SERVICE_ICONS/SERVICE_LABELS incluent désormais github/gitlab
+ *   (tuiles manquantes dans Services connectés malgré le support backend
+ *   complet depuis v0.4.7). Ajout de la vérification de mise à jour
+ *   (loadUpdateInfo, bouton #s-update-check-btn → IPC check-for-update).
  *
  * Dépendances : landscape-i18n.js, landscape-ui.js, landscape-tabs.js
  */
@@ -103,6 +108,52 @@ function loadSettingsUI(s) {
     const dirEl = document.getElementById('s-screenshot-dir');
     if (dirEl) dirEl.textContent = screenshotDir || '(Dossier Images par défaut)';
     applyTranslations();
+    loadUpdateInfo();
+}
+
+// ── Vérification de mise à jour (v0.7.0) ─────────────────────────────────────
+// Option minimale priorité 0 (TODO.md) : pas d'auto-updater, pas de dépendance
+// npm supplémentaire. L'utilisateur déclenche la vérification depuis Général ;
+// le téléchargement et l'installation restent manuels (lien vers la Release).
+async function loadUpdateInfo() {
+    const versionEl = document.getElementById('s-update-current');
+    if (!versionEl) return;
+    try {
+        const v = await window.dualview.getVersion();
+        versionEl.textContent = t('updateCurrentVersion') + ' v' + v;
+    } catch { /* ignore */ }
+}
+
+const updateCheckBtn = document.getElementById('s-update-check-btn');
+if (updateCheckBtn) {
+    updateCheckBtn.addEventListener('click', async () => {
+        const msg = document.getElementById('s-update-msg');
+        updateCheckBtn.disabled = true;
+        msg.innerHTML = '';
+        msg.textContent = t('updateChecking');
+        msg.className = 's-msg show';
+        let result = null;
+        try { result = await window.dualview.checkForUpdate(); } catch { /* result reste null */ }
+        updateCheckBtn.disabled = false;
+        if (!result || result.error) {
+            msg.textContent = t('updateError');
+            msg.className = 's-msg show err';
+            return;
+        }
+        if (result.updateAvailable) {
+            msg.textContent = t('updateAvailable') + ' v' + result.latest + ' ';
+            const dlBtn = document.createElement('button');
+            dlBtn.className = 's-validate-btn';
+            dlBtn.style.marginLeft = '8px';
+            dlBtn.textContent = t('updateDownloadBtn');
+            dlBtn.addEventListener('click', () => window.dualview.openExternalUrl(result.url));
+            msg.appendChild(dlBtn);
+            msg.className = 's-msg show ok';
+        } else {
+            msg.textContent = t('updateUpToDate');
+            msg.className = 's-msg show ok';
+        }
+    });
 }
 
 
@@ -231,13 +282,19 @@ document.querySelectorAll('.s-nav').forEach(nav => {
 });
 
 // ── Services connectés ─────────────────────────────────────────────────────────
+// v0.7.0 : ajout github/gitlab — ces services existent dans KNOWN_SERVICES
+// (auth-window.js) depuis la v0.4.7 mais étaient absents de ces deux tables,
+// ce qui rendait leurs tuiles invisibles dans Paramètres → Services connectés
+// (aucune tuile générée, donc impossible de s'y connecter depuis cet écran).
 const SERVICE_ICONS = {
     google: '🔵', microsoft: '🪟', instagram: '📸', facebook: '👤',
-    twitch: '💜', tiktok: '🎵', twitter: '🐦', discord: '🎮', steam: '🎮'
+    twitch: '💜', tiktok: '🎵', twitter: '🐦', discord: '🎮', steam: '🎮',
+    github: '🐙', gitlab: '🦊'
 };
 const SERVICE_LABELS = {
     google: 'Google', microsoft: 'Microsoft', instagram: 'Instagram', facebook: 'Facebook',
-    twitch: 'Twitch', tiktok: 'TikTok', twitter: 'X / Twitter', discord: 'Discord', steam: 'Steam'
+    twitch: 'Twitch', tiktok: 'TikTok', twitter: 'X / Twitter', discord: 'Discord', steam: 'Steam',
+    github: 'GitHub', gitlab: 'GitLab'
 };
 
 async function loadServicesStatus() {

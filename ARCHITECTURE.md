@@ -34,7 +34,7 @@ main.js
   |     Pause auto vidéos classiques YouTube (dom-ready → retry 200ms)
   |     Dropdown historique ← → : fermeture auto 500ms après unfocus
   |     Bouton étoile ★ favoris (toolbar) + panneau latéral favoris (v0.4.7)
-  |     setMaxListeners(50) sur chaque webview du pool via did-attach-webview (v0.4.7)
+  |     setMaxListeners(200) sur chaque webview du pool via did-attach-webview (v0.7.0 : 50→200)
   |     Mode Focus Ctrl+Shift+H / F11 : masque toolbar + bande de détection 8px (v0.5.0)
   |     Onglet vide : top 10 domaines visités (historique toutes sessions) (v0.5.0)
   |     Paramètres : Apparence + Langue fusionnés dans Général (v0.5.0)
@@ -158,7 +158,7 @@ Channels ignorés si syncState !== 'active' :
 
 URLs bloquées vers portrait si isAuthUrl(url) :
   navigate, sync-navigate, sync-resume-state
-  → isAuthUrl() vérifie AUTH_DOMAINS (9 services) + patterns LOGIN_URL
+  → isAuthUrl() vérifie AUTH_DOMAINS (11 services depuis v0.4.7) + patterns LOGIN_URL
 
 Canal ad-state : toujours relayé (indépendant de syncState)
 ```
@@ -385,9 +385,30 @@ main.js               : ipcMain.handle('fetch-favicon', ...) → fetchFaviconAsD
 
 ---
 
-## Bloqueur de publicités v0.4.2
+## Détection des publicités YouTube v0.4.2
 
-### Architecture 3 niveaux
+> **Note v0.7.0** : la documentation décrivait auparavant un bloqueur "3 niveaux" (réseau 50+ domaines + ctier=A, CSS cosmétique, stub IMA). Le code réel n'implémente que la **détection** (AD_POLL_SCRIPT), utilisée pour l'overlay portrait + compte à rebours. Les niveaux 2 et 3 n'ont jamais été livrés. La documentation a été corrigée pour refléter la réalité.
+
+### Mécanisme de détection
+
+```
+landscape-pollers.js : pollAdState() toutes les 150ms
+  → AD_POLL_SCRIPT exécuté dans la webview active
+  → Détecte player.classList.contains('ad-showing' | 'ad-interrupting')
+  → Extrait la durée restante (.ytp-ad-duration-remaining, etc.)
+  → window.dualview.sendAdState({ isAd, remaining })
+  → main.js → canal 'ad-state' → portrait-app.js → overlay #ad-overlay
+```
+
+### Overlay portrait
+
+- Affiché : `ad-overlay.show` dès `isAd === true`
+- Compte à rebours mis à jour toutes les 150ms si `remaining` est fourni
+- Masqué automatiquement dès `isAd === false`
+
+### Blocage réseau (partiel)
+
+`session-security.js` bloque une liste restreinte de domaines tiers via `ses.webRequest.onBeforeRequest`. Ce n'est pas un bloqueur de pub complet — c'est une protection minimale contre les traqueurs les plus courants.
 ```
 Niveau 1 — Réseau (main.js, session.webRequest.onBeforeRequest)
   isBlockedUrl(url, initiatorUrl)
@@ -436,7 +457,7 @@ auth-window.js
   |     → BrowserWindow indépendante, partition:persist:dualview
   |     → preload: preload-auth.js (neutralise détection Electron)
   |     → UA desktop standard (Chrome)
-  |     → setMaxListeners(50) sur authWin.webContents (v0.4.7)
+  |     → setMaxListeners(200) sur authWin.webContents (v0.4.7, porté à 200 en v0.7.0)
   |     Services connus :
   |       → Détection fin auth : stratégie A (cookies) + C (URL hors marqueurs)
   |       → Fermeture automatique dès auth confirmée
@@ -543,7 +564,7 @@ dualview/
 |       |-- build.yml         CI/CD : build Windows + GitHub Release sur tag v*
 |
 |-- src/
-    |-- main.js               Processus principal v0.5.4
+    |-- main.js               Processus principal v0.7.0
     |   |                     + tabTypes Map → activeTabType pour menu contextuel [v0.5.4]
     |   |                     + retrait IS_DEV, preload-dev, --dev-source, toggle-dev-tools [v0.5.4]
     |   |                     + IPC reopen-portrait (dom-ready, reconstruction pool) [v0.5.0]
@@ -553,13 +574,18 @@ dualview/
     |   |                     + IPC add-custom-service (enregistrement immédiat)
     |   |                     + IPC get-settings (portrait-app.js)
     |   |                     + broadcast language-changed vers portrait
-    |   |                     + setMaxListeners(50) sur webviews pool (did-attach-webview)
+    |   |                     + setMaxListeners(200) sur webviews pool (did-attach-webview) [v0.7.0 : 50→200]
+    |   |                     + process.on('unhandledRejection') filtre ERR_ABORTED benign [v0.7.0]
+    |   |                     + fetchLatestReleaseTag() + isNewerVersion() [v0.7.0]
+    |   |                     + IPC check-for-update + open-external-url [v0.7.0]
+    |   |                     + shell importé depuis Electron [v0.7.0]
     |   |
     |-- core/                 Modules Node.js / Electron Main
     |   |-- auth-window.js    Fenêtres d'authentification (services connectés)
-    |   |                     + setMaxListeners(50) sur authWin.webContents (v0.4.7)
+    |   |                     + setMaxListeners(200) sur authWin.webContents (v0.7.0 : 50→200)
     |   |                     + KNOWN_SERVICES étendu : GitHub, GitLab (v0.4.7)
     |   |-- config-manager.js  Config persistante (dualview-config.json)
+    |   |                       + GITHUB_REPO exporté [v0.7.0]
     |   |-- favorites-manager.js Favoris persistants (favorites.json) [v0.4.7]
     |   |                         add / isFavorite / getAll / search / deleteUrl / saveNow
     |   |-- history-manager.js Historique persistant (history.json)
@@ -567,6 +593,7 @@ dualview/
     |   |-- obs-control.js    Serveur HTTP + WebSocket OBS (v0.3.2)
     |   |-- session-security.js Bloqueur pub réseau + permissions
     |   |-- url-guard.js      sanitizeUrl, isAuthUrl, isLoginPage, detectServiceKey
+    |   |                     + github.com et gitlab.com dans detectServiceKeyFromUrl [v0.7.0]
     |   |-- context-menu.js   Menu contextuel clic droit natif
     |   |                     + shell.openExternal (lien système) [v0.5.3]
     |   |                     + copyImageAt, ouvrir image onglet, mailto [v0.5.3]
@@ -579,12 +606,13 @@ dualview/
     |
     |-- preload/              Scripts de pont IPC (main world → renderer)
     |   |-- preload-auth.js   Anti-détection Electron (authWin)
-    |   |-- preload-landscape.js  API IPC renderer landscape v0.5.4
+    |   |-- preload-landscape.js  API IPC renderer landscape v0.7.0
     |   |                         + retrait getIsDev() et toggleDevTools() [v0.5.4]
     |   |                         + reopenPortrait() [v0.5.0]
     |   |                         + sendToPortrait(channel, data) [v0.5.0]
     |   |                         + addCustomService() [v0.4.7]
     |   |                         + favoritesAdd/Remove/Is/GetAll/Search [v0.4.7]
+    |   |                         + checkForUpdate() + openExternalUrl() [v0.7.0]
     |   |-- preload-view.js   API IPC renderer portrait v0.5.0
     |                         + navigate(url) [v0.5.0]
     |                         + canal 'show-topsites' [v0.5.0]
@@ -592,59 +620,90 @@ dualview/
     |                         + canal 'language-changed' [v0.4.7]
     |
     |-- renderer/             Fichiers chargés par BrowserWindow (UI)
-        |-- landscape.html    Fenêtre paysage v0.5.0
+        |-- landscape.html    Fenêtre paysage v0.7.0
         |   |                 + #focus-trigger + #focus-badge (Mode Focus) [v0.5.0]
         |   |                 + #topsites-grid dans #empty-state [v0.5.0]
         |   |                 + #menu-reopen-portrait dans ⚙️ [v0.5.0]
         |   |                 + Apparence + Langue fusionnés dans section-general [v0.5.0]
         |   |                 + Bouton #favorite-btn ★ dans toolbar [v0.4.7]
         |   |                 + Panneau #favorites-panel latéral [v0.4.7]
+        |   |                 + #crash-recovery (overlay récupération crash) [v0.7.0]
+        |   |                 + Bloc mise à jour (#s-update-check-btn) [v0.7.0]
+        |   |                 + Raccourcis redessinés en cartes .sc-card [v0.7.0]
+        |   |                 + #dev-btn supprimé (résidu mode --dev retiré en v0.5.4) [v0.7.0]
         |   |
-        |-- portrait.html     Fenêtre portrait v0.5.0
+        |-- portrait.html     Fenêtre portrait v0.7.0
         |   |                 + #topsites-grid dans #empty-state [v0.5.0]
+        |   |                 + #crash-overlay (overlay récupération crash) [v0.7.0]
         |   |
         |-- obs-dock.html     Page dock OBS
         |
         |-- css/
-        |   |-- landscape.css Styles fenêtre paysage v0.5.3
+        |   |-- landscape.css Styles fenêtre paysage v0.7.0
         |   |                 + .tab-dragging, .tab-drop-indicator (Drag & Drop) [v0.5.3]
         |   |                 + Mode Focus (.focus-mode, #focus-trigger, #focus-badge) [v0.5.0]
         |   |                 + Top domaines (.has-topsites, #topsites-grid, .topsite-*) [v0.5.0]
         |   |                 + #favorite-btn (états ☆/★), #favorites-panel, .fav-* [v0.4.7]
-        |   |-- portrait.css  Styles fenêtre portrait v0.5.0
+        |   |                 + #crash-recovery [v0.7.0]
+        |   |                 + cartes raccourcis clavier (.sc-card, .sc-row, kbd) [v0.7.0]
+        |   |                 + #dev-btn et body.dev-mode #dev-btn supprimés [v0.7.0]
+        |   |-- portrait.css  Styles fenêtre portrait v0.7.0
         |                     + Top domaines (.has-topsites, #topsites-grid, .topsite-*) [v0.5.0]
+        |                     + #crash-overlay [v0.7.0]
         |
         |-- js/
-            |-- landscape-i18n.js    Traductions FR/EN v0.5.0
+            |-- landscape-i18n.js    Traductions FR/EN v0.7.0
             |                        + focusModeOn/Off/Badge, topSitesTitle, reopenPortrait [v0.5.0]
             |                        + clés favorites/favoriteAdded/etc. [v0.4.7]
+            |                        + crash webview (tabCrashedToast/Title/Desc/Reload) [v0.7.0]
+            |                        + mise à jour (updateLabel, updateCheckBtn, etc.) [v0.7.0]
             |-- landscape-webview.js Scripts injectés dans les webviews
+            |                        (référence landscape-app.js dans les commentaires corrigée
+            |                         → landscape-views.js — landscape-app.js n'a jamais existé
+            |                           dans la structure src/ actuelle) [v0.7.0]
             |-- landscape-ui.js      État global, sync, thème, toast, nav, menu ⚙️, resize v0.5.0
             |                        + setFocusMode() + logique survol Mode Focus [v0.5.0]
             |                        + renderTopSites() + maybeShowTopSites() [v0.5.0]
             |                        + updateReopenPortraitBtn() [v0.5.0]
             |                        + handler #menu-reopen-portrait [v0.5.0]
             |                        + handler #menu-favorites [v0.4.7]
-            |-- landscape-views.js   Pool de webviews + popup login v0.5.0
+            |-- landscape-views.js   Pool de webviews + popup login v0.7.0
             |                        + appel maybeShowTopSites() dans showWebview() [v0.5.0]
             |                        + Guard try/catch canGoBack() avant dom-ready [v0.5.0]
             |                        + refreshFavoriteBtnForUrl après did-navigate [v0.4.7]
+            |                        + plugins="true" sur chaque <webview> [v0.7.0]
+            |                        + opts.skipIpc dans createWebview/destroyWebview [v0.7.0]
+            |                        + render-process-gone / unresponsive [v0.7.0]
+            |                        + crashedTabs (Set), crashRecoveryOverlay, crashRecoveryTimer [v0.7.0]
+            |                        + showCrashRecovery() + recoverCrashedTab() [v0.7.0]
+            |                        + showWebview() vérifie crashedTabs avant affichage normal [v0.7.0]
+            |                        + destroyWebview() nettoie crashedTabs + overlay [v0.7.0]
             |-- landscape-tabs.js    Onglets, navigation URL, omnibar, screenshot
             |                        + TAB_TYPE_WEB/SETTINGS/BLANK + getTabType() [v0.5.3]
             |                        + Drag & Drop avec ligne indicatrice (Option A) [v0.5.3]
             |                        + addTabWithUrl(url, title?) — title optionnel [v0.5.4]
             |                        + refreshFavoriteBtnForUrl après switchTab/update-addressbar [v0.4.7]
-            |-- landscape-settings.js Paramètres v0.5.0
+            |-- landscape-settings.js Paramètres v0.7.0
             |                         + Raccourcis Ctrl+Shift+H / F11 (Mode Focus) [v0.5.0]
             |                         + Apparence + Langue retirées de la nav latérale [v0.5.0]
             |                         + panneau favoris complet [v0.4.7]
+            |                         + SERVICE_ICONS/LABELS incluent github/gitlab [v0.7.0]
+            |                         + loadUpdateInfo() + listener #s-update-check-btn [v0.7.0]
             |-- landscape-pollers.js Polling pub/vidéo/scroll + initialisation
             |                        + retrait getIsDev / toggleDevTools / dev-btn / F12 [v0.5.4]
             |                        + refreshFavoriteBtnForUrl à l'init [v0.4.7]
-            |-- portrait-i18n.js     Traductions FR/EN portrait v0.5.0
+            |-- portrait-i18n.js     Traductions FR/EN portrait v0.7.0
             |                        + topSitesTitle [v0.5.0]
-            |-- portrait-app.js      Logique portrait v0.5.0
+            |                        + crash overlay (crashTitle, crashSub, crashReload) [v0.7.0]
+            |-- portrait-app.js      Logique portrait v0.7.0
             |                        + handler 'show-topsites' → grille top domaines [v0.5.0]
+            |                        + plugins="true" sur chaque <webview> [v0.7.0]
+            |                        + portraitTabUrls (Map) — dernière URL par onglet [v0.7.0]
+            |                        + crashedTabs (Set), crashOverlay, crashRecoveryTimer [v0.7.0]
+            |                        + showCrashOverlay() + recoverCrashedTab() [v0.7.0]
+            |                        + render-process-gone dans attachWebviewListeners [v0.7.0]
+            |                        + did-navigate/did-navigate-in-page → portraitTabUrls [v0.7.0]
+            |                        + showWebview() vérifie crashedTabs [v0.7.0]
             |-- portrait-webview.js  Scripts injectés portrait
 ```
 
@@ -744,6 +803,7 @@ portraitPreset    | iphone15 / pixel8 / galaxys24 / ipad | Via modale redimensio
 | 0.5.0 | **Mode Focus** (F) : Ctrl+Shift+H / F11, masque toolbar, bande de détection 8px, badge discret, survol maintenu. **Top domaines** : onglet vide affiche le top 10 domaines les plus visités (historique toutes sessions, dédoublonné par hostname, max disponible) dans landscape et portrait (données relayées via IPC show-topsites). **Fusion paramètres** : Apparence + Langue déplacés dans Général, nav latérale réduite à 4 entrées. **Réouverture portrait** : bouton "Rouvrir le portrait" dans ⚙️ (visible si portrait fermé), reconstruction complète du pool via dom-ready (tous onglets + onglet actif + URL). **Fix canGoBack avant dom-ready** : guard try/catch dans switchTab (landscape-tabs.js). |
 | 0.6.1 | **Fix** drag & drop : dépôt dans un espace vide de la barre d'onglets retire désormais l'onglet de son groupe (zone de repli sur `#tab-bar`). **Fix** onglets épinglés persistés entre sessions (`pinnedTabs` dans `get-store`/`save-tabs`). **Fix** groupe orphelin ("zombie") lors du déplacement d'un onglet vers un nouveau groupe (`groupAddTab` nettoie l'ancien groupe). **Fix** erreurs favicon en console DevTools : fetch HTTP déporté dans le main process (`net.request`, nouveau canal IPC `fetch-favicon`), le renderer n'assigne plus que des data: URL déjà vérifiées. |
 | 0.6.2 | **Sécurité** : clés d'accès (WebAuthn) désactivées dans la fenêtre d'authentification des services connectés, toutes plateformes — Windows Hello, Touch ID et clés FIDO2 ne sont plus proposés, email/mot de passe uniquement. `window.PublicKeyCredential` masqué + `navigator.credentials.create()`/`.get()` interceptés pour rejeter les requêtes `publicKey` (`preload-auth.js`). |
+| 0.7.0 | **Crash recovery** : `render-process-gone` + `unresponsive` sur toutes les webviews (landscape + portrait) ; overlay inline `#crash-recovery`/`#crash-overlay` ; auto-reload 10 s ; `recoverCrashedTab()` avec `skipIpc:true`. **Lecteur PDF** : `plugins="true"` sur toutes les `<webview>`. **Vérification mise à jour** : `fetchLatestReleaseTag()` + `isNewerVersion()` + IPC `check-for-update`/`open-external-url` + bouton Paramètres → Général. **Correctifs** : `SERVICE_ICONS/LABELS` github/gitlab (tuiles invisibles depuis v0.4.7) ; `detectServiceKeyFromUrl()` github/gitlab ; `setMaxListeners(50→200)` landscape/portrait/webviews ; `process.on('unhandledRejection')` filtre `ERR_ABORTED` ; `#dev-btn` résiduel supprimé. **Documentation** : bloqueur pub corrigé en "détection pub" (3 niveaux jamais implémentés) ; `landscape-webview.js` référence `landscape-app.js` corrigée. **Raccourcis clavier** redessinés (cartes `.sc-card`, `<kbd>` stylés). |
 
 ---
 

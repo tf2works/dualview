@@ -84,7 +84,6 @@
     <div id="status-bar">
         <span id="adblock-label" data-i18n="adblockActive">Bloqueur pub actif</span>
         <span id="version-label">v0.5.2</span>
-        <button id="dev-btn" title="Inspecter webview active (Ctrl+F12)">🔧 DEV</button>
     </div>
 
     <div id="toast"></div>
@@ -161,6 +160,13 @@
             <div class="sub" data-i18n="enterUrl">Entrez une URL dans la barre d'adresse</div>
             <!-- Top domaines (v0.5.0) — visible uniquement si historique non vide + mode page vide -->
             <div id="topsites-grid"></div>
+        </div>
+        <!-- Récupération après crash webview (v0.7.0) -->
+        <div id="crash-recovery">
+            <div class="icon">&#9888;&#65039;</div>
+            <div class="text" data-i18n="tabCrashedTitle">Cette page a planté</div>
+            <div class="sub" data-i18n="tabCrashedDesc">Reconnexion automatique dans quelques secondes…</div>
+            <button id="crash-recovery-reload" data-i18n="tabCrashedReload">&#128260; Recharger maintenant</button>
         </div>
     </div>
 
@@ -288,6 +294,17 @@
                         <option value="en" data-i18n="langEn">English</option>
                     </select>
                 </div>
+                <div class="s-divider"></div>
+                <!-- Mises à jour (v0.7.0) -->
+                <div class="s-row">
+                    <label class="s-label" data-i18n="updateLabel">Mises à jour</label>
+                    <div class="s-desc" data-i18n="updateDesc">Vérifiez si une nouvelle version de DualView est disponible sur GitHub.</div>
+                    <div class="screenshot-dir-row">
+                        <span class="screenshot-dir-path" id="s-update-current">—</span>
+                        <button id="s-update-check-btn" class="s-validate-btn" data-i18n="updateCheckBtn">Vérifier les mises à jour</button>
+                    </div>
+                    <div id="s-update-msg" class="s-msg"></div>
+                </div>
             </div>
 
             <!-- Services connectés -->
@@ -409,63 +426,98 @@
             <!-- Raccourcis clavier (v0.5.1) -->
             <div id="section-shortcuts" class="s-section">
                 <div class="s-heading" data-i18n="settingsShortcuts">Raccourcis clavier</div>
-                <div class="s-desc" data-i18n="shortcutsDesc">Les raccourcis utilisent <kbd>Ctrl</kbd> sur Windows/Linux et <kbd>⌘ Cmd</kbd> sur macOS. Les touches <kbd>F5</kbd>, <kbd>F6</kbd>, <kbd>F11</kbd> sont identiques sur les trois systèmes.</div>
+                <div class="s-desc shortcuts-intro">
+                    <span class="sc-platform-badge sc-badge-win">🪟 Win / Linux</span>
+                    <span class="sc-platform-badge sc-badge-mac">🍎 macOS</span>
+                    <span class="shortcuts-intro-note" data-i18n="shortcutsDesc">Les raccourcis utilisent <kbd>Ctrl</kbd> sur Windows/Linux et <kbd>⌘</kbd> sur macOS. <kbd>F5</kbd> <kbd>F6</kbd> <kbd>F11</kbd> sont identiques sur les deux.</span>
+                </div>
 
                 <!-- Navigation -->
-                <div class="s-label" style="margin-top:14px;margin-bottom:6px" data-i18n="shortcutsCatNav">Navigation</div>
-                <table class="shortcuts-table">
-                    <thead>
-                        <tr>
-                            <th data-i18n="shortcutsColAction">Action</th>
-                            <th>Windows / Linux</th>
-                            <th>macOS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td data-i18n="scBack">Retour</td><td><kbd>Alt</kbd>+<kbd>←</kbd></td><td><kbd>⌘</kbd>+<kbd>[</kbd></td></tr>
-                        <tr><td data-i18n="scForward">Avance</td><td><kbd>Alt</kbd>+<kbd>→</kbd></td><td><kbd>⌘</kbd>+<kbd>]</kbd></td></tr>
-                        <tr><td data-i18n="scReload">Recharger</td><td><kbd>F5</kbd> ou <kbd>Ctrl</kbd>+<kbd>R</kbd></td><td><kbd>F5</kbd> ou <kbd>⌘</kbd>+<kbd>R</kbd></td></tr>
-                        <tr><td data-i18n="scFocusBar">Barre d'adresse</td><td><kbd>Ctrl</kbd>+<kbd>L</kbd> ou <kbd>F6</kbd></td><td><kbd>⌘</kbd>+<kbd>L</kbd> ou <kbd>F6</kbd></td></tr>
-                    </tbody>
-                </table>
+                <div class="sc-card">
+                    <div class="sc-card-header">
+                        <span class="sc-card-icon">🧭</span>
+                        <span class="sc-card-title" data-i18n="shortcutsCatNav">Navigation</span>
+                    </div>
+                    <div class="sc-rows">
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scBack">Retour</span>
+                            <span class="sc-col sc-win"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>←</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>[</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scForward">Avance</span>
+                            <span class="sc-col sc-win"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>→</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>]</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scReload">Recharger</span>
+                            <span class="sc-col sc-win"><kbd>F5</kbd><span class="sc-or" data-i18n="scOr">ou</span><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>R</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>F5</kbd><span class="sc-or" data-i18n="scOr">ou</span><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>R</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scFocusBar">Barre d'adresse</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>L</kbd><span class="sc-or" data-i18n="scOr">ou</span><kbd>F6</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>L</kbd><span class="sc-or" data-i18n="scOr">ou</span><kbd>F6</kbd></span>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Onglets -->
-                <div class="s-label" style="margin-top:14px;margin-bottom:6px" data-i18n="shortcutsCatTabs">Onglets</div>
-                <table class="shortcuts-table">
-                    <thead>
-                        <tr>
-                            <th data-i18n="shortcutsColAction">Action</th>
-                            <th>Windows / Linux</th>
-                            <th>macOS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td data-i18n="scNewTab">Nouvel onglet</td><td><kbd>Ctrl</kbd>+<kbd>T</kbd></td><td><kbd>⌘</kbd>+<kbd>T</kbd></td></tr>
-                        <tr><td data-i18n="scCloseTab">Fermer l'onglet actif</td><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td><kbd>⌘</kbd>+<kbd>W</kbd></td></tr>
-                        <tr><td data-i18n="scNextTab">Onglet suivant</td><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td><kbd>⌃</kbd>+<kbd>Tab</kbd></td></tr>
-                        <tr><td data-i18n="scPrevTab">Onglet précédent</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td><td><kbd>⌃</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td></tr>
-                    </tbody>
-                </table>
+                <div class="sc-card">
+                    <div class="sc-card-header">
+                        <span class="sc-card-icon">📑</span>
+                        <span class="sc-card-title" data-i18n="shortcutsCatTabs">Onglets</span>
+                    </div>
+                    <div class="sc-rows">
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scNewTab">Nouvel onglet</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>T</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>T</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scCloseTab">Fermer l'onglet actif</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>W</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>W</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scNextTab">Onglet suivant</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>Tab</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌃</kbd><span class="sc-plus">+</span><kbd>Tab</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scPrevTab">Onglet précédent</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>Tab</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌃</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>Tab</kbd></span>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Interface -->
-                <div class="s-label" style="margin-top:14px;margin-bottom:6px" data-i18n="shortcutsCatUI">Interface</div>
-                <table class="shortcuts-table">
-                    <thead>
-                        <tr>
-                            <th data-i18n="shortcutsColAction">Action</th>
-                            <th>Windows / Linux</th>
-                            <th>macOS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td data-i18n="scFocusMode">Mode Focus (masquer toolbar)</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> ou <kbd>F11</kbd></td><td><kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> ou <kbd>F11</kbd></td></tr>
-                        <tr><td data-i18n="scCloseDropdown">Fermer menus / dropdowns</td><td colspan="2"><kbd>Échap</kbd></td></tr>
-                    </tbody>
-                </table>
+                <div class="sc-card">
+                    <div class="sc-card-header">
+                        <span class="sc-card-icon">🖥️</span>
+                        <span class="sc-card-title" data-i18n="shortcutsCatUI">Interface</span>
+                    </div>
+                    <div class="sc-rows">
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scFocusMode">Mode Focus (masquer toolbar)</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>H</kbd><span class="sc-or" data-i18n="scOr">ou</span><kbd>F11</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>H</kbd><span class="sc-or" data-i18n="scOr">ou</span><kbd>F11</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scCloseDropdown">Fermer menus / dropdowns</span>
+                            <span class="sc-col sc-both" style="grid-column: 2 / span 2"><kbd>Échap</kbd></span>
+                        </div>
+                    </div>
+                </div>
 
-                <div class="s-info-block" style="margin-top:16px">
-                    <div class="s-info-title" data-i18n="shortcutsMouseTitle">Boutons souris</div>
-                    <div class="s-info-desc" data-i18n="shortcutsMouseDesc">Les boutons latéraux de la souris (bouton 4 = retour, bouton 5 = avance) sont pris en charge sur Windows, macOS et Linux.</div>
+                <!-- Boutons souris -->
+                <div class="sc-mouse-block">
+                    <span class="sc-mouse-icon">🖱️</span>
+                    <div>
+                        <div class="sc-mouse-title" data-i18n="shortcutsMouseTitle">Boutons souris</div>
+                        <div class="sc-mouse-desc" data-i18n="shortcutsMouseDesc">Les boutons latéraux de la souris (bouton 4 = retour, bouton 5 = avance) sont pris en charge sur Windows, macOS et Linux.</div>
+                    </div>
                 </div>
             </div>
             <!-- Export / Import (v0.5.2) -->

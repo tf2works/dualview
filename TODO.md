@@ -2,7 +2,71 @@
 
 > Améliorations et nouvelles fonctionnalités identifiées à partir de la v0.3.2.
 > Classées par priorité. Cocher une case une fois l'item livré et reporté dans `CHANGELOG.md`.
-> Dernière version livrée : **v0.6.1**.
+> Dernière version livrée : **v0.7.0**.
+
+---
+
+## 🔴 Priorité 0 — Bugs bloquants à corriger avant v1.0.0
+
+> Incohérences entre code réel et documentation, ou régressions fonctionnelles.
+> À traiter **avant** toute nouvelle fonctionnalité.
+
+### Code vs Documentation
+
+- [x] **Bloqueur de publicités : réconcilier code et doc** *(v0.7.0 — option ②)*
+  Description du problème : `README.md` et `ARCHITECTURE.md` promettaient un bloqueur \"3 niveaux\"
+  (réseau 50+ domaines + ctier=A googlevideo, DOM CSS cosmétique, JS stub IMA). Code réel :
+  - Niveau 1 : seulement 8 domaines, aucune trace de googlevideo.com ou ctier
+  - Niveau 2 : aucune CSS cosmétique (sélecteurs ytd-ad-*, ytp-*) injectée
+  - Niveau 3 : aucun stub google.ima (Object.defineProperty pour AdsLoader/AdsManager)
+  
+  Seul `AD_POLL_SCRIPT` **détecte** les pubs YouTube en mémoire pour l'overlay portrait,
+  mais ne bloque rien.
+  
+  ✅ Option ② choisie : la documentation a été **corrigée** pour refléter la réalité du code.
+  `README.md` et `ARCHITECTURE.md` décrivent désormais le mécanisme comme un **détecteur de pub**
+  (overlay portrait + compte à rebours) et non un bloqueur. La restauration des niveaux 2 et 3
+  est reportée (prio 4, risque TOS YouTube) — voir la nouvelle entrée TODO priorité 4.
+
+- [x] **README.md : sections dupliquées et services non synchronisés** *(v0.7.0)*
+  - ✅ Services mis à jour : \"11 pré-configurés\" (Google, Microsoft, Instagram, Facebook, Twitch,
+    TikTok, X/Twitter, Discord, Steam, **GitHub, GitLab**)
+  - ✅ Sections Captures d'écran / Persistance / Stack / Sécurité dédupliquées
+  - ✅ Nouvelles fonctionnalités v0.7.0 documentées (récupération crash, lecteur PDF, mise à jour)
+
+- [x] **CONTRIBUTING.md : documente le mode --dev supprimé en v0.5.4** *(v0.7.0)*
+  - ✅ Section \"Lancer l'application\" réécrite : `npm start` uniquement
+  - ✅ `preload-dev.js` retiré de l'arborescence listée
+  - ✅ Note explicative pour les futurs contributeurs qui tomberaient sur une référence à `--dev`
+
+- [x] **detectServiceKeyFromUrl() : pas à jour pour GitHub/GitLab** *(v0.7.0)*
+  - ✅ `url-guard.js` : cas `github.com` → `'github'` et `gitlab.com` → `'gitlab'` ajoutés
+
+### Fonctionnalités régressées ou incomplètes
+
+- [x] **Gestion de crash/récupération webview : totalement absent** *(v0.7.0)*
+  - ✅ Handler `render-process-gone` sur chaque webview (landscape + portrait)
+  - ✅ Page de récupération inline `#crash-recovery` (landscape) / `#crash-overlay` (portrait)
+  - ✅ Auto-reload après 10 s d'inactivité + bouton manuel \"Recharger maintenant\"
+  - ✅ Toast discret notifiant le crash (`tabCrashedToast`, i18n FR/EN)
+  - ✅ `unresponsive` détecté → toast `tabUnresponsiveToast` (page ne répond plus)
+  - ✅ Onglet fermé pendant la récupération : timer annulé proprement
+  - ✅ `skipIpc:true` dans recoverCrashedTab : pas de cycle tab-closed/tab-created vers portrait
+
+- [x] **Affichage PDF : probablement bloqué comme téléchargement** *(v0.7.0)*
+  - ✅ `plugins="true"` ajouté dans `landscape-views.js` (createWebview)
+  - ✅ `plugins="true"` ajouté dans `portrait-app.js` (createWebview)
+
+- [x] **Aucun mécanisme de mise à jour (automatique ou manuel)** *(v0.7.0 — option minimale)*
+  - ✅ `fetchLatestReleaseTag()` + `isNewerVersion()` dans `main.js`
+  - ✅ Handler IPC `check-for-update` (sans dépendance npm) + `open-external-url`
+  - ✅ Bouton \"Vérifier les mises à jour\" dans Paramètres → Général
+  - ✅ `GITHUB_REPO` dans `config-manager.js` (à renseigner avant publication)
+  - ✅ i18n FR/EN (8 nouvelles clés)
+
+- [x] **Résidu mort : bouton #dev-btn dans landscape.html** *(v0.7.0)*
+  - ✅ Bouton `<button id="dev-btn">` supprimé de `landscape.html`
+  - ✅ Règles CSS `#dev-btn` et `body.dev-mode #dev-btn` supprimées de `landscape.css`
 
 ---
 
@@ -137,7 +201,7 @@
 
 - [x] **CONTRIBUTING.md**
   Créer ce fichier (premier consulté par un contributeur potentiel) contenant :
-  - Prérequis et lancement en mode dev (`npm start -- --dev`)
+  - Prérequis et lancement (`npm start`, DevTools via Ctrl+Maj+I)
   - Convention de nommage des branches
   - Processus de Pull Request
 

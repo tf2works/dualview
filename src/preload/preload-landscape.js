@@ -1,6 +1,10 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.6.1
+ * Version: 0.7.0
+ *
+ * Changements v0.7.0 :
+ * - checkForUpdate()/openExternalUrl() ajoutés — invoke 'check-for-update' /
+ *   'open-external-url' (voir main.js)
  *
  * Changements v0.6.1 :
  * - fetchFavicon(url) ajouté — invoke 'fetch-favicon' (récupération sécurisée
@@ -100,6 +104,10 @@ contextBridge.exposeInMainWorld('dualview', {
     saveSettings: (settings) => ipcRenderer.send('save-settings', settings),
     getVersion: () => ipcRenderer.invoke('get-version'),
     getHomepageUrl: () => ipcRenderer.invoke('get-homepage-url'),
+
+    // ── Vérification de mise à jour (v0.7.0) ───────────────────
+    checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
+    openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
 
     // ── Intégration OBS (v0.3.2) ───────────────────────────────
     getObsInfo: () => ipcRenderer.invoke('get-obs-info'),

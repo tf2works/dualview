@@ -34,17 +34,17 @@ npm install
 ## Lancer l'application
 
 ```bash
-# Mode normal
 npm start
-
-# Mode développement (DevTools activés, bouton 🔧 dans la toolbar)
-npm start -- --dev
 ```
 
-En mode `--dev` :
-- Un bouton **🔧** apparaît dans la toolbar → ouvre les DevTools de la webview active
-- **F12** ouvre les DevTools de la fenêtre landscape (renderer)
-- Les logs `logger.log(...)` sont affichés dans la console
+Les DevTools sont accessibles nativement, sans configuration ni mode
+particulier : `Ctrl+Maj+I` (Windows/Linux) ou `⌘+Option+I` (macOS) dans
+n'importe quelle fenêtre (paysage, portrait, fenêtre d'authentification).
+
+> Un ancien mode `npm start -- --dev` (bouton 🔧 DevTools webview + F12)
+> a existé jusqu'à la v0.5.4 et a été retiré : les DevTools natives
+> rendaient ce mode redondant. Si vous tombez sur une référence à `--dev`
+> ailleurs dans le code ou la documentation, c'est un résidu à signaler.
 
 ---
 
@@ -60,7 +60,6 @@ src/
 │   └── obs-control.js         Serveur HTTP+WebSocket OBS local
 ├── preload/
 │   ├── preload-auth.js        Anti-détection Electron (fenêtres auth)
-│   ├── preload-dev.js         DevTools en mode --dev
 │   ├── preload-landscape.js   API IPC exposée au renderer landscape
 │   └── preload-view.js        API IPC exposée au renderer portrait
 └── renderer/

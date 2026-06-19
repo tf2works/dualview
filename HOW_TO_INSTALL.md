@@ -99,7 +99,7 @@ La synchronisation démarre automatiquement 3 secondes après l'ouverture.
 **⚙️ → Paramètres → Services connectés**
 
 ### Services pré-configurés
-Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam.
+Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam, GitHub, GitLab.
 
 La connexion s'effectue dans une fenêtre dédiée qui contourne les restrictions des webviews Electron (email/mot de passe). Les clés d'accès (Windows Hello, Touch ID, clés de sécurité FIDO2) sont volontairement désactivées dans cette fenêtre depuis la v0.6.2, pour des raisons de sécurité.
 
@@ -134,8 +134,8 @@ Les Shorts (`youtube.com/shorts/...`) sont exemptés du bloqueur de publicités.
 
 **⚙️ → Paramètres** — 5 sections depuis vX.X.X :
 
-- **Général** : restauration onglets, pause auto YouTube, page d'accueil, nouveaux onglets, moteur de recherche, dossier captures, apparence, langue
-- **Services connectés** : gestion des connexions (9 services + URL personnalisée)
+- **Général** : restauration onglets, pause auto YouTube, page d'accueil, nouveaux onglets, moteur de recherche, dossier captures, apparence, langue, **vérification de mise à jour** *(v0.7.0)*
+- **Services connectés** : gestion des connexions (11 services + URL personnalisée)
 - **Confidentialité** : informations sur les protections actives
 - **OBS** : activation serveur local, port, URL dock, token
 - **Raccourcis clavier** *(vX.X.X)* : tableaux Navigation / Onglets / Interface avec distinction Windows/Linux vs macOS
@@ -181,5 +181,7 @@ Voir `assets/README.txt` pour générer les icônes `icon.icns` (macOS) et `icon
 
 En mode développement (toutes plateformes) :
 ```bash
-npm start -- --dev
+npm start
 ```
+
+Les DevTools sont accessibles via `Ctrl+Maj+I` (Windows/Linux) ou `⌘+Option+I` (macOS) dans toutes les fenêtres.

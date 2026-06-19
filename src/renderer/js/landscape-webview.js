@@ -1,13 +1,13 @@
 /*
  * DualView - Scripts injectés dans les webviews (fenêtre paysage)
- * Version: 0.4.4
+ * Version: 0.4.6
  *
  * Ce fichier contient les scripts exécutés à l'intérieur des webviews
  * via executeJavaScript() et les fonctions utilitaires associées.
  * Ces scripts tournent dans le contexte de la page web visitée,
  * pas dans le renderer Electron.
  *
- * Constantes exportées (utilisées par landscape-app.js) :
+ * Constantes exportées (utilisées par landscape-views.js) :
  *   VIDEO_WATCHER_SCRIPT  - détecte l'état vidéo (play/pause/currentTime)
  *   SCROLL_INJECT         - remonte le % de scroll via __dualviewScrollPct
  *   AUTO_PAUSE_SCRIPT     - pause automatique YouTube au chargement
@@ -17,7 +17,7 @@
  *   injectWatcher(wv)     - injecte VIDEO_WATCHER_SCRIPT
  *   injectAutoPause(wv)   - injecte AUTO_PAUSE_SCRIPT (YouTube uniquement)
  *
- * Utilisé par : landscape.html + landscape-app.js
+ * Utilisé par : landscape-views.js (chargé via <script src> dans landscape.html)
  * Dépendances : aucune (pas de référence au DOM du renderer)
  */
 

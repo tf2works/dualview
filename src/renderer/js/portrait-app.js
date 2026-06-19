@@ -1,12 +1,14 @@
 /*
  * DualView - Application fenêtre portrait
- * Version: 0.4.4
+ * Version: 0.7.0
  *
  * Logique principale du renderer portrait :
  *   - Constantes (UA_MOBILE, DRIFT_THRESHOLD, PENDING_CMD_TTL)
  *   - État global (webviewPool, activeTabId, currentSyncState)
  *   - Indicateur sync (updateSyncIndicator)
  *   - Pool de webviews (createWebview, destroyWebview, showWebview)
+ *   - Récupération après crash webview (v0.7.0 — render-process-gone,
+ *     #crash-overlay, reconstruction locale sans IPC après 10 s ou bouton)
  *   - Injection executor + reset flags de navigation
  *   - IPC handlers (thème, onglets, settings overlay, navigation URL,
  *                   scroll, commandes vidéo, back/forward/reload,
@@ -99,12 +101,19 @@ window.dualview.on('sync-state-changed', s => updateSyncIndicator(s));
 // POOL DE WEBVIEWS
 // ══════════════════════════════════════════════════════════════════════════════
 
+// v0.7.0 — dernière URL connue par onglet, utilisée pour reconstruire la
+// webview après un crash (portrait n'a pas de tableau `tabs` comme landscape ;
+// son URL n'est connue qu'au moment où elle est reçue via IPC 'load-url').
+const portraitTabUrls = new Map();
+
 function createWebview(tabId, url) {
     if (webviewPool.has(tabId)) return webviewPool.get(tabId);
     const wv = document.createElement('webview');
     wv.setAttribute('partition', 'persist:dualview');
     wv.setAttribute('useragent', UA_MOBILE);
     wv.setAttribute('allowpopups', '');
+    // v0.7.0 : active le lecteur PDF natif de Chromium (voir landscape-views.js)
+    wv.setAttribute('plugins', 'true');
     wv.className = 'wv-portrait';
     wv.dataset.tabId = tabId;
     // Attacher les listeners AVANT appendChild
@@ -112,6 +121,7 @@ function createWebview(tabId, url) {
     webviewCont.appendChild(wv);
     // Assigner src APRÈS l'attachement au DOM
     wv.src = url || 'about:blank';
+    if (url) portraitTabUrls.set(tabId, url);
     webviewPool.set(tabId, wv);
     wv.addEventListener('did-fail-load', (e) => {
         if (e.errorCode === -3) return; // ERR_ABORTED ignoré (navigation annulée)
@@ -126,9 +136,60 @@ function destroyWebview(tabId) {
     try { wv.stop(); } catch (_) { }
     wv.remove();
     webviewPool.delete(tabId);
+    portraitTabUrls.delete(tabId);
+    // v0.7.0 — nettoyage de l'état de récupération de crash
+    crashedTabs.delete(tabId);
+    if (crashOverlay.dataset.tabId === tabId) {
+        clearTimeout(crashRecoveryTimer);
+        crashOverlay.classList.remove('show');
+    }
+}
+
+// ── Récupération après crash webview (v0.7.0) ─────────────────────────────────
+// Même principe que côté landscape (landscape-views.js), implémenté
+// indépendamment ici : portrait ne notifie jamais le main process de ses
+// propres décisions de pool (flux strictement unidirectionnel, voir
+// commentaire d'en-tête) — la reconstruction se fait donc localement, sans
+// IPC, sur la dernière URL connue (portraitTabUrls).
+const crashOverlay = document.getElementById('crash-overlay');
+const crashReloadBtn = document.getElementById('crash-reload-btn');
+const crashedTabs = new Set();
+let crashRecoveryTimer = null;
+
+function showCrashOverlay(tabId) {
+    crashOverlay.dataset.tabId = tabId;
+    crashOverlay.classList.add('show');
+    clearTimeout(crashRecoveryTimer);
+    crashRecoveryTimer = setTimeout(() => recoverCrashedTab(tabId), 10000);
+}
+
+function recoverCrashedTab(tabId) {
+    clearTimeout(crashRecoveryTimer);
+    crashedTabs.delete(tabId);
+    crashOverlay.classList.remove('show');
+    const url = portraitTabUrls.get(tabId) || '';
+    destroyWebview(tabId);
+    createWebview(tabId, url);
+    if (tabId === activeTabId) showWebview(tabId);
+}
+
+if (crashReloadBtn) {
+    crashReloadBtn.addEventListener('click', () => {
+        const tabId = crashOverlay.dataset.tabId;
+        if (tabId) recoverCrashedTab(tabId);
+    });
 }
 
 function showWebview(tabId) {
+    // v0.7.0 — onglet en état planté : afficher la page de récupération
+    if (crashedTabs.has(tabId)) {
+        webviewPool.forEach((wv) => wv.classList.remove('active'));
+        emptyState.style.display = 'none';
+        showCrashOverlay(tabId);
+        return;
+    }
+    crashOverlay.classList.remove('show');
+    clearTimeout(crashRecoveryTimer);
     webviewPool.forEach((wv, id) => { wv.classList.toggle('active', id === tabId); });
     const wv = webviewPool.get(tabId);
     const hasUrl = wv && wv.src && wv.src !== 'about:blank';
@@ -179,6 +240,15 @@ function resetPageFlags(wv) {
 function attachWebviewListeners(wv, tabId) {
     let _safetyTimer = null;  // référence au timer de sécurité, pour annulation
 
+    // v0.7.0 — récupération après crash (voir bloc dédié plus haut). 'clean-exit'
+    // correspond à une fermeture normale (destroyWebview) — pas un crash.
+    wv.addEventListener('render-process-gone', (e) => {
+        if (e && e.reason === 'clean-exit') return;
+        if (crashedTabs.has(tabId)) return;
+        crashedTabs.add(tabId);
+        if (tabId === activeTabId) showCrashOverlay(tabId);
+    });
+
     wv.addEventListener('dom-ready', () => {
         // Annuler le timer précédent si une nouvelle dom-ready arrive
         // (navigation rapide) avant que le timer ait tiré.
@@ -215,6 +285,7 @@ function attachWebviewListeners(wv, tabId) {
         resetRemuteDismiss();
         injectExecutor(wv);
         // e.url contient la nouvelle URL SPA — fiable ici
+        if (e.url) portraitTabUrls.set(tabId, e.url); // v0.7.0
         if (!isYouTubeShort(e.url)) {
             wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
         }
@@ -226,6 +297,7 @@ function attachWebviewListeners(wv, tabId) {
         resetPageFlags(wv);
         resetRemuteDismiss();
         injectExecutor(wv);
+        if (e.url) portraitTabUrls.set(tabId, e.url); // v0.7.0
         if (!isYouTubeShort(e.url)) {
             wv.executeJavaScript(AUTO_PAUSE_SCRIPT).catch(() => { });
         }
@@ -283,6 +355,7 @@ window.dualview.on('load-url', payload => {
     if (typeof payload === 'string') { tabId = activeTabId; url = payload; }
     else { tabId = payload.tabId; url = payload.url; }
     if (!url || url === 'about:blank') return;
+    portraitTabUrls.set(tabId, url); // v0.7.0 — pour reconstruction après crash
     // Créer le webview si nécessaire AVANT d'assigner src
     if (!webviewPool.has(tabId)) {
         createWebview(tabId, url);

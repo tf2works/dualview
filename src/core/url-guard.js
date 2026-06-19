@@ -123,6 +123,8 @@ function detectServiceKeyFromUrl(url) {
         if (h.includes('twitter.com') || h.includes('x.com'))                          return 'twitter';
         if (h.includes('discord.com'))                                                  return 'discord';
         if (h.includes('steampowered.com'))                                             return 'steam';
+        if (h.includes('github.com'))                                                   return 'github';
+        if (h.includes('gitlab.com'))                                                   return 'gitlab';
     } catch { }
     return null;
 }

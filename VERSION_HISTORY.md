@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.6.2.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.7.0.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -57,6 +57,47 @@
 | `Ctrl+T` / `Ctrl+W` | `⌘+T` / `⌘+W` | Nouvel onglet / Fermer l'onglet actif |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | `⌃+Tab` / `⌃+Shift+Tab` | Onglet suivant / précédent |
 | `Ctrl+L` / `F6` | `⌘+L` / `F6` | Focus sur la barre d'adresse |
+
+---
+
+## Nouveautés v0.7.0
+
+### ♻️ Récupération après crash webview
+
+Si une page JavaScript lourde (ou une fuite mémoire) fait planter le processus de rendu d'un onglet, DualView l'indique clairement et reconstruit la page automatiquement — plus d'onglet figé sans feedback.
+
+| Comportement | Détail |
+|---|---|
+| Détection | Handler `render-process-gone` — détecte la mort du processus de rendu de la webview |
+| Page de récupération | S'affiche à la place de l'onglet planté dans les deux fenêtres (paysage et portrait) |
+| Auto-reload | Reconstruction automatique de la webview après **10 secondes** d'inactivité |
+| Bouton manuel | **"🔄 Recharger maintenant"** pour ne pas attendre |
+| Toast | Notification discrète en cas de crash (visible même si l'onglet n'est pas actif) |
+| Portrait | La fenêtre portrait se reconstruit indépendamment, sans perturber la fenêtre paysage |
+
+### 📄 Lecteur PDF natif
+
+Navigation vers un fichier `.pdf` → le document s'affiche dans le lecteur PDF intégré à Chromium, au lieu de déclencher un toast "téléchargement bloqué". Applicable dans les deux fenêtres (paysage et portrait).
+
+### 🔔 Vérification de mise à jour
+
+Un bouton **"Vérifier les mises à jour"** est disponible dans **Paramètres → Général**.
+
+- Interroge l'API GitHub Releases pour comparer la version installée avec la dernière release publiée
+- Affiche un lien direct vers la page de téléchargement si une mise à jour est disponible
+- Aucune dépendance npm supplémentaire, aucun téléchargement automatique — le téléchargement et l'installation restent manuels
+
+### 🔧 Corrections
+
+- **GitHub et GitLab visibles dans Services connectés** : les tuiles de connexion pour ces deux services n'apparaissaient pas dans le panneau malgré leur support complet depuis la v0.4.7. Corrigé.
+- **Popup "Se connecter" nommé pour GitHub/GitLab** : la détection de page de connexion affiche désormais le bon bouton "Se connecter (GitHub)" ou "Se connecter (GitLab)".
+- **Avertissement `MaxListenersExceededWarning`** : la limite d'écouteurs Electron portée à 200, ce qui élimine les warnings dans la console lors de la restauration simultanée de nombreux onglets.
+- **Logs `ERR_ABORTED` parasites au démarrage** : les rejections bénignes lors de la restauration d'onglets sont désormais filtrées silencieusement.
+- **Bouton DEV résiduel supprimé** : reste invisible en CSS depuis la v0.5.4, désormais absent du code source.
+
+### 🎨 Raccourcis clavier — nouveau design
+
+La section "Raccourcis clavier" dans les Paramètres a été entièrement redessinée : cartes par catégorie, touches `<kbd>` avec bordure basse et ombre, badges plateformes Win/Linux et macOS, séparateurs `+`/`ou` stylés. Compatible thèmes clair et sombre.
 
 ---
 
@@ -767,3 +808,5 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.5.4 | **Menu contextuel** : retour/avance grisés, imprimer via PDF natif OS, code source dans onglet dédié (`Source — example.com`), inspecter élément en production. **Suppression mode `--dev`** : logger toujours actif (`dualview.log`), `preload-dev.js` supprimé, `start-dev` retiré. **Fix** : `canGoBack/Forward` → `navigationHistory` API ; impression → `printToPDF` + aperçu OS complet ; suppression `@cliqz` (dépendance inutilisée → logs parasites). |
 | 0.6.0 | **Groupes d'onglets** colorés, nommables (60 car. max), drag & drop in/out, collapse/expand, persistants. **Onglets épinglés** (max 5, icône seule, non persistés). **Rouvrir l'onglet fermé** (historique illimité, `Ctrl+Shift+T`). **Favicons réels** extraits des balises `<link rel="icon">` de la page (repli `/favicon.ico` puis SVG générique). **Menu contextuel natif OS** sur onglets et labels de groupe. **Fix** : double navigation `ERR_ABORTED` sur changement d'URL (assignation `wv.src` dupliquée) ; chemin du favicon de repli incorrect ; dialogue de renommage de groupe inopérant (DOM interrogé avant son insertion). |
 | 0.6.1 | **Fix** : glisser un onglet vers un espace vide de la barre (après le dernier onglet, etc.) ne le retirait pas de son groupe (zone de drop de repli ajoutée sur `#tab-bar`) ; onglets épinglés non restaurés entre sessions (`pinnedTabs` désormais inclus dans la persistance) ; groupe orphelin invisible ("zombie") lors du déplacement d'un onglet vers un nouveau groupe (`groupAddTab` nettoie l'ancien groupe avant réaffectation) ; erreurs `favicon.ico`/`icon.ico`/`logo.ico` polluant la console DevTools (récupération HTTP entièrement déportée vers le process principal via `net.request` ; le renderer n'assigne plus que des `data:` URL déjà vérifiées). |
+| 0.6.2 | **Sécurité** : clés d'accès (WebAuthn) désactivées dans la fenêtre d'authentification des services connectés — Windows Hello, Touch ID et clés FIDO2 ne sont plus proposés, email/mot de passe uniquement (`preload-auth.js` : masquage `window.PublicKeyCredential` + interception `navigator.credentials.create()`/`.get()` pour les requêtes `publicKey`). |
+| 0.7.0 | **Récupération crash webview** : `render-process-gone` + `unresponsive` sur toutes les webviews (landscape + portrait) ; overlay inline `#crash-recovery` / `#crash-overlay` ; auto-reload après 10 s + bouton manuel ; `recoverCrashedTab()` avec `skipIpc:true` (portrait non impacté). **Lecteur PDF natif** : `plugins="true"` sur toutes les `<webview>` — navigation vers un `.pdf` affiche le document au lieu de déclencher un toast "téléchargement bloqué". **Vérification de mise à jour** : `fetchLatestReleaseTag()` + `isNewerVersion()` + IPC `check-for-update`/`open-external-url` + bouton Paramètres → Général (sans dépendance npm). **Fix** : GitHub/GitLab invisibles dans Services connectés (`SERVICE_ICONS`/`SERVICE_LABELS` incomplets depuis v0.4.7) ; `detectServiceKeyFromUrl()` ignorait github.com et gitlab.com ; `MaxListenersExceededWarning` → `setMaxListeners(200)` ; `ERR_ABORTED` non capturés au démarrage → `process.on('unhandledRejection')` filtre les rejections bénignes ; `#dev-btn` résiduel (mode `--dev` supprimé en v0.5.4) retiré du markup et du CSS. **Raccourcis clavier** redessinés : trois cartes par catégorie, touches `<kbd>` avec ombre et bordure basse, badges plateformes Win/Linux et macOS. **Documentation** : bloqueur pub corrigé en "détection pub" ; `CONTRIBUTING.md` mode `--dev` retiré ; `VERSION_HISTORY.md` + `README.md` + `ARCHITECTURE.md` + `HOW_TO_INSTALL.md` mis à jour. |

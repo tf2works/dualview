@@ -1,4 +1,4 @@
-# DualView v0.6.2
+# DualView v0.7.0
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -45,7 +45,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 ### Windows
 
-1. Double-cliquez sur **`DualView-Setup-0.6.2.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.7.0.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -351,7 +351,7 @@ Si la fenêtre Portrait est fermée accidentellement, rouvrez-la sans redémarre
 
 Connexion aux services web depuis **Paramètres → Services connectés** :
 
-- **9 services pré-configurés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam
+- **11 services pré-configurés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam, **GitHub, GitLab** *(GitHub et GitLab ajoutés en v0.4.7)*
 - Connexion dans une **fenêtre dédiée** qui contourne les restrictions des webviews Electron : email/mot de passe
 - **Clés d'accès désactivées** *(depuis v0.6.2)* : Windows Hello, Touch ID et clés de sécurité FIDO2 ne sont plus proposés dans la fenêtre de connexion, pour des raisons de sécurité
 - **URL personnalisée** avec bouton "J'ai terminé" + confirmation
@@ -396,17 +396,11 @@ Le tout fonctionne via un serveur local hébergé par DualView (`127.0.0.1`, pro
 
 ---
 
-## Bloqueur de publicités
+## Détection des publicités YouTube
 
-Le bloqueur fonctionne à **3 niveaux** :
+DualView **détecte** les publicités YouTube en cours dans la fenêtre Paysage et informe la fenêtre Portrait via un overlay.
 
-| Niveau | Mécanisme | Détail |
-|--------|-----------|--------|
-| 1 — Réseau | Blocage de 50+ domaines publicitaires | Blocage ciblé des flux pub YouTube (`ctier=A`) sans affecter les vidéos normales |
-| 2 — DOM | Injection CSS | Masquage des éléments pub résiduels (bannières, overlays, compteurs) |
-| 3 — JS | Stub SDK | Neutralisation du SDK IMA de Google (pub in-stream YouTube) |
-
-> **YouTube Shorts** : exemptés du bloqueur (pas de pré-roll).
+> ℹ️ DualView n'est **pas** un bloqueur de publicités — les pubs continuent de se diffuser normalement dans les webviews. Le système sert uniquement à signaler leur présence, ce qui est particulièrement utile pour les streamers.
 
 ### Overlay pub Portrait
 
@@ -417,14 +411,37 @@ Pendant qu'une publicité est diffusée dans la fenêtre Paysage, un overlay sem
 
 ---
 
+## Lecteur PDF natif
+
+Navigation vers un fichier `.pdf` → le document s'affiche dans le **lecteur PDF intégré à Chromium**, dans les deux fenêtres (paysage et portrait). Aucune configuration requise.
+
+---
+
+## Récupération après crash webview
+
+Si une page provoque le crash du processus de rendu d'un onglet (JavaScript lourd, fuite mémoire…), DualView affiche une **page de récupération** à la place de l'onglet figé :
+
+- Reconstruction automatique après **10 secondes**
+- Bouton **"🔄 Recharger maintenant"** pour ne pas attendre
+- Toast de notification visible même si l'onglet n'est pas actif
+- Fonctionne dans les deux fenêtres indépendamment
+
+---
+
+## Vérification de mise à jour
+
+**Paramètres → Général → Vérifier les mises à jour** interroge l'API GitHub Releases et affiche si une nouvelle version est disponible, avec un lien direct vers la page de téléchargement. Aucun téléchargement automatique — l'installation reste manuelle.
+
+---
+
 ## Paramètres
 
 Accessible via **⚙️ → Paramètres** — 6 sections :
 
 | Section | Contenu |
 |---------|---------|
-| **Général** | Page d'accueil, nouveaux onglets, pause auto YouTube, moteur de recherche, dossier captures, apparence (thème), langue |
-| **Services** | Services connectés (9 pré-configurés + URL personnalisée) |
+| **Général** | Page d'accueil, nouveaux onglets, pause auto YouTube, moteur de recherche, dossier captures, apparence (thème), langue, **vérification de mise à jour** *(v0.7.0)* |
+| **Services** | Services connectés (11 pré-configurés + URL personnalisée) |
 | **Confidentialité** | Gestion des données locales |
 | **OBS** | Activation serveur local, port, URL du dock, token |
 | **Raccourcis clavier** | Tableau complet des raccourcis — Windows/Linux vs macOS |
@@ -556,6 +573,7 @@ Supprimez `%APPDATA%\DualView\` pour effacer toutes les données locales.
 
 | Version | Résumé |
 |---------|--------|
+| 0.7.0 | Récupération crash webview (render-process-gone, overlay inline, auto-reload 10s) ; lecteur PDF natif (`plugins="true"`) ; vérification de mise à jour (API GitHub, bouton Paramètres → Général) ; corrections : GitHub/GitLab dans Services connectés, `detectServiceKeyFromUrl()`, `MaxListenersExceededWarning` → 200, `ERR_ABORTED` filtrés, `#dev-btn` résiduel supprimé ; raccourcis clavier redessinés (cartes + `<kbd>` stylés) |
 | 0.6.2 | **Sécurité** : clés d'accès (WebAuthn — Windows Hello, Touch ID, FIDO2) désactivées dans la fenêtre d'authentification des services connectés ; email/mot de passe uniquement |
 | 0.6.1 | Fixes : drag & drop hors groupe (zone de repli), onglets épinglés persistés entre sessions, groupe orphelin lors d'un déplacement inter-groupes, console silencieuse pour les favicons (fetch déporté au main process) |
 | 0.6.0 | Groupes d'onglets, onglets épinglés, rouvrir l'onglet fermé, favicons réels, menu contextuel natif |

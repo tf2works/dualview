@@ -1,6 +1,6 @@
 /*
  * DualView - Traductions interface portrait
- * Version: 0.4.4
+ * Version: 0.7.0
  *
  * Portrait n'a pas de panneau de paramètres propre ; les traductions
  * sont appliquées par applyPortraitTranslations() appelée depuis
@@ -45,6 +45,10 @@ const PORTRAIT_I18N = {
         adSub:            'Une publicité est diffusée\ndans la fenêtre paysage.',
         // Top domaines (v0.5.0)
         topSitesTitle:    'Sites fréquents',
+        // Overlay crash (v0.7.0)
+        crashTitle:       'Cette page a planté',
+        crashSub:         'Reconnexion automatique dans quelques secondes…',
+        crashReload:      '🔄 Recharger maintenant',
     },
     en: {
         syncActive:  '● Sync active',
@@ -67,6 +71,10 @@ const PORTRAIT_I18N = {
         adSub:            'An ad is playing\nin the landscape window.',
         // Top domaines (v0.5.0)
         topSitesTitle:    'Frequently visited',
+        // Overlay crash (v0.7.0)
+        crashTitle:       'This page has crashed',
+        crashSub:         'Automatically reconnecting in a few seconds…',
+        crashReload:      '🔄 Reload now',
     }
 };
 

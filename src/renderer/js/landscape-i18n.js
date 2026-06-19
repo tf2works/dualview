@@ -1,6 +1,6 @@
 /*
  * DualView - Traductions interface paysage
- * Version: 0.5.1
+ * Version: 0.7.0
  *
  * Ajouter une langue :
  *   1. Dupliquer le bloc 'en' et lui donner un code ISO (ex. 'de')
@@ -159,6 +159,21 @@ const I18N = {
         historyLimit5000: '5 000 dernières',
         historyLimitAll:  'Tout exporter',
         restartImportDesc: "Apparence ou langue modifiée. Redémarrer maintenant pour appliquer ?",
+        // v0.7.0
+        tabCrashedToast: '⚠️ Une page a planté — récupération en cours…',
+        tabCrashedTitle: 'Cette page a planté',
+        tabCrashedDesc: 'Reconnexion automatique dans quelques secondes…',
+        tabCrashedReload: '🔄 Recharger maintenant',
+        tabUnresponsiveToast: '⏳ Cette page ne répond plus…',
+        updateLabel: 'Mises à jour',
+        updateDesc: 'Vérifiez si une nouvelle version de DualView est disponible sur GitHub.',
+        updateCurrentVersion: 'Version actuelle :',
+        updateCheckBtn: 'Vérifier les mises à jour',
+        updateChecking: 'Vérification en cours…',
+        updateUpToDate: '✓ Vous utilisez déjà la dernière version.',
+        updateAvailable: '🆕 Nouvelle version disponible :',
+        updateDownloadBtn: 'Télécharger',
+        updateError: 'Impossible de vérifier les mises à jour (réseau ou dépôt non configuré).',
     },
     en: {
         syncActive: 'Sync active', syncPaused: 'Sync paused', syncStarting: 'Sync…',
@@ -306,6 +321,21 @@ const I18N = {
         historyLimit5000: 'Last 5,000',
         historyLimitAll:  'Export all',
         restartImportDesc: 'Appearance or language changed. Restart now to apply?',
+        // v0.7.0
+        tabCrashedToast: '⚠️ A page crashed — recovering…',
+        tabCrashedTitle: 'This page has crashed',
+        tabCrashedDesc: 'Automatically reconnecting in a few seconds…',
+        tabCrashedReload: '🔄 Reload now',
+        tabUnresponsiveToast: '⏳ This page is not responding…',
+        updateLabel: 'Updates',
+        updateDesc: 'Check whether a new version of DualView is available on GitHub.',
+        updateCurrentVersion: 'Current version:',
+        updateCheckBtn: 'Check for updates',
+        updateChecking: 'Checking…',
+        updateUpToDate: '✓ You are already on the latest version.',
+        updateAvailable: '🆕 New version available:',
+        updateDownloadBtn: 'Download',
+        updateError: 'Unable to check for updates (network or repository not configured).',
     }
 };
 let currentLang = 'fr';

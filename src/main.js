@@ -1,6 +1,12 @@
 /**
  * DualView - Main Process
- * Version: 0.6.1
+ * Version: 0.7.0
+ *
+ * Changements v0.7.0 :
+ * - Vérification de mise à jour : fetchLatestReleaseTag()/isNewerVersion()
+ *   + handlers IPC 'check-for-update' et 'open-external-url' (option
+ *   minimale TODO.md priorité 0 — pas d'auto-updater, pas de dépendance npm
+ *   supplémentaire). Nécessite GITHUB_REPO configuré dans core/config-manager.js.
  *
  * Changements v0.6.1 :
  * - Favicons : nouveau helper fetchFaviconAsDataUrl() + handler IPC
@@ -44,7 +50,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, ipcMain, nativeTheme, screen, session, dialog, net } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, screen, session, dialog, net, shell } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 
@@ -62,7 +68,7 @@ const {
 } = require('./core/auth-window');
 
 const {
-    KNACK3_URL, SETTINGS_DEFAULTS, PORTRAIT_PRESETS, DEFAULTS,
+    KNACK3_URL, GITHUB_REPO, SETTINGS_DEFAULTS, PORTRAIT_PRESETS, DEFAULTS,
     configGet, configSet,
 } = require('./core/config-manager');
 
@@ -72,6 +78,19 @@ const { buildAndShowContextMenu }   = require('./core/context-menu');
 
 // ── Logger (v0.5.4 : toujours actif, plus de --dev) ──────────────────────────
 logger.init();
+
+// ── Filtre des rejections non capturées bénignes (v0.7.0) ─────────────────────
+// ERR_ABORTED (-3) sur GUEST_VIEW_MANAGER_CALL : Electron logge ce type de
+// rejet quand la navigation d'une webview est interrompue (restauration
+// simultanée de plusieurs onglets au démarrage, redirection avant que le DOM
+// soit prêt, etc.). Ce n'est pas un crash — les webviews se rechargent
+// normalement ensuite. Sans ce filtre, Electron affiche une ligne d'erreur
+// verbeuse dans la console pour chaque onglet restauré (parasitage du log).
+process.on('unhandledRejection', (reason) => {
+    if (reason && reason.code === 'ERR_ABORTED') return; // benign webview navigation abort
+    // Pour toute autre rejection non capturée, logger normalement.
+    logger.log('main', 'ERROR', ['unhandledRejection', String(reason)]);
+});
 
 // ── Historique de navigation (v0.4.0) ─────────────────────────────────────────
 // app.getPath est disponible avant app.whenReady() sur Electron moderne.
@@ -221,6 +240,92 @@ function fetchFaviconAsDataUrl(candidateUrl) {
         request.on('error', () => { clearTimeout(timer); finish(null); });
         request.end();
     });
+}
+
+// ── Vérification de mise à jour (v0.7.0) ──────────────────────────────────────
+// Option minimale priorité 0 (TODO.md) : pas d'electron-updater, pas de
+// dépendance npm supplémentaire — une requête anonyme vers l'API GitHub
+// Releases (net.request, même mécanisme que fetchFaviconAsDataUrl ci-dessus),
+// déclenchée uniquement à la demande de l'utilisateur (bouton Paramètres →
+// Général). Le téléchargement et l'installation restent manuels.
+const UPDATE_CHECK_TIMEOUT_MS = 8000;
+const UPDATE_CHECK_MAX_BYTES  = 512 * 1024; // 512 Ko, largement suffisant pour le JSON d'une release
+
+/**
+ * Interroge l'API GitHub Releases et retourne { tag, url } de la dernière
+ * release publiée. Rejette en cas d'erreur réseau, timeout, dépôt non
+ * configuré/introuvable (404) ou réponse invalide.
+ */
+function fetchLatestReleaseTag() {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const done = (fn, arg) => { if (settled) return; settled = true; fn(arg); };
+
+        let request;
+        try {
+            request = net.request({
+                method: 'GET',
+                url: `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
+            });
+        } catch (e) { done(reject, e); return; }
+        request.setHeader('User-Agent', 'DualView-UpdateChecker');
+        request.setHeader('Accept', 'application/vnd.github+json');
+
+        const timer = setTimeout(() => {
+            try { request.abort(); } catch { /* ignoré */ }
+            done(reject, new Error('timeout'));
+        }, UPDATE_CHECK_TIMEOUT_MS);
+
+        request.on('response', (response) => {
+            if (response.statusCode < 200 || response.statusCode >= 300) {
+                clearTimeout(timer);
+                try { request.abort(); } catch { /* ignoré */ }
+                done(reject, new Error('http ' + response.statusCode));
+                return;
+            }
+            const chunks = [];
+            let total = 0;
+            response.on('data', (chunk) => {
+                if (settled) return;
+                total += chunk.length;
+                if (total > UPDATE_CHECK_MAX_BYTES) {
+                    clearTimeout(timer);
+                    try { request.abort(); } catch { /* ignoré */ }
+                    done(reject, new Error('payload too large'));
+                    return;
+                }
+                chunks.push(chunk);
+            });
+            response.on('end', () => {
+                clearTimeout(timer);
+                if (settled) return;
+                try {
+                    const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+                    const tag = data && data.tag_name ? String(data.tag_name).replace(/^v/i, '') : null;
+                    if (!tag) { done(reject, new Error('no tag_name')); return; }
+                    done(resolve, { tag, url: data.html_url || `https://github.com/${GITHUB_REPO}/releases/latest` });
+                } catch (e) { done(reject, e); }
+            });
+            response.on('error', (e) => { clearTimeout(timer); done(reject, e); });
+        });
+        request.on('error', (e) => { clearTimeout(timer); done(reject, e); });
+        request.end();
+    });
+}
+
+/**
+ * Compare deux versions "x.y.z" (sans préfixe v, segments manquants = 0).
+ * Retourne true si `latest` est strictement supérieure à `current`.
+ */
+function isNewerVersion(latest, current) {
+    const a = String(latest).split('.').map(n => parseInt(n, 10) || 0);
+    const b = String(current).split('.').map(n => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const x = a[i] || 0, y = b[i] || 0;
+        if (x > y) return true;
+        if (x < y) return false;
+    }
+    return false;
 }
 
 // ── État global ───────────────────────────────────────────────────────────────
@@ -409,7 +514,12 @@ function createLandscapeWindow() {
     });
 
     landscapeWin.loadFile(path.join(__dirname, 'renderer', 'landscape.html'));
-    landscapeWin.webContents.setMaxListeners(50);
+    // v0.7.0 : augmenté de 50 → 200.
+    // Chaque webview attachée fait consommer 1-2 listeners internes Electron sur
+    // ce WebContents (did-stop-loading, navigation-entry-committed…). Avec de
+    // nombreux onglets restaurés simultanément, la limite de 50 était dépassée
+    // (avertissement MaxListenersExceededWarning dans la console).
+    landscapeWin.webContents.setMaxListeners(200);
 
     landscapeWin.once('ready-to-show', () => {
         landscapeWin.show();
@@ -433,8 +543,8 @@ function createLandscapeWindow() {
 
     // ── Interception ouvertures de fenêtre + menu contextuel (v0.4.1) ────────
     landscapeWin.webContents.on('did-attach-webview', (_event, wvContents) => {
-        // Éviter MaxListenersExceededWarning sur les webviews du pool (v0.4.7)
-        wvContents.setMaxListeners(50);
+        // v0.7.0 : 50 → 200 (même raison que landscapeWin.webContents ci-dessus)
+        wvContents.setMaxListeners(200);
 
         wvContents.setWindowOpenHandler(({ url }) => {
             if (!url || url === 'about:blank') return { action: 'deny' };
@@ -486,11 +596,11 @@ function createPortraitWindow() {
     });
 
     portraitWin.loadFile(path.join(__dirname, 'renderer', 'portrait.html'));
-    portraitWin.webContents.setMaxListeners(50);
+    portraitWin.webContents.setMaxListeners(200);
 
     // ── Éviter MaxListenersExceededWarning sur les webviews du portrait (v0.5.1) ─
     portraitWin.webContents.on('did-attach-webview', (_event, wvContents) => {
-        wvContents.setMaxListeners(50);
+        wvContents.setMaxListeners(200);
     });
 
     portraitWin.once('ready-to-show', () => {
@@ -784,6 +894,31 @@ ipcMain.handle('get-theme',       () => getTheme());
 ipcMain.handle('get-version',     () => app.getVersion());
 ipcMain.handle('get-homepage-url',() => getHomepageUrl());
 ipcMain.handle('get-sync-state',  () => syncState);
+
+// v0.7.0 : vérification de mise à jour — voir fetchLatestReleaseTag() ci-dessus.
+// Ne lève jamais : toute erreur (réseau, dépôt non configuré, etc.) est
+// renvoyée sous la forme { error: true } pour un affichage gracieux côté UI.
+ipcMain.handle('check-for-update', async () => {
+    const current = app.getVersion();
+    try {
+        const { tag, url } = await fetchLatestReleaseTag();
+        return { error: false, current, latest: tag, updateAvailable: isNewerVersion(tag, current), url };
+    } catch {
+        return { error: true, current, latest: null, updateAvailable: false, url: null };
+    }
+});
+
+// Ouvre un lien externe (ex. page de téléchargement de la release) dans le
+// navigateur par défaut de l'OS. Restreint à http(s) — jamais file:// ou un
+// schéma personnalisé pouvant invoquer une autre application sans contrôle.
+ipcMain.handle('open-external-url', (event, url) => {
+    try {
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+        shell.openExternal(url);
+        return true;
+    } catch { return false; }
+});
 
 // v0.6.1 : favicons — voir fetchFaviconAsDataUrl() ci-dessus. Échec → null,
 // silencieusement (jamais de console.error pour un 404 ordinaire).

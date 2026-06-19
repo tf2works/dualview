@@ -7,6 +7,92 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.7.0] — 2026
+
+### Ajouté
+
+- **Vérification de mise à jour** (`main.js`, `config-manager.js`, `preload-landscape.js`, `landscape.html`, `landscape-settings.js`, `landscape-i18n.js`)
+  - Bouton **"Vérifier les mises à jour"** dans **Paramètres → Général** (option minimale — pas d'electron-updater, zéro dépendance npm supplémentaire)
+  - `fetchLatestReleaseTag()` : requête anonyme vers l'API GitHub Releases (`net.request`, timeout 8 s, limite 512 Ko) — même mécanisme que la récupération des favicons
+  - `isNewerVersion()` : comparaison sémantique `x.y.z`
+  - Handler IPC `check-for-update` + `open-external-url` (shell.openExternal, restreint à `http:`/`https:`)
+  - Constante `GITHUB_REPO` dans `config-manager.js` (à renseigner avant publication — placeholder `'CHANGEME/dualview'`)
+  - Affichage inline : version actuelle, état (à jour / mise à jour disponible / erreur réseau), bouton lien direct vers la release
+  - i18n FR/EN complète (8 nouvelles clés : `updateLabel`, `updateDesc`, `updateCurrentVersion`, `updateCheckBtn`, `updateChecking`, `updateUpToDate`, `updateAvailable`, `updateDownloadBtn`, `updateError`)
+
+- **Récupération après crash webview** (`landscape-views.js`, `portrait-app.js`, `landscape.html`, `portrait.html`, `landscape.css`, `portrait.css`, `landscape-i18n.js`, `portrait-i18n.js`)
+  - Handler `render-process-gone` sur chaque webview dans les deux fenêtres
+    - Filtre `clean-exit` : fermeture normale via `destroyWebview()` ignorée (pas un crash)
+    - Toast discret à l'utilisateur (`tabCrashedToast`)
+  - Handler `unresponsive` : toast `tabUnresponsiveToast` si la page bloque le thread (la webview n'est pas détruite)
+  - Page de récupération inline `#crash-recovery` (paysage) / `#crash-overlay` (portrait) :
+    - Titre, sous-titre, bouton **"🔄 Recharger maintenant"**
+    - Auto-reload après **10 secondes** d'inactivité
+    - Bouton manuel pour recharger immédiatement
+  - `recoverCrashedTab()` : détruit l'élément `<webview>` mort et en recrée un propre sur la même URL
+    - `skipIpc:true` dans la récupération — pas de cycle `tab-closed`/`tab-created` vers la fenêtre portrait (dont la webview n'a pas planté)
+  - `crashedTabs` (Set) : état par onglet — navigation vers un onglet planté ré-affiche la page de récupération
+  - `portraitTabUrls` (Map, portrait) : URL la plus récente connue par onglet — mise à jour sur `load-url`, `did-navigate`, `did-navigate-in-page` — permet la reconstruction fidèle même si l'utilisateur avait navigué après le chargement initial
+  - i18n FR/EN (3 nouvelles clés : `tabCrashedTitle`, `tabCrashedDesc`, `tabCrashedReload`/`crashTitle`, `crashSub`, `crashReload`)
+
+- **Lecteur PDF natif Chromium** (`landscape-views.js`, `portrait-app.js`)
+  - Attribut `plugins="true"` ajouté à chaque `<webview>` créée dans les deux fenêtres
+  - Active le lecteur PDF intégré à Chromium : navigation vers un `.pdf` affiche le document au lieu de déclencher `will-download` → toast "téléchargement bloqué"
+
+### Corrigé
+
+- **GitHub et GitLab invisibles dans Paramètres → Services connectés** (`landscape-settings.js`)
+  - `SERVICE_ICONS` et `SERVICE_LABELS` ne contenaient pas `github`/`gitlab`, malgré leur présence dans `KNOWN_SERVICES` (`auth-window.js`) depuis v0.4.7
+  - Conséquence : aucune tuile affichée pour ces deux services — impossible de s'y connecter depuis le panneau Services
+  - Ajout de `github: '🐙'` / `gitlab: '🦊'` dans les deux tables (11 services désormais)
+
+- **`detectServiceKeyFromUrl()` non à jour pour GitHub/GitLab** (`url-guard.js`)
+  - Ajout des cas `github.com` → `'github'` et `gitlab.com` → `'gitlab'`
+  - Corrige le bouton "Se connecter (GitHub/GitLab)" absent du popup de détection de page de connexion
+
+- **`MaxListenersExceededWarning` (51 listeners `did-stop-loading`)** (`main.js`)
+  - `setMaxListeners(50)` trop bas sur `landscapeWin.webContents`, `portraitWin.webContents` et chaque `wvContents` : Electron attache ses propres listeners internes par webview attachée
+  - Porté à **200** sur les trois objets
+
+- **`ERR_ABORTED (-3)` sur `GUEST_VIEW_MANAGER_CALL`** (`main.js`)
+  - Rejection non capturée pendant la restauration simultanée d'onglets au démarrage
+  - `process.on('unhandledRejection')` filtre silencieusement les rejections `code === 'ERR_ABORTED'` (benign) tout en continuant à logger les vraies erreurs
+
+- **Bouton résiduel `#dev-btn`** (`landscape.html`, `landscape.css`)
+  - Markup `<button id="dev-btn">🔧 DEV</button>` (mode `--dev` supprimé en v0.5.4) retiré de `landscape.html`
+  - Règles CSS `#dev-btn` et `body.dev-mode #dev-btn` supprimées de `landscape.css`
+
+- **`landscape-app.js` orphelin** (`landscape-webview.js`)
+  - Commentaire d'en-tête de `landscape-webview.js` référençait `landscape-app.js` (fichier pré-refactoring v0.4.4, jamais livré dans la structure `src/`), corrigé en `landscape-views.js`
+
+### Modifié
+
+- **Section Raccourcis clavier — redesign visuel** (`landscape.html`, `landscape.css`)
+  - Remplacement des trois tableaux HTML bruts par trois **cartes** (Navigation / Onglets / Interface)
+  - Badges plateformes 🪟 Win/Linux et 🍎 macOS dans l'intro
+  - Touches `<kbd>` stylées : fond, bordure basse `1.5px`, police monospace, ombre légère
+  - Séparateurs `+` / `ou` distincts visuellement du texte des touches
+  - Bloc souris avec icône, adapté aux thèmes clair et sombre via variables CSS
+
+- `src/core/config-manager.js` — constante `GITHUB_REPO` ajoutée et exportée
+- `src/core/url-guard.js` — `detectServiceKeyFromUrl()` : github.com et gitlab.com
+- `src/main.js` — `shell` importé depuis Electron ; `fetchLatestReleaseTag()`, `isNewerVersion()`, handlers `check-for-update` / `open-external-url` ; `process.on('unhandledRejection')` ; `setMaxListeners(200)` ; note de version v0.7.0
+- `src/preload/preload-landscape.js` — `checkForUpdate()`, `openExternalUrl()` ajoutés
+- `src/renderer/landscape.html` — `#crash-recovery` overlay ; bouton mise à jour (`#s-update-check-btn`, `#s-update-current`) ; raccourcis refactorisés en cartes ; `#dev-btn` supprimé
+- `src/renderer/portrait.html` — `#crash-overlay` ajouté
+- `src/renderer/css/landscape.css` — `#crash-recovery`, cartes `.sc-*` raccourcis, `#dev-btn` supprimé
+- `src/renderer/css/portrait.css` — `#crash-overlay`
+- `src/renderer/js/landscape-views.js` — `plugins="true"` ; module crash (render-process-gone, unresponsive, showCrashRecovery, recoverCrashedTab, crashedTabs, crashRecoveryOverlay) ; `createWebview`/`destroyWebview` acceptent `opts.skipIpc`
+- `src/renderer/js/portrait-app.js` — `plugins="true"` ; `portraitTabUrls` ; module crash portrait (crashedTabs, crashOverlay, recoverCrashedTab) ; `did-navigate`/`did-navigate-in-page` mettent à jour `portraitTabUrls`
+- `src/renderer/js/landscape-settings.js` — `SERVICE_ICONS`/`SERVICE_LABELS` + github/gitlab ; `loadUpdateInfo()` ; listener bouton `#s-update-check-btn`
+- `src/renderer/js/landscape-i18n.js` — 9 nouvelles clés FR/EN (crash webview + mise à jour)
+- `src/renderer/js/portrait-i18n.js` — 3 nouvelles clés FR/EN (crash overlay)
+- `src/renderer/js/landscape-webview.js` — commentaire d'en-tête corrigé (landscape-app.js → landscape-views.js)
+- `CONTRIBUTING.md` — mode `--dev` retiré ; arborescence `preload-dev.js` supprimée
+- `package.json` — version 0.6.2 → 0.7.0
+
+---
+
 ## [0.6.2] — 2026
 
 ### Sécurité

@@ -17,6 +17,13 @@ const fs   = require('fs');
 
 const KNACK3_URL = 'https://marketplace.atlassian.com/vendors/920480808/';
 
+// Dépôt GitHub (org/repo) utilisé par la vérification de mise à jour
+// (API REST /repos/{GITHUB_REPO}/releases/latest, voir main.js). 
+// ⚠️ À renseigner par les mainteneurs avant toute publication de release :
+// tant que ce placeholder n'est pas remplacé, "Vérifier les mises à jour"
+// échoue silencieusement (dépôt introuvable) sans casser l'application.
+const GITHUB_REPO = 'CHANGEME/dualview';
+
 const SETTINGS_DEFAULTS = {
     restoreTabs:        true,
     homepageMode:       'knack3',
@@ -127,6 +134,7 @@ function getConfig() { return _config; }
 
 module.exports = {
     KNACK3_URL,
+    GITHUB_REPO,
     SETTINGS_DEFAULTS,
     PORTRAIT_PRESETS,
     DEFAULTS,

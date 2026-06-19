@@ -1,10 +1,15 @@
 /*
  * DualView - Pool de webviews + popup login
- * Version: 0.4.4
+ * Version: 0.7.0
  *
  * Création/destruction/affichage des webviews (une par onglet),
  * injection des scripts (watcher, scroll, auto-pause, cosmétique),
  * détection des pages de connexion et popup associé.
+ *
+ * v0.7.0 : attribut plugins="true" (lecteur PDF natif Chromium) ; récupération
+ *   après crash webview (render-process-gone/unresponsive, page de
+ *   récupération #crash-recovery, reconstruction automatique après 10 s ou
+ *   bouton manuel — voir showCrashRecovery/recoverCrashedTab).
  *
  * Dépendances : landscape-i18n.js, landscape-ui.js (webviewPool,
  *               activeTabId, showToast, updateNavButtons, …),
@@ -14,12 +19,20 @@
  */
 
 // ── Pool de webviews ───────────────────────────────────────────────────────────
-function createWebview(tabId, url) {
+// opts.skipIpc (v0.7.0) : utilisé uniquement par la récupération de crash —
+// remplace l'élément <webview> dont le processus de rendu est mort sans
+// déclencher tab-closed/tab-created vers main.js, qui relaierait inutilement
+// vers la fenêtre portrait (dont la webview, elle, n'a pas planté).
+function createWebview(tabId, url, opts) {
     if (webviewPool.has(tabId)) return webviewPool.get(tabId);
     const wv = document.createElement('webview');
     wv.setAttribute('partition', 'persist:dualview');
     wv.setAttribute('useragent', UA_DESKTOP);
     wv.setAttribute('allowpopups', '');
+    // v0.7.0 : active le lecteur PDF natif de Chromium — sans cet attribut,
+    // toute navigation vers un .pdf déclenche will-download (→ toast
+    // "téléchargement bloqué") au lieu d'afficher le document.
+    wv.setAttribute('plugins', 'true');
     wv.className = 'wv-landscape';
     wv.dataset.tabId = tabId;
     // Attacher les listeners AVANT appendChild puis assigner src APRÈS
@@ -29,20 +42,37 @@ function createWebview(tabId, url) {
     // src après DOM attachment — sinon Electron lève ERR_ABORTED
     wv.src = url || 'about:blank';
     webviewPool.set(tabId, wv);
-    window.dualview.createTab(tabId, url || '');
+    if (!opts || !opts.skipIpc) window.dualview.createTab(tabId, url || '');
     return wv;
 }
 
-function destroyWebview(tabId) {
+function destroyWebview(tabId, opts) {
     const wv = webviewPool.get(tabId);
     if (!wv) return;
     try { wv.stop(); } catch (_) { }
     wv.remove();
     webviewPool.delete(tabId);
-    window.dualview.closeTab(tabId);
+    if (!opts || !opts.skipIpc) window.dualview.closeTab(tabId);
+    // v0.7.0 — un onglet fermé alors qu'il était en récupération de crash
+    // ne doit pas déclencher recoverCrashedTab() plus tard (timer en vol).
+    crashedTabs.delete(tabId);
+    if (crashRecoveryOverlay.dataset.tabId === tabId) {
+        clearTimeout(crashRecoveryTimer);
+        crashRecoveryOverlay.classList.remove('show');
+    }
 }
 
 function showWebview(tabId) {
+    // v0.7.0 — onglet en état planté : afficher la page de récupération
+    // plutôt qu'une webview (détruite) ou un empty-state trompeur.
+    if (crashedTabs.has(tabId)) {
+        webviewPool.forEach((wv) => wv.classList.remove('active'));
+        emptyState.classList.add('hidden');
+        showCrashRecovery(tabId);
+        return;
+    }
+    crashRecoveryOverlay.classList.remove('show');
+    clearTimeout(crashRecoveryTimer);
     webviewPool.forEach((wv, id) => {
         const active = id === tabId;
         wv.classList.toggle('active', active);
@@ -62,7 +92,65 @@ function showWebview(tabId) {
 
 function getActiveWebview() { return webviewPool.get(activeTabId) || null; }
 
+// ── Récupération après crash webview (v0.7.0) ─────────────────────────────────
+// TODO.md priorité 0 : si le processus de rendu d'une webview plante (page
+// JS trop lourde, fuite mémoire, etc.), l'onglet restait figé sans aucun
+// feedback ni mécanisme de récupération — critique pour un outil utilisé en
+// direct (OBS). Chaque webview dont le processus meurt est marquée
+// "crashed" ; l'ancien <webview> (process mort, état non garanti) est
+// détruit et un nouveau est recréé sur la même URL, automatiquement après
+// 10 s d'inactivité ou immédiatement via le bouton manuel.
+const crashRecoveryOverlay = document.getElementById('crash-recovery');
+const crashRecoveryReloadBtn = document.getElementById('crash-recovery-reload');
+const crashedTabs = new Set();
+let crashRecoveryTimer = null;
+
+function showCrashRecovery(tabId) {
+    crashRecoveryOverlay.dataset.tabId = tabId;
+    crashRecoveryOverlay.classList.add('show');
+    clearTimeout(crashRecoveryTimer);
+    crashRecoveryTimer = setTimeout(() => recoverCrashedTab(tabId), 10000);
+}
+
+function recoverCrashedTab(tabId) {
+    clearTimeout(crashRecoveryTimer);
+    crashedTabs.delete(tabId);
+    crashRecoveryOverlay.classList.remove('show');
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) return; // l'onglet a été fermé pendant la récupération
+    const url = tab.url || '';
+    // Le processus de rendu précédent est mort : on ne réutilise pas le même
+    // élément <webview>, on en recrée un propre sur la même URL. skipIpc:true
+    // car ce n'est pas une fermeture/réouverture logique d'onglet — la
+    // fenêtre portrait (dont la webview n'a pas planté) n'a pas à recharger.
+    destroyWebview(tabId, { skipIpc: true });
+    createWebview(tabId, url, { skipIpc: true });
+    if (tabId === activeTabId) showWebview(tabId);
+}
+
+crashRecoveryReloadBtn.addEventListener('click', () => {
+    const tabId = crashRecoveryOverlay.dataset.tabId;
+    if (tabId) recoverCrashedTab(tabId);
+});
+
 function attachWebviewListeners(wv, tabId) {
+    // render-process-gone : le processus de rendu de cette webview est mort
+    // (crash, kill OOM, etc.). 'clean-exit' correspond à une fermeture normale
+    // (ex. wv.stop()/remove() dans destroyWebview) — ce n'est pas un crash.
+    wv.addEventListener('render-process-gone', (e) => {
+        if (e && e.reason === 'clean-exit') return;
+        if (crashedTabs.has(tabId)) return;
+        crashedTabs.add(tabId);
+        showToast(t('tabCrashedToast'), 5000);
+        if (tabId === activeTabId) showCrashRecovery(tabId);
+    });
+    // unresponsive/responsive : la page bloque le thread principal (boucle
+    // infinie, calcul trop lourd). Electron détecte ce hang nativement —
+    // on se contente de prévenir l'utilisateur, la page n'est pas détruite.
+    wv.addEventListener('unresponsive', () => {
+        if (tabId === activeTabId) showToast(t('tabUnresponsiveToast'), 4000);
+    });
+
     wv.addEventListener('dom-ready', () => {
         // resetWatcherFlags remet __dualviewAutoPauseDone=false → injectAutoPause
         // peut s'exécuter immédiatement (flag propre).
