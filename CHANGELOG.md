@@ -7,6 +7,62 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.7.1] — 2026
+
+### Ajouté
+
+- **Indicateur de chargement** (`landscape-views.js`, `landscape.html`, `landscape.css`)
+  - Barre de progression linéaire **3 px** en haut de la zone webview (`#load-progress-bar`)
+  - Progression simulée par asymptote jusqu'à 88 % ; saut à 100 % à `did-stop-loading`
+  - Theme-aware : couleur `--accent` (bleu clair/foncé selon le thème)
+  - Fade-out automatique 0.5 s à la fin — aucune action utilisateur requise
+  - Actif uniquement sur la webview de l'onglet courant (onglets en arrière-plan ignorés)
+
+- **Recherche dans la page — Ctrl+F** (`landscape-views.js`, `landscape.html`, `landscape.css`, `landscape-settings.js`, `landscape-i18n.js`)
+  - Barre de recherche inline positionnée en haut à droite de la zone webview (`#find-bar`)
+  - Compteur **"X de Y"** mis à jour en temps réel via l'événement `found-in-page`
+  - Navigation : boutons ↑↓ ou `Enter` (suivant) / `Shift+Enter` (précédent)
+  - Fermeture : bouton ✕ ou `Escape` — sélection effacée (`stopFindInPage('clearSelection')`)
+  - Raccourci clavier `Ctrl+F` / `⌘+F` enregistré dans la section **Raccourcis clavier** (Paramètres)
+  - Désactivé sur l'onglet Paramètres (onglet `__settings__`)
+
+- **Zoom de page — Ctrl+/Ctrl−/Ctrl+0** (`landscape-views.js`, `landscape-settings.js`, `landscape-i18n.js`)
+  - Ajustement du zoom par paliers de 5 % (`Math.round(factor * 20) / 20`)
+  - Plage : 25 % → 500 %
+  - Persistance **par domaine** via `localStorage` (clé `dv_zoom_<hostname>`)
+  - Restauration automatique à chaque `did-navigate` et `did-navigate-in-page`
+  - Toast temporaire (1,5 s) indiquant le niveau actuel (ex. `"Zoom : 110%"`) ou `"Zoom réinitialisé (100%)"` pour `Ctrl+0`
+  - Raccourcis documentés dans Paramètres → Raccourcis clavier
+
+- **Affichage PDF natif — documentation** (`README.md`, `CHANGELOG.md`)
+  - Infrastructure déjà en place depuis v0.7.0 : attribut `plugins="true"` sur toutes les webviews
+  - PDF affichés directement via le lecteur Chromium intégré, sans téléchargement
+
+- **Téléchargements configurables** (`session-security.js`, `main.js`, `config-manager.js`, `preload-landscape.js`, `landscape.html`, `landscape.css`, `landscape-settings.js`, `landscape-i18n.js`)
+  - Nouveau setting `allowDownloads` (défaut : `false` — comportement sécurisé inchangé)
+  - Nouveau setting `downloadDir` (défaut : `''` = dossier Téléchargements de l'OS)
+  - `session-security.js` : handler `will-download` étendu — quand activé, sauvegarde automatique dans `downloadDir` avec gestion des collisions de nom et tracking IPC
+  - `main.js` : liste en mémoire `_downloads` (max 100 entrées) + 5 handlers IPC :
+    - `get-downloads`, `clear-downloads`, `open-download-folder`, `open-download-file`, `choose-download-dir`
+  - **Panneau téléchargements** (`#downloads-panel`) dans le menu ⚙️ :
+    - Liste des téléchargements de la session avec état (✅ terminé / ❌ interrompu / ⬇️ en cours)
+    - Barre de progression live pour les téléchargements en cours
+    - Boutons 📂 (ouvrir fichier) et 📁 (ouvrir dossier) par entrée
+    - Bouton "Effacer la liste" (vide la liste en mémoire)
+  - **Paramètres → Confidentialité** remplacé : le bloc statique "Téléchargements : Bloqué" devient une case à cocher interactive + sélection du dossier de destination
+  - Toast de notification à la fin de chaque téléchargement (succès ou échec)
+  - i18n FR/EN complète (28 nouvelles clés)
+
+### Modifié
+
+- **`session-security.js`** : signature de `setupSessionSecurity()` étendue avec 4 callbacks optionnels (`getAllowDownloads`, `getDownloadDir`, `onDownloadStarted`, `onDownloadUpdated`, `onDownloadDone`) — rétro-compatible (aucun appel existant cassé)
+- **`config-manager.js`** : ajout de `allowDownloads: false` et `downloadDir: ''` dans `SETTINGS_DEFAULTS`
+- **`main.js`** : `save-settings` valide désormais `allowDownloads` (boolean) et `downloadDir` (string)
+- **`preload-landscape.js`** : 5 nouvelles méthodes IPC exposées + canaux `download-started`, `download-updated`, `download-done` dans la whitelist
+- **`landscape.html`** : entrée **Téléchargements** ajoutée au menu ⚙️ ; section Confidentialité mise à jour
+
+---
+
 ## [0.7.0] — 2026
 
 ### Ajouté

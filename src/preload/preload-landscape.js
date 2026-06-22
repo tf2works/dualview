@@ -1,6 +1,11 @@
 /**
  * DualView - Preload Landscape Window
- * Version: 0.7.0
+ * Version: 0.7.1
+ *
+ * Changements v0.7.1 :
+ * - Téléchargements configurables : getDownloads, clearDownloads,
+ *   openDownloadFolder, openDownloadFile, chooseDownloadDir.
+ *   Canaux entrants : 'download-started', 'download-updated', 'download-done'.
  *
  * Changements v0.7.0 :
  * - checkForUpdate()/openExternalUrl() ajoutés — invoke 'check-for-update' /
@@ -138,6 +143,7 @@ contextBridge.exposeInMainWorld('dualview', {
     historyDeleteUrl: (url) => ipcRenderer.send('history-delete-url', { url }),
     historyClearAll: () => ipcRenderer.send('history-clear-all'),
     historyClearTab: (tabId) => ipcRenderer.send('history-clear-tab', { tabId }),
+    historyDeleteDomain: (domain) => ipcRenderer.invoke('history-delete-domain', { domain }),
 
     // ── Favoris (v0.4.7) ──────────────────────────────────────
     favoritesAdd:    (url, title) => ipcRenderer.invoke('favorites-add',    { url, title }),
@@ -150,6 +156,14 @@ contextBridge.exposeInMainWorld('dualview', {
     exportConfig:      (selection) => ipcRenderer.invoke('export-config',        { selection }),
     importConfigRead:  ()          => ipcRenderer.invoke('import-config-read'),
     importConfigApply: (payload)   => ipcRenderer.invoke('import-config-apply',  payload),
+
+    // ── Téléchargements configurables (v0.7.1) ────────────────
+    getDownloads:        ()         => ipcRenderer.invoke('get-downloads'),
+    clearDownloads:      ()         => ipcRenderer.invoke('clear-downloads'),
+    removeDownload:      (id)       => ipcRenderer.invoke('remove-download', id),
+    openDownloadFolder:  (filePath) => ipcRenderer.invoke('open-download-folder', filePath),
+    openDownloadFile:    (filePath) => ipcRenderer.invoke('open-download-file',   filePath),
+    chooseDownloadDir:   ()         => ipcRenderer.invoke('choose-download-dir'),
 
     // ── Listeners ──────────────────────────────────────────────
     on: (channel, callback) => {
@@ -165,6 +179,8 @@ contextBridge.exposeInMainWorld('dualview', {
             // v0.6.0 — menus contextuels onglets / groupes
             'tab-context-menu-action', 'group-context-menu-action',
             'group-rename-prompt',
+            // v0.7.1 — téléchargements configurables
+            'download-started', 'download-updated', 'download-done',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

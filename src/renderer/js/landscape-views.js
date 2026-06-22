@@ -1,22 +1,370 @@
 /*
  * DualView - Pool de webviews + popup login
- * Version: 0.7.0
+ * Version: 0.9.0
  *
  * Création/destruction/affichage des webviews (une par onglet),
  * injection des scripts (watcher, scroll, auto-pause, cosmétique),
  * détection des pages de connexion et popup associé.
  *
- * v0.7.0 : attribut plugins="true" (lecteur PDF natif Chromium) ; récupération
- *   après crash webview (render-process-gone/unresponsive, page de
- *   récupération #crash-recovery, reconstruction automatique après 10 s ou
- *   bouton manuel — voir showCrashRecovery/recoverCrashedTab).
+ * v0.9.0 : pile de navigation persistante. Chaque onglet maintient
+ *   navStack[] + navIndex en mémoire, synchronisés dans tabs[] pour
+ *   être persistés via saveTabs(). Après redémarrage, la pile native
+ *   Chromium est vide mais notre pile est restaurée → les boutons ←/→
+ *   restent fonctionnels (mode simulé = rechargement de l'URL précédente).
+ *   Dès qu'une navigation organique survient, on repasse en mode natif.
+ *   Les navHooks (définis dans landscape-ui.js) sont overridés ici pour
+ *   être sim-aware de façon non-destructive.
+ *
+ * v0.7.1 : indicateur de chargement (barre 3px) ; find-in-page (Ctrl+F) ;
+ *   zoom par domaine (Ctrl+/−/0) ; restauration zoom sur navigation ;
+ *   plugins="true" documenté (PDF natif v0.7.0).
+ *
+ * v0.7.0 : plugins="true" (lecteur PDF natif Chromium) ; récupération
+ *   après crash webview (render-process-gone/unresponsive).
  *
  * Dépendances : landscape-i18n.js, landscape-ui.js (webviewPool,
- *               activeTabId, showToast, updateNavButtons, …),
+ *               activeTabId, showToast, updateNavButtons, navHooks, …),
  *               landscape-webview.js (VIDEO_WATCHER_SCRIPT, SCROLL_INJECT,
  *               AUTO_PAUSE_SCRIPT, resetWatcherFlags, injectWatcher,
  *               injectAutoPause)
  */
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Pile de navigation persistante (v0.9.0)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const MAX_NAV_STACK = 50; // entrées max par onglet
+
+/**
+ * Map : tabId → { stack: string[], index: number }
+ * Miroir mémoire de tab.navStack / tab.navIndex (persistés dans saveTabs).
+ */
+const navStacks = new Map();
+
+/**
+ * Set des tabIds dont la prochaine did-navigate est une navigation simulée.
+ * Empêche _pushNavUrl d'ajouter l'URL à la pile (on est déjà dedans).
+ */
+const _simNavFlags = new Set();
+
+/**
+ * Set des tabIds actuellement en "mode simulé" (pile native vide après restart).
+ * En mode simulé : ← → utilisent notre pile au lieu de goBack/goForward natifs.
+ * Sortie du mode simulé : dès qu'une navigation organique (adresse, lien) arrive.
+ */
+const _simModeSet = new Set();
+
+/**
+ * Initialise la pile d'un onglet depuis les données restaurées (startup).
+ * Doit être appelé avant createWebview.
+ * @param {string} tabId
+ * @param {string[]} savedStack  — tab.navStack persisté (peut être undefined)
+ * @param {number}   savedIndex  — tab.navIndex persisté (peut être undefined)
+ */
+function initNavStack(tabId, savedStack, savedIndex) {
+    const stack = Array.isArray(savedStack) && savedStack.length > 0
+        ? savedStack.slice(-MAX_NAV_STACK)  // limiter au cas où l'ancienne version avait stocké plus
+        : [];
+    const maxIdx = stack.length - 1;
+    const index  = (typeof savedIndex === 'number' && savedIndex >= 0 && savedIndex <= maxIdx)
+        ? savedIndex : maxIdx;
+    navStacks.set(tabId, { stack, index });
+    // Activer le mode simulé si la pile a au moins 2 entrées
+    // (= il y a quelque chose en arrière ou en avant de l'URL courante)
+    if (stack.length > 1) {
+        _simModeSet.add(tabId);
+    }
+}
+
+/**
+ * Pousse une URL dans la pile de navigation d'un onglet (navigation organique).
+ * Tronque l'historique "forward" si l'utilisateur était dans le milieu de la pile.
+ * Synchronise automatiquement dans l'objet tab pour saveTabs().
+ */
+function _pushNavUrl(tabId, url) {
+    if (!url || url === 'about:blank') return;
+    if (!navStacks.has(tabId)) navStacks.set(tabId, { stack: [], index: -1 });
+    const ns = navStacks.get(tabId);
+
+    // Tronquer le "forward" si on navigue depuis le milieu
+    if (ns.index < ns.stack.length - 1) {
+        ns.stack = ns.stack.slice(0, ns.index + 1);
+    }
+    // Dédupliquer les URL consécutives identiques
+    if (ns.stack[ns.index] === url) return;
+
+    ns.stack.push(url);
+    ns.index = ns.stack.length - 1;
+
+    // Limiter la taille de la pile (FIFO sur les plus anciennes)
+    if (ns.stack.length > MAX_NAV_STACK) {
+        const excess = ns.stack.length - MAX_NAV_STACK;
+        ns.stack.splice(0, excess);
+        ns.index = Math.max(0, ns.index - excess);
+    }
+
+    // Synchroniser dans l'objet tab → sera persisté au prochain saveTabs()
+    const tab = typeof tabs !== 'undefined' ? tabs.find(t => t.id === tabId) : null;
+    if (tab) { tab.navStack = ns.stack.slice(); tab.navIndex = ns.index; }
+}
+
+/** Retourne true si on peut reculer dans la pile simulée. */
+function simCanGoBack(tabId) {
+    const ns = navStacks.get(tabId);
+    return !!(ns && ns.index > 0);
+}
+
+/** Retourne true si on peut avancer dans la pile simulée. */
+function simCanGoForward(tabId) {
+    const ns = navStacks.get(tabId);
+    return !!(ns && ns.stack && ns.index < ns.stack.length - 1);
+}
+
+/**
+ * Calcule canGoBack / canGoForward en tenant compte du mode simulé.
+ * Utilisé par navHooks.navState (overridé ci-dessous) et switchTab.
+ */
+function getNavState(wv, tabId) {
+    if (_simModeSet.has(tabId)) {
+        return { canGoBack: simCanGoBack(tabId), canGoForward: simCanGoForward(tabId) };
+    }
+    return {
+        canGoBack:    wv && wv.canGoBack    ? wv.canGoBack()    : false,
+        canGoForward: wv && wv.canGoForward ? wv.canGoForward() : false,
+    };
+}
+
+/**
+ * Exécute un goBack simulé : décrémente navIndex et charge l'URL précédente.
+ * @returns {boolean} true si la navigation a été lancée
+ */
+function simGoBack(wv, tabId) {
+    const ns = navStacks.get(tabId);
+    if (!ns || ns.index <= 0) return false;
+    ns.index--;
+    const url = ns.stack[ns.index];
+    // Synchroniser dans l'objet tab avant de naviguer
+    const tab = typeof tabs !== 'undefined' ? tabs.find(t => t.id === tabId) : null;
+    if (tab) { tab.navStack = ns.stack.slice(); tab.navIndex = ns.index; }
+    // Poser le flag AVANT de modifier wv.src pour que did-navigate le trouve
+    _simNavFlags.add(tabId);
+    wv.src = url;
+    return true;
+}
+
+/**
+ * Exécute un goForward simulé : incrémente navIndex et charge l'URL suivante.
+ * @returns {boolean} true si la navigation a été lancée
+ */
+function simGoForward(wv, tabId) {
+    const ns = navStacks.get(tabId);
+    if (!ns || ns.index >= ns.stack.length - 1) return false;
+    ns.index++;
+    const url = ns.stack[ns.index];
+    const tab = typeof tabs !== 'undefined' ? tabs.find(t => t.id === tabId) : null;
+    if (tab) { tab.navStack = ns.stack.slice(); tab.navIndex = ns.index; }
+    _simNavFlags.add(tabId);
+    wv.src = url;
+    return true;
+}
+
+// ── Override des navHooks (définis dans landscape-ui.js) ──────────────────────
+// landscape-views.js est chargé après landscape-ui.js → on peut remplacer
+// les implémentations par défaut sans toucher à landscape-ui.js.
+
+navHooks.goBack = (wv) => {
+    const id = activeTabId;
+    if (!_simModeSet.has(id) && wv && wv.canGoBack && wv.canGoBack()) {
+        wv.goBack();
+    } else if (!simGoBack(wv, id)) {
+        return; // rien à faire
+    }
+    // Mettre à jour les boutons après un court délai (did-navigate arrive async)
+    setTimeout(() => {
+        const state = getNavState(wv, id);
+        updateNavButtons(state);
+        window.dualview.notifyNavState(state);
+    }, 120);
+};
+
+navHooks.goForward = (wv) => {
+    const id = activeTabId;
+    if (!_simModeSet.has(id) && wv && wv.canGoForward && wv.canGoForward()) {
+        wv.goForward();
+    } else if (!simGoForward(wv, id)) {
+        return;
+    }
+    setTimeout(() => {
+        const state = getNavState(wv, id);
+        updateNavButtons(state);
+        window.dualview.notifyNavState(state);
+    }, 120);
+};
+
+navHooks.navState = (wv) => getNavState(wv, activeTabId);
+
+// ── Nettoyage à la fermeture d'un onglet ──────────────────────────────────────
+// closeTab() (landscape-tabs.js) appelle destroyWebview puis supprime l'onglet.
+// On nettoie les structures ici. closeTab est défini après ce fichier mais
+// _cleanupNavStack est appelé depuis destroyWebview (ou on patche closeTab).
+function _cleanupNavStack(tabId) {
+    navStacks.delete(tabId);
+    _simModeSet.delete(tabId);
+    _simNavFlags.delete(tabId);
+}
+
+// ── Barre de chargement (P5 — v0.7.1) ────────────────────────────────────────
+// Barre de progression linéaire 3px, theme-aware, fade-out 0.5s à la fin.
+// Simule une progression jusqu'à 90% (asynchronisme réel inconnu du renderer),
+// puis saute à 100% + fade-out quand did-stop-loading est reçu.
+const _loadBar = document.getElementById('load-progress-bar');
+let _loadBarTimer = null;
+let _loadBarPct   = 0;
+let _loadBarActive = false;  // vrai si une webview est en cours de chargement
+
+function _loadBarStart() {
+    if (_loadBarActive) return;          // déjà en cours (ex. ressources lentes)
+    _loadBarActive = true;
+    _loadBarPct = 5;
+    _loadBar.style.transition = 'width 0.2s ease';
+    _loadBar.style.width      = _loadBarPct + '%';
+    _loadBar.classList.add('loading');
+    _loadBar.classList.remove('done');
+    clearInterval(_loadBarTimer);
+    // Progression simulée : asymptote vers 90% (ralentit naturellement)
+    _loadBarTimer = setInterval(() => {
+        if (_loadBarPct < 88) {
+            _loadBarPct += (88 - _loadBarPct) * 0.08 + 0.5;
+            _loadBar.style.width = Math.min(_loadBarPct, 88) + '%';
+        }
+    }, 200);
+}
+
+function _loadBarFinish() {
+    if (!_loadBarActive) return;
+    _loadBarActive = false;
+    clearInterval(_loadBarTimer);
+    // Complétion instantanée à 100%
+    _loadBar.style.transition = 'width 0.1s ease';
+    _loadBar.style.width = '100%';
+    // Fade-out après 150ms
+    setTimeout(() => {
+        _loadBar.classList.add('done');
+        // Reset complet après la transition
+        setTimeout(() => {
+            _loadBar.classList.remove('loading', 'done');
+            _loadBar.style.width = '0%';
+            _loadBarPct = 0;
+        }, 550);
+    }, 150);
+}
+
+// ── Zoom par domaine (P5 — v0.7.1) ───────────────────────────────────────────
+// Persistance via localStorage (renderer) : clé 'dv_zoom_<hostname>'.
+// Fonctions exposées globalement pour landscape-settings.js (adjustZoom).
+
+function _getDomainZoom(url) {
+    try {
+        const host = new URL(url).hostname;
+        const stored = localStorage.getItem('dv_zoom_' + host);
+        return stored ? parseFloat(stored) : 1.0;
+    } catch { return 1.0; }
+}
+
+function _setDomainZoom(url, factor) {
+    try {
+        const host = new URL(url).hostname;
+        if (factor === 1.0) {
+            localStorage.removeItem('dv_zoom_' + host);
+        } else {
+            localStorage.setItem('dv_zoom_' + host, factor.toFixed(2));
+        }
+    } catch { }
+}
+
+/**
+ * Ajuste le zoom de la webview active.
+ * @param {number|null} delta  Variation (ex. 0.1, -0.1). null ou 0 = reset à 1.0.
+ */
+function adjustZoom(delta) {
+    const wv = getActiveWebview();
+    if (!wv || !wv.getURL) return;
+    const url = wv.getURL ? wv.getURL() : '';
+    if (!url || url === 'about:blank') return;
+
+    let factor;
+    if (!delta) {
+        factor = 1.0;
+    } else {
+        // getZoomFactor() peut renvoyer undefined si non encore chargé → fallback 1.0
+        const current = (wv.getZoomFactor && typeof wv.getZoomFactor() === 'number')
+            ? wv.getZoomFactor()
+            : _getDomainZoom(url);
+        factor = Math.max(0.25, Math.min(5.0, current + delta));
+        factor = Math.round(factor * 20) / 20; // arrondi au 5% le plus proche
+    }
+
+    if (wv.setZoomFactor) wv.setZoomFactor(factor);
+    _setDomainZoom(url, factor);
+
+    const pct = Math.round(factor * 100);
+    const msg = factor === 1.0
+        ? t('zoomReset')
+        : t('zoomLevel') + ' : ' + pct + '%';
+    showToast(msg, 1500);
+}
+
+// ── Find-in-page (P5 — v0.7.1) ───────────────────────────────────────────────
+// Les fonctions openFindBar / closeFindBar / findInPage sont globales pour
+// être appelées depuis landscape-settings.js (raccourcis clavier Ctrl+F / Esc).
+// Le DOM #find-bar est dans landscape.html.
+
+const _findBar      = document.getElementById('find-bar');
+const _findInput    = document.getElementById('find-input');
+const _findCounter  = document.getElementById('find-counter');
+let _findOpen = false;
+
+function openFindBar() {
+    if (activeTabId === SETTINGS_TAB_ID) return; // pas de recherche dans les paramètres
+    _findBar.classList.remove('hidden');
+    _findInput.focus();
+    _findInput.select();
+    _findOpen = true;
+    // Lancer la recherche immédiatement si une valeur est déjà présente
+    if (_findInput.value) _execFind(true);
+}
+
+function closeFindBar() {
+    if (!_findOpen) return;
+    _findBar.classList.add('hidden');
+    _findOpen = false;
+    _findCounter.textContent = '';
+    const wv = getActiveWebview();
+    if (wv && wv.stopFindInPage) wv.stopFindInPage('clearSelection');
+}
+
+function _execFind(forward) {
+    const wv = getActiveWebview();
+    if (!wv || !wv.findInPage) return;
+    const q = _findInput.value.trim();
+    if (!q) { _findCounter.textContent = ''; return; }
+    wv.findInPage(q, { forward: forward !== false, findNext: true, matchCase: false });
+}
+
+// Listeners find-bar UI
+_findInput.addEventListener('input',   () => {
+    const wv = getActiveWebview();
+    // stopFindInPage puis relancer pour reset le compteur
+    if (wv && wv.stopFindInPage) wv.stopFindInPage('clearSelection');
+    _execFind(true);
+});
+_findInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter')  { e.preventDefault(); _execFind(!e.shiftKey); }
+    if (e.key === 'Escape') { e.preventDefault(); closeFindBar(); }
+});
+document.getElementById('find-prev').addEventListener('click', () => _execFind(false));
+document.getElementById('find-next').addEventListener('click', () => _execFind(true));
+document.getElementById('find-close').addEventListener('click', () => closeFindBar());
 
 // ── Pool de webviews ───────────────────────────────────────────────────────────
 // opts.skipIpc (v0.7.0) : utilisé uniquement par la récupération de crash —
@@ -151,6 +499,29 @@ function attachWebviewListeners(wv, tabId) {
         if (tabId === activeTabId) showToast(t('tabUnresponsiveToast'), 4000);
     });
 
+    // ── Barre de chargement (P5 — v0.7.1) ────────────────────────────────────
+    wv.addEventListener('did-start-loading', () => {
+        if (tabId === activeTabId) _loadBarStart();
+    });
+    wv.addEventListener('did-stop-loading', () => {
+        if (tabId === activeTabId) _loadBarFinish();
+    });
+
+    // ── Found-in-page (P5 — v0.7.1) ──────────────────────────────────────────
+    // Met à jour le compteur "X de Y" dans la barre de recherche.
+    wv.addEventListener('found-in-page', (e) => {
+        if (tabId !== activeTabId || !_findOpen) return;
+        const r = e.result;
+        if (!r) return;
+        if (r.matches === 0) {
+            _findCounter.textContent = t('findNoResult');
+            _findCounter.classList.add('no-result');
+        } else {
+            _findCounter.textContent = r.activeMatchOrdinal + ' ' + t('findOf') + ' ' + r.matches;
+            _findCounter.classList.remove('no-result');
+        }
+    });
+
     wv.addEventListener('dom-ready', () => {
         // resetWatcherFlags remet __dualviewAutoPauseDone=false → injectAutoPause
         // peut s'exécuter immédiatement (flag propre).
@@ -197,6 +568,43 @@ function attachWebviewListeners(wv, tabId) {
         resetWatcherFlags(wv);
         if (e.url && e.url !== 'about:blank') {
             wv.classList.remove('is-blank'); // fix v0.5.1
+
+            // ── Pile de navigation persistante (v0.9.0) ───────────────────────
+            const isSimNav = _simNavFlags.has(tabId);
+            if (isSimNav) {
+                // Navigation déclenchée par notre simulateur (goBack/goForward
+                // simulé) → la pile et l'index ont déjà été mis à jour dans
+                // simGoBack/simGoForward. Ne pas modifier la pile, rester en
+                // mode simulé.
+                _simNavFlags.delete(tabId);
+
+            } else if (_simModeSet.has(tabId)) {
+                // L'onglet est en mode simulé. Deux cas possibles :
+                //
+                // A) Chargement initial au redémarrage : la webview vient de
+                //    charger l'URL restaurée (= sommet de notre pile sauvegardée).
+                //    On NE sort PAS du mode simulé — c'est exactement ce qui
+                //    cassait les boutons ← → dans v0.9.0 initial.
+                //
+                // B) L'utilisateur navigue vers une URL différente depuis le
+                //    mode simulé (clic sur un lien, barre d'adresse).
+                //    → sortir du mode simulé, empiler la nouvelle URL.
+                //
+                const ns = navStacks.get(tabId);
+                const isRestoredLoad = ns && ns.stack[ns.index] === e.url;
+                if (!isRestoredLoad) {
+                    // Cas B : nouvelle navigation organique depuis mode simulé
+                    _simModeSet.delete(tabId);
+                    _pushNavUrl(tabId, e.url);
+                }
+                // Cas A : chargement initial — ne rien faire, le mode simulé reste actif
+
+            } else {
+                // Mode natif : navigation organique ordinaire (pendant une session).
+                // Empiler l'URL normalement.
+                _pushNavUrl(tabId, e.url);
+            }
+
             if (tabId === activeTabId) {
                 if (isLoginPage(e.url)) {
                     window.dualview.notifyLoginPage(e.url, tabId);
@@ -223,12 +631,30 @@ function attachWebviewListeners(wv, tabId) {
             // Pause auto sur navigation complète (vidéo classique ou Short direct)
             // Délai 1.5s : laisser le player YouTube s'initialiser
             if (tabId === activeTabId) setTimeout(() => injectAutoPause(wv), 1500);
+            // ── Restaurer le zoom du domaine (P5 — v0.7.1) ───────────────────
+            const zf = _getDomainZoom(e.url);
+            if (zf !== 1.0 && wv.setZoomFactor) wv.setZoomFactor(zf);
         }
         if (tabId === activeTabId) sendNavState(wv);
     });
     wv.addEventListener('did-navigate-in-page', (e) => {
         resetWatcherFlags(wv);
         if (e.url && e.url !== 'about:blank') {
+            // ── Pile de navigation (v0.9.0) ───────────────────────────────────
+            const isSimNav = _simNavFlags.has(tabId);
+            if (isSimNav) {
+                _simNavFlags.delete(tabId);
+            } else if (_simModeSet.has(tabId)) {
+                const ns = navStacks.get(tabId);
+                const isRestoredLoad = ns && ns.stack[ns.index] === e.url;
+                if (!isRestoredLoad) {
+                    _simModeSet.delete(tabId);
+                    _pushNavUrl(tabId, e.url);
+                }
+            } else {
+                _pushNavUrl(tabId, e.url);
+            }
+
             if (tabId === activeTabId) {
                 if (isLoginPage(e.url)) {
                     window.dualview.notifyLoginPage(e.url, tabId);
@@ -240,6 +666,11 @@ function attachWebviewListeners(wv, tabId) {
             if (tab) {
                 tab.url = e.url;
                 if (tabId === activeTabId) { renderTabs(); saveTabs(); document.getElementById('url-input').value = e.url; window.dualview.sendNavigate(e.url); }
+            }
+            // ── Restaurer le zoom du domaine sur navigation SPA (P5 — v0.7.1)
+            if (tabId === activeTabId) {
+                const zf = _getDomainZoom(e.url);
+                if (zf !== 1.0 && wv.setZoomFactor) wv.setZoomFactor(zf);
             }
         }
         if (tabId === activeTabId) sendNavState(wv);

@@ -107,6 +107,16 @@ function loadSettingsUI(s) {
     const screenshotDir = s.screenshotDir || '';
     const dirEl = document.getElementById('s-screenshot-dir');
     if (dirEl) dirEl.textContent = screenshotDir || '(Dossier Images par défaut)';
+    // v0.7.1 — Téléchargements
+    const allowDlEl = document.getElementById('s-allow-downloads');
+    if (allowDlEl) allowDlEl.checked = s.allowDownloads === true;
+    const askPathEl = document.getElementById('s-download-ask-path');
+    if (askPathEl) askPathEl.checked = s.downloadAskPath === true;
+    const downloadDirEl = document.getElementById('s-download-dir');
+    if (downloadDirEl) downloadDirEl.textContent = s.downloadDir || t('downloadDirDefault');
+    // Griser la section dossier si "Toujours demander" est coché
+    const dirSection = document.getElementById('s-download-dir-section');
+    if (dirSection) dirSection.classList.toggle('grayed', s.downloadAskPath === true);
     applyTranslations();
     loadUpdateInfo();
 }
@@ -828,6 +838,17 @@ async function showNavHistDropdown(btn) {
         navEntries = memHist.map(url => ({ url, title: '' }));
         // En mémoire l'ordre est du plus récent au plus ancien → l'index courant est 0
         currentIndex = 0;
+    }
+
+    // v0.9.0 — Fallback pile de navigation simulée persistante
+    // Si la pile native n'a qu'une seule entrée (restart) et que notre pile
+    // en a plusieurs, on l'utilise pour peupler le dropdown.
+    if (navEntries.length <= 1 && typeof navStacks !== 'undefined') {
+        const ns = navStacks.get(activeTabId);
+        if (ns && ns.stack && ns.stack.length > 1) {
+            navEntries  = ns.stack.map(url => ({ url, title: '' }));
+            currentIndex = ns.index;
+        }
     }
 
     navHistDropdown.innerHTML = '';
@@ -1554,6 +1575,31 @@ document.addEventListener('keydown', (e) => {
         setFocusMode(!focusMode);
         return;
     }
+    // ── Raccourcis v0.7.1 ─────────────────────────────────────────────────────
+    // Ctrl+F — Recherche dans la page (find-in-page)
+    if (e.key === 'f' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        if (typeof openFindBar === 'function') openFindBar();
+        return;
+    }
+    // Ctrl++ ou Ctrl+= — Zoom avant
+    if ((e.key === '+' || e.key === '=') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        if (typeof adjustZoom === 'function') adjustZoom(0.1);
+        return;
+    }
+    // Ctrl+- — Zoom arrière
+    if (e.key === '-' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        if (typeof adjustZoom === 'function') adjustZoom(-0.1);
+        return;
+    }
+    // Ctrl+0 — Réinitialiser le zoom
+    if (e.key === '0' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        if (typeof adjustZoom === 'function') adjustZoom(0);
+        return;
+    }
 });
 
 // ── Boutons souris Retour/Avance (v0.4.1) ────────────────────────────────
@@ -1697,4 +1743,438 @@ window.dualview.on('context-menu-action', ({ action, url, text, x, y }) => {
     window.dualview.on('group-rename-prompt', ({ groupId, currentName }) => {
         openDialog(groupId, currentName);
     });
+})();
+// ── Téléchargements — Paramètres (v0.7.1) ────────────────────────────────────
+// Case à cocher + dossier de destination dans Paramètres → Général.
+// Le panneau #downloads-panel (accessible depuis le menu ⚙️) affiche la liste.
+
+(function setupDownloadSettings() {
+    const allowDlChk = document.getElementById('s-allow-downloads');
+    if (allowDlChk) {
+        allowDlChk.addEventListener('change', () => {
+            currentSettings.allowDownloads = allowDlChk.checked;
+            saveCurrentSettings();
+        });
+    }
+
+    // "Toujours demander" — grise la section dossier quand coché (v0.7.1 update)
+    const askPathChk = document.getElementById('s-download-ask-path');
+    const dirSection = document.getElementById('s-download-dir-section');
+    if (askPathChk) {
+        askPathChk.addEventListener('change', () => {
+            currentSettings.downloadAskPath = askPathChk.checked;
+            saveCurrentSettings();
+            if (dirSection) dirSection.classList.toggle('grayed', askPathChk.checked);
+        });
+    }
+
+    const downloadDirBrowseBtn = document.getElementById('s-download-dir-browse');
+    if (downloadDirBrowseBtn) {
+        downloadDirBrowseBtn.addEventListener('click', async () => {
+            const dir = await window.dualview.chooseDownloadDir();
+            if (dir) {
+                currentSettings.downloadDir = dir;
+                const el = document.getElementById('s-download-dir');
+                if (el) el.textContent = dir;
+            }
+        });
+    }
+})();
+
+// ── Panneau Téléchargements (v0.7.1) ─────────────────────────────────────────
+// Accessible depuis le menu ⚙️ (bouton "Téléchargements").
+// Affiche la liste en mémoire des téléchargements de la session courante.
+
+(function setupDownloadsPanel() {
+    const panel     = document.getElementById('downloads-panel');
+    const closeBtn  = document.getElementById('downloads-panel-close');
+    const clearBtn  = document.getElementById('downloads-clear-all-btn');
+    const listEl    = document.getElementById('downloads-list');
+    const emptyEl   = document.getElementById('downloads-empty');
+
+    if (!panel) return; // garde — DOM indisponible
+
+    // ── Ouverture / fermeture ─────────────────────────────────────────────────
+    function openDownloadsPanel() {
+        panel.classList.add('open');
+        renderDownloadsList();
+    }
+    function closeDownloadsPanel() { panel.classList.remove('open'); }
+
+    closeBtn && closeBtn.addEventListener('click', closeDownloadsPanel);
+
+    // Bouton ⚙️ → Téléchargements
+    const menuDownloads = document.getElementById('menu-downloads');
+    if (menuDownloads) {
+        menuDownloads.addEventListener('click', () => {
+            document.getElementById('gear-menu').classList.remove('open');
+            openDownloadsPanel();
+        });
+    }
+
+    // Fermer sur clic hors du panneau (même logique que history-panel)
+    document.addEventListener('click', (e) => {
+        if (panel.classList.contains('open') && !panel.contains(e.target)) {
+            const menuBtn = document.getElementById('menu-downloads');
+            if (menuBtn && menuBtn.contains(e.target)) return;
+            closeDownloadsPanel();
+        }
+    });
+
+    // Effacer tout
+    clearBtn && clearBtn.addEventListener('click', async () => {
+        await window.dualview.clearDownloads();
+        _localDownloads = [];
+        renderDownloadsList();
+    });
+
+    // ── Liste locale (miroir de _downloads main.js) ───────────────────────────
+    // Chargée depuis main.js au premier chargement + mise à jour via IPC events.
+    let _localDownloads = [];
+
+    async function loadDownloads() {
+        try { _localDownloads = await window.dualview.getDownloads(); } catch { _localDownloads = []; }
+    }
+
+    // Écoute des événements IPC téléchargements (v0.7.1)
+    window.dualview.on('download-started', (item) => {
+        _localDownloads.unshift(item);
+        if (panel.classList.contains('open')) renderDownloadsList();
+        showToast('⬇️ ' + item.filename, 3000);
+    });
+    window.dualview.on('download-updated', (item) => {
+        const idx = _localDownloads.findIndex(d => d.id === item.id);
+        if (idx !== -1) _localDownloads[idx] = item;
+        if (panel.classList.contains('open')) renderDownloadItem(item);
+    });
+    window.dualview.on('download-done', (item) => {
+        const idx = _localDownloads.findIndex(d => d.id === item.id);
+        if (idx !== -1) _localDownloads[idx] = item;
+        if (panel.classList.contains('open')) renderDownloadItem(item);
+        const msg = item.state === 'completed'
+            ? t('downloadNotification') + ' ' + item.filename
+            : t('downloadNotificationFail') + ' ' + item.filename;
+        showToast(msg, 4000);
+    });
+
+    // ── Rendu de la liste ─────────────────────────────────────────────────────
+    function renderDownloadsList() {
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        if (!_localDownloads.length) {
+            emptyEl && emptyEl.classList.remove('hidden');
+            return;
+        }
+        emptyEl && emptyEl.classList.add('hidden');
+        _localDownloads.forEach(item => {
+            const row = buildDownloadRow(item);
+            listEl.appendChild(row);
+        });
+    }
+
+    // Mise à jour d'un item déjà rendu (progression)
+    function renderDownloadItem(item) {
+        const existing = listEl && listEl.querySelector(`[data-dl-id="${item.id}"]`);
+        if (existing) {
+            const newRow = buildDownloadRow(item);
+            existing.replaceWith(newRow);
+        }
+    }
+
+    function buildDownloadRow(item) {
+        const row = document.createElement('div');
+        row.className = 'dl-row';
+        row.dataset.dlId = item.id;
+
+        // Icône selon l'état
+        const stateIcon = { completed: '✅', interrupted: '❌', cancelled: '🚫', 'in-progress': '⬇️', progressing: '⬇️' };
+        const icon = stateIcon[item.state] || '📄';
+
+        // Libellé d'état
+        const stateLabels = {
+            completed:   t('downloadCompleted'),
+            interrupted: t('downloadInterrupted'),
+            cancelled:   t('downloadCancelled'),
+        };
+        const stateLabel = stateLabels[item.state] || t('downloadInProgress');
+
+        // Progression (seulement en cours)
+        let progressHtml = '';
+        if ((item.state === 'in-progress' || item.state === 'progressing') && item.totalBytes > 0) {
+            const pct = Math.round((item.receivedBytes / item.totalBytes) * 100);
+            progressHtml = `<div class="dl-progress-track"><div class="dl-progress-fill" style="width:${pct}%"></div></div>`;
+        }
+
+        // Taille
+        const sizeStr = item.totalBytes > 0
+            ? _formatBytes(item.receivedBytes) + ' / ' + _formatBytes(item.totalBytes)
+            : item.receivedBytes > 0 ? _formatBytes(item.receivedBytes) : '';
+
+        row.innerHTML = `
+            <div class="dl-icon">${icon}</div>
+            <div class="dl-info">
+                <div class="dl-name" title="${_esc(item.filename)}">${_esc(item.filename)}</div>
+                <div class="dl-meta">${stateLabel}${sizeStr ? ' — ' + sizeStr : ''}</div>
+                ${progressHtml}
+            </div>
+            <div class="dl-actions">
+                ${item.state === 'completed'
+                    ? `<button class="dl-btn" data-action="open-file" title="${t('downloadOpenFile')}">📂</button>
+                       <button class="dl-btn" data-action="open-folder" title="${t('downloadOpenFolder')}">📁</button>`
+                    : ''}
+            </div>`;
+
+        // Actions
+        row.querySelectorAll('.dl-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (btn.dataset.action === 'open-file')   window.dualview.openDownloadFile(item.path);
+                if (btn.dataset.action === 'open-folder') window.dualview.openDownloadFolder(item.path);
+            });
+        });
+
+        return row;
+    }
+
+    function _formatBytes(bytes) {
+        if (!bytes || bytes < 0) return '0 o';
+        if (bytes < 1024)        return bytes + ' o';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' Ko';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
+    }
+    function _esc(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Charger la liste au premier accès
+    loadDownloads();
+})();
+
+// ── Téléchargements — suppression individuelle (v0.7.1 update) ───────────────
+// Patch de buildDownloadRow pour ajouter le bouton 🗑️ par entrée.
+// Ce code s'exécute après setupDownloadsPanel qui définit la version précédente ;
+// on expose une version étendue via une closure qui accède à _localDownloads.
+(function patchDownloadRowDelete() {
+    // On attend que setupDownloadsPanel ait initialisé le panneau
+    const patchInterval = setInterval(() => {
+        const panel = document.getElementById('downloads-panel');
+        if (!panel) return; // pas encore prêt
+
+        clearInterval(patchInterval);
+
+        // Écouter les clics sur le bouton 🗑️ via délégation sur #downloads-list
+        const listEl = document.getElementById('downloads-list');
+        if (!listEl) return;
+
+        listEl.addEventListener('click', async (e) => {
+            const removeBtn = e.target.closest('.dl-remove-btn');
+            if (!removeBtn) return;
+            e.stopPropagation();
+            const id = removeBtn.dataset.dlId;
+            if (!id) return;
+            await window.dualview.removeDownload(id);
+            // Retirer la ligne du DOM
+            const row = listEl.querySelector(`.dl-row[data-dl-id="${id}"]`);
+            if (row) row.remove();
+            // Vérifier si liste vide
+            const emptyEl = document.getElementById('downloads-empty');
+            if (!listEl.querySelector('.dl-row') && emptyEl) {
+                emptyEl.classList.remove('hidden');
+            }
+        });
+
+        // Injecter le bouton 🗑️ dans chaque nouvelle ligne via MutationObserver
+        // (les lignes sont créées dynamiquement par buildDownloadRow dans setupDownloadsPanel)
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(m => {
+                m.addedNodes.forEach(node => {
+                    if (node.nodeType !== 1) return;
+                    // Si c'est une dl-row sans bouton 🗑️, en ajouter un
+                    const rows = node.classList && node.classList.contains('dl-row')
+                        ? [node]
+                        : Array.from(node.querySelectorAll ? node.querySelectorAll('.dl-row') : []);
+                    rows.forEach(row => {
+                        if (row.querySelector('.dl-remove-btn')) return; // déjà présent
+                        const id = row.dataset.dlId;
+                        if (!id) return;
+                        const actionsEl = row.querySelector('.dl-actions');
+                        if (!actionsEl) return;
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'dl-remove-btn';
+                        removeBtn.dataset.dlId = id;
+                        removeBtn.title = t('downloadRemove') || 'Supprimer de la liste';
+                        removeBtn.textContent = '🗑';
+                        actionsEl.appendChild(removeBtn);
+                    });
+                });
+            });
+        });
+        observer.observe(listEl, { childList: true, subtree: true });
+
+        // Aussi patcher les lignes déjà présentes au moment du patch
+        listEl.querySelectorAll('.dl-row').forEach(row => {
+            if (row.querySelector('.dl-remove-btn')) return;
+            const id = row.dataset.dlId;
+            if (!id) return;
+            const actionsEl = row.querySelector('.dl-actions');
+            if (!actionsEl) return;
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'dl-remove-btn';
+            removeBtn.dataset.dlId = id;
+            removeBtn.title = t('downloadRemove') || 'Supprimer de la liste';
+            removeBtn.textContent = '🗑';
+            actionsEl.appendChild(removeBtn);
+        });
+
+    }, 100);
+})();
+
+// ── Historique — actions de suppression sur résultats de recherche (v0.7.1 update) ─
+// Quand une recherche est active, affiche :
+//   - "🗑 Supprimer les N résultats trouvés"
+//   - "🗑 Supprimer tout lié à domain.com" (si la requête ressemble à un domaine)
+
+(function setupHistorySearchActions() {
+    const actionsBar     = document.getElementById('history-search-actions');
+    const deleteResBtn   = document.getElementById('history-delete-results-btn');
+    const deleteDomBtn   = document.getElementById('history-delete-domain-btn');
+    const searchInput    = document.getElementById('history-search-input');
+    if (!actionsBar || !deleteResBtn || !deleteDomBtn || !searchInput) return;
+
+    // Détecte si une chaîne ressemble à un nom de domaine et retourne le hostname,
+    // sinon retourne null.
+    function _extractDomain(q) {
+        if (!q) return null;
+        let s = q.trim();
+        // Enlever le protocole
+        s = s.replace(/^https?:\/\//i, '');
+        // Prendre seulement la partie hôte (avant '/', '?', '#')
+        s = s.split(/[/?#]/)[0];
+        // Enlever le port éventuel
+        s = s.split(':')[0];
+        // Valider : au moins un point, que des caractères valides, pas d'espaces
+        if (/^[a-zA-Z0-9][a-zA-Z0-9\-]*(\.[a-zA-Z0-9\-]+)+$/.test(s)) {
+            return s.toLowerCase();
+        }
+        return null;
+    }
+
+    // Résultats courants + requête courante (mis à jour par updateHistorySearchActions)
+    let _currentResults = [];
+    let _currentQuery   = '';
+    let _currentDomain  = null;
+
+    function updateHistorySearchActions(query, results) {
+        _currentQuery   = query || '';
+        _currentResults = results || [];
+        _currentDomain  = _extractDomain(_currentQuery);
+
+        if (!_currentQuery || _currentResults.length === 0) {
+            actionsBar.classList.add('hidden');
+            return;
+        }
+
+        actionsBar.classList.remove('hidden');
+
+        // Bouton "Supprimer les N résultats"
+        const n = _currentResults.length;
+        deleteResBtn.textContent = (t('histDeleteResults') || '🗑 Supprimer les {n} résultat(s)')
+            .replace('{n}', n);
+        deleteResBtn.classList.remove('hidden');
+
+        // Bouton "Supprimer tout lié à domain.com" — uniquement si domaine détecté
+        if (_currentDomain) {
+            deleteDomBtn.textContent = (t('histDeleteDomain') || '🗑 Supprimer tout lié à {domain}')
+                .replace('{domain}', _currentDomain);
+            deleteDomBtn.classList.remove('hidden');
+        } else {
+            deleteDomBtn.classList.add('hidden');
+        }
+    }
+
+    // Suppression des résultats de recherche courants
+    deleteResBtn.addEventListener('click', async () => {
+        if (!_currentResults.length) return;
+        const n = _currentResults.length;
+        const msg = (t('histDeleteResultsConfirm') || 'Supprimer {n} entrée(s) ?').replace('{n}', n);
+        if (!confirm(msg)) return;
+
+        // Collecter les URLs uniques à supprimer
+        const urlsToDelete = [...new Set(_currentResults.map(e => e.url))];
+        urlsToDelete.forEach(url => window.dualview.historyDeleteUrl(url));
+
+        // Vider le panneau et relancer la recherche (résultats maintenant vides)
+        const toast = (t('histDeletedCount') || '{n} entrée(s) supprimée(s)').replace('{n}', n);
+        showToast(toast);
+        searchInput.value = '';
+        actionsBar.classList.add('hidden');
+        const allEntries = await window.dualview.historyGetAll();
+        renderHistoryList(allEntries);
+    });
+
+    // Suppression de tout l'historique du domaine
+    deleteDomBtn.addEventListener('click', async () => {
+        if (!_currentDomain) return;
+        const msg = (t('histDeleteDomainConfirm') || 'Supprimer tout l\'historique de {domain} ?')
+            .replace('{domain}', _currentDomain);
+        if (!confirm(msg)) return;
+
+        const removed = await window.dualview.historyDeleteDomain(_currentDomain);
+        const toast = (t('histDeletedCount') || '{n} entrée(s) supprimée(s)').replace('{n}', removed || 0);
+        showToast(toast);
+        searchInput.value = '';
+        actionsBar.classList.add('hidden');
+        const allEntries = await window.dualview.historyGetAll();
+        renderHistoryList(allEntries);
+    });
+
+    // Intercepter l'event 'input' du champ de recherche pour alimenter updateHistorySearchActions.
+    // On utilise un MutationObserver pour ne pas écraser le listener existant —
+    // on s'appuie sur le fait que renderHistoryList est toujours appelé après la recherche.
+    // Solution propre : monkey-patch renderHistoryList pour qu'il appelle aussi update.
+    const _origRenderHistoryList = window._renderHistoryListHook || null;
+
+    // Exposer une référence globale patchable
+    const _originalRender = typeof renderHistoryList === 'function' ? renderHistoryList : null;
+    if (_originalRender) {
+        // Override : appeler l'original puis mettre à jour la barre d'actions
+        window._dv_renderHistoryList = function(entries) {
+            _originalRender(entries);
+            updateHistorySearchActions(searchInput.value.trim(), entries);
+        };
+    }
+
+    // Patch de l'événement input pour appeler aussi updateHistorySearchActions
+    searchInput.addEventListener('input', () => {
+        // La recherche est déclenchée asynchrone dans le listener existant.
+        // On intercepte le résultat via un override de renderHistoryList.
+        // Si la valeur est vide, cacher la barre immédiatement.
+        if (!searchInput.value.trim()) {
+            actionsBar.classList.add('hidden');
+        }
+    });
+
+    // Alternative plus robuste : re-patcher histSearchInput handler via délégation
+    // En écoutant les mutations sur #history-list (renderHistoryList vide et remplie la liste)
+    const histListEl = document.getElementById('history-list');
+    if (histListEl) {
+        let _mutationPending = false;
+        new MutationObserver(() => {
+            if (_mutationPending) return;
+            _mutationPending = true;
+            requestAnimationFrame(() => {
+                _mutationPending = false;
+                const q = searchInput.value.trim();
+                if (!q) { actionsBar.classList.add('hidden'); return; }
+                // Compter les items visibles
+                const items = histListEl.querySelectorAll('.hist-item');
+                if (items.length === 0) { actionsBar.classList.add('hidden'); return; }
+                // Reconstruire la liste des résultats depuis le DOM
+                const domResults = Array.from(items).map(el => ({
+                    url: el.querySelector('.hist-url') ? el.querySelector('.hist-url').textContent : '',
+                }));
+                updateHistorySearchActions(q, domResults);
+            });
+        }).observe(histListEl, { childList: true, subtree: false });
+    }
 })();

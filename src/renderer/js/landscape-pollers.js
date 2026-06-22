@@ -170,7 +170,15 @@ window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings, groups, 
         groupsLoad({ groups: groups || [], tabGroupOf: tabGroupOf || {}, pinnedTabs: pinnedTabs || [] });
     }
     tabs = initTabs; activeTabId = initActiveId;
-    tabs.forEach(tab => { if (!isSettingsTab(tab)) createWebview(tab.id, tab.url || ''); });
+    tabs.forEach(tab => {
+        if (!isSettingsTab(tab)) {
+            // v0.9.0 — initialiser la pile de navigation simulée avant createWebview
+            if (typeof initNavStack === 'function') {
+                initNavStack(tab.id, tab.navStack, tab.navIndex);
+            }
+            createWebview(tab.id, tab.url || '');
+        }
+    });
     if (activeTabId === SETTINGS_TAB_ID) {
         const firstWeb = tabs.find(t => t.id !== SETTINGS_TAB_ID);
         activeTabId = firstWeb ? firstWeb.id : tabs[0].id;
@@ -184,4 +192,12 @@ window.dualview.getStore().then(({ tabs: st, activeTabId: sa, settings, groups, 
     }
     window.dualview.switchTab(activeTabId);
     renderTabs();
+
+    // v0.9.0 — Activer les boutons ← → immédiatement si la pile simulée
+    // contient de l'historique, sans attendre did-navigate (~500 ms plus tard).
+    if (typeof simCanGoBack !== 'undefined' && activeTabId !== SETTINGS_TAB_ID) {
+        const canBack = simCanGoBack(activeTabId);
+        const canFwd  = simCanGoForward ? simCanGoForward(activeTabId) : false;
+        if (canBack || canFwd) updateNavButtons({ canGoBack: canBack, canGoForward: canFwd });
+    }
 });

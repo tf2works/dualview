@@ -1,6 +1,6 @@
 /**
  * DualView - History Manager
- * Version: 0.4.0
+ * Version: 0.4.0 (updated 0.7.1)
  *
  * Gestion de l'historique de navigation persistant.
  * Fichier : %AppData%/DualView/history.json
@@ -12,6 +12,9 @@
  * - Max MAX_ENTRIES entrées (FIFO sur les plus anciennes)
  * - Déduplication : même URL + même tabId dans la même heure → mise à jour visitedAt
  * - Les URLs d'authentification ne sont jamais sauvegardées
+ *
+ * v0.7.1 : ajout de deleteByDomain(domain) — supprime toutes les entrées dont
+ *   le hostname correspond au domaine donné (avec ou sans sous-domaines).
  */
 
 const fs = require('fs');
@@ -176,6 +179,28 @@ class HistoryManager {
         if (index < 0 || index >= this._entries.length) return;
         this._entries.splice(index, 1);
         this._scheduleSave();
+    }
+
+    /**
+     * Supprime toutes les entrées dont le hostname correspond au domaine donné.
+     * Accepte "example.com" et supprime aussi "www.example.com", "sub.example.com", etc.
+     * Retourne le nombre d'entrées supprimées.
+     * v0.7.1
+     */
+    deleteByDomain(domain) {
+        if (!domain || typeof domain !== 'string') return 0;
+        const d = domain.toLowerCase().replace(/^www\./, '');
+        const before = this._entries.length;
+        this._entries = this._entries.filter(e => {
+            try {
+                const host = new URL(e.url).hostname.toLowerCase().replace(/^www\./, '');
+                // Correspond exactement ou est un sous-domaine
+                return host !== d && !host.endsWith('.' + d);
+            } catch { return true; } // URL invalide → on garde
+        });
+        const removed = before - this._entries.length;
+        if (removed > 0) this._scheduleSave();
+        return removed;
     }
 
     /** Efface tout l'historique. */

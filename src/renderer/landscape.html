@@ -7,6 +7,9 @@
 </head>
 <body>
 
+    <!-- Barre de chargement (P5 — v0.7.1) — 3px, thème-aware, positionnée en haut -->
+    <div id="load-progress-bar"></div>
+
     <div id="tab-bar">
         <button id="add-tab-btn" title="+">+</button>
     </div>
@@ -67,6 +70,11 @@
             <div class="gear-item" id="menu-favorites">
                 <span>&#9733;</span>
                 <span data-i18n="favorites">Favoris</span>
+            </div>
+            <!-- Téléchargements (v0.7.1) -->
+            <div class="gear-item" id="menu-downloads">
+                <span>&#11015;&#65039;</span>
+                <span data-i18n="downloads">Téléchargements</span>
             </div>
             <!-- Rouvrir portrait (v0.5.0) — visible uniquement si portrait fermé -->
             <div class="gear-item" id="menu-reopen-portrait" style="display:none">
@@ -150,6 +158,15 @@
 
     <!-- Zone webviews -->
     <div id="webview-container">
+        <!-- Barre de recherche dans la page (P5 — v0.7.1) -->
+        <div id="find-bar" class="hidden">
+            <input type="text" id="find-input" autocomplete="off" spellcheck="false"
+                   data-i18n-placeholder="findPlaceholder" placeholder="Rechercher dans la page…">
+            <span id="find-counter"></span>
+            <button id="find-prev" class="find-nav-btn" title="Précédent (↑)">↑</button>
+            <button id="find-next" class="find-nav-btn" title="Suivant (↓)">↓</button>
+            <button id="find-close" class="find-close-btn" title="Fermer">✕</button>
+        </div>
         <div id="video-indicator" class="paused">
             <span class="dot"></span>
             <span id="video-indicator-text">Vidéo détectée</span>
@@ -346,11 +363,37 @@
             <!-- Confidentialité -->
             <div id="section-privacy" class="s-section">
                 <div class="s-heading" data-i18n="settingsPrivacy">Confidentialité</div>
-                <div class="s-info-block">
-                    <div class="s-info-title" data-i18n="privacyDownloads">Téléchargements</div>
-                    <div class="s-info-desc" data-i18n="privacyDownloadsDesc">Les téléchargements sont désactivés. Exception : enregistrement d'image via clic droit.</div>
-                    <div class="s-badge">&#10003; Bloqué</div>
+
+                <!-- Téléchargements configurables (v0.7.1) -->
+                <div class="s-row">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-allow-downloads">
+                        <div>
+                            <label for="s-allow-downloads" class="s-check-label" data-i18n="allowDownloadsLabel">Autoriser les téléchargements</label>
+                            <div class="s-check-desc" data-i18n="allowDownloadsDesc">Permet le téléchargement de fichiers depuis les webviews. Les fichiers sont sauvegardés automatiquement dans le dossier configuré ci-dessous.</div>
+                        </div>
+                    </div>
                 </div>
+                <!-- Case "Toujours demander" (v0.7.1 update) -->
+                <div class="s-row" style="margin-top:0;padding-top:0">
+                    <div class="s-check-row">
+                        <input type="checkbox" id="s-download-ask-path">
+                        <div>
+                            <label for="s-download-ask-path" class="s-check-label" data-i18n="downloadAskPathLabel">Toujours demander l'emplacement</label>
+                            <div class="s-check-desc" data-i18n="downloadAskPathDesc">Ouvre l'explorateur de fichiers de l'OS à chaque téléchargement pour choisir librement l'emplacement de sauvegarde.</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Dossier de destination — grisé si "Toujours demander" est coché -->
+                <div id="s-download-dir-section" class="s-row" style="margin-top:0;padding-top:0">
+                    <label class="s-label" data-i18n="downloadDirLabel">Dossier de destination</label>
+                    <div class="s-desc" data-i18n="downloadDirDesc">Dossier où sont sauvegardés les fichiers téléchargés.</div>
+                    <div class="screenshot-dir-row">
+                        <span class="screenshot-dir-path" id="s-download-dir" data-i18n="downloadDirDefault">Téléchargements (défaut OS)</span>
+                        <button id="s-download-dir-browse" class="s-validate-btn" data-i18n="downloadDirBrowse">Parcourir…</button>
+                    </div>
+                </div>
+                <div class="s-divider"></div>
                 <div class="s-info-block">
                     <div class="s-info-title" data-i18n="privacyPermissions">Permissions</div>
                     <div class="s-info-desc" data-i18n="privacyPermissionsDesc">Caméra, microphone, géolocalisation et notifications sont bloqués.</div>
@@ -505,6 +548,26 @@
                             <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>H</kbd><span class="sc-or" data-i18n="scOr">ou</span><kbd>F11</kbd></span>
                         </div>
                         <div class="sc-row">
+                            <span class="sc-action" data-i18n="scFindInPage">Rechercher dans la page</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>F</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>F</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scZoomIn">Zoom avant</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>+</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>+</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scZoomOut">Zoom arrière</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>−</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>−</kbd></span>
+                        </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scZoomReset">Réinitialiser le zoom</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>0</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>0</kbd></span>
+                        </div>
+                        <div class="sc-row">
                             <span class="sc-action" data-i18n="scCloseDropdown">Fermer menus / dropdowns</span>
                             <span class="sc-col sc-both" style="grid-column: 2 / span 2"><kbd>Échap</kbd></span>
                         </div>
@@ -570,6 +633,11 @@
             <input type="text" id="history-search-input" placeholder="Rechercher dans l'historique…" autocomplete="off" spellcheck="false" />
             <button id="history-clear-all-btn">Tout effacer</button>
         </div>
+        <!-- Barre d'actions de recherche (v0.7.1) — visible uniquement lors d'une recherche active -->
+        <div id="history-search-actions" class="hidden">
+            <button id="history-delete-results-btn" class="hist-action-btn" title=""></button>
+            <button id="history-delete-domain-btn" class="hist-action-btn hidden" title=""></button>
+        </div>
         <div id="history-list">
             <div id="history-empty" style="display:none">
                 <span style="font-size:32px">🕐</span>
@@ -593,6 +661,22 @@
                 <span style="font-size:32px">★</span>
                 <span data-i18n="favoritesEmpty">Aucun favori</span>
                 <span style="font-size:11px;color:var(--fg-muted)" data-i18n="favoritesEmptyHint">Cliquez sur l'étoile ★ dans la barre pour ajouter une page.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panneau Téléchargements (v0.7.1) -->
+    <div id="downloads-panel">
+        <div id="downloads-panel-header">
+            <span id="downloads-panel-title">⬇️ Téléchargements</span>
+            <button id="downloads-clear-all-btn" data-i18n="downloadClearAll">Effacer</button>
+            <button id="downloads-panel-close" title="Fermer">✕</button>
+        </div>
+        <div id="downloads-list">
+            <div id="downloads-empty">
+                <span style="font-size:32px">⬇️</span>
+                <span data-i18n="downloadsEmpty">Aucun téléchargement</span>
+                <span style="font-size:11px;color:var(--fg-muted)" data-i18n="downloadsEmptyHint">Les fichiers téléchargés apparaîtront ici.</span>
             </div>
         </div>
     </div>

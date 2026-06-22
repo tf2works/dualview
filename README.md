@@ -1,4 +1,4 @@
-# DualView v0.7.0
+# DualView v0.7.1
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -10,6 +10,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 - [Installation](#installation)
 - [Fenêtres](#fenêtres)
+- [Navigation](#navigation)
 - [Raccourcis clavier](#raccourcis-clavier)
 - [Boutons souris](#boutons-souris)
 - [Onglets](#onglets)
@@ -23,13 +24,17 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - [Réouverture de la fenêtre Portrait](#réouverture-de-la-fenêtre-portrait)
 - [Services connectés](#services-connectés)
 - [Intégration OBS](#intégration-obs)
-- [Bloqueur de publicités](#bloqueur-de-publicités)
+- [Détection des publicités YouTube](#détection-des-publicités-youtube)
+- [Lecteur PDF natif](#lecteur-pdf-natif)
+- [Récupération après crash webview](#récupération-après-crash-webview)
+- [Vérification de mise à jour](#vérification-de-mise-à-jour)
 - [Paramètres](#paramètres)
 - [Sécurité](#sécurité)
 - [Persistance des données](#persistance-des-données)
 - [Stack technique](#stack-technique)
 - [Pour les contributeurs](#pour-les-contributeurs)
 - [Désinstallation](#désinstallation)
+- [Historique des versions](#historique-des-versions)
 
 ---
 
@@ -45,24 +50,11 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 ### Windows
 
-1. Double-cliquez sur **`DualView-Setup-0.7.0.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.7.1.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
 5. Lancez **DualView** depuis le Menu Démarrer
-
-### macOS
-
-Téléchargez le `.dmg`, glissez DualView dans `/Applications`, puis au premier lancement : clic droit → **Ouvrir** (Gatekeeper).
-
-### Linux
-
-```bash
-chmod +x DualView-*.AppImage
-./DualView-*.AppImage
-```
-
-👉 Voir le guide complet : **[HOW_TO_INSTALL.md](HOW_TO_INSTALL.md)**
 
 ### macOS
 
@@ -88,13 +80,8 @@ chmod +x DualView-*.AppImage
 
 Les titres de fenêtre sont stables entre les changements d'onglets, ce qui garantit une capture OBS fiable.
 
-Les titres de fenêtre sont stables entre les changements d'onglets, ce qui garantit une capture OBS fiable.
-
 ---
 
-## Navigation
-
-### Barre de contrôle (fenêtre Paysage)
 ## Navigation
 
 ### Barre de contrôle (fenêtre Paysage)
@@ -114,6 +101,15 @@ Les titres de fenêtre sont stables entre les changements d'onglets, ce qui gara
 | `📷` | Capture instantanée des deux vues en PNG |
 | `● Sync` | Contrôle synchronisation — ⏸ Pause / ▶ Reprendre / ↺ Redémarrer |
 | `⚙️` | Menu : Redimensionner / Historique / Favoris / Rouvrir le portrait / Paramètres |
+
+### Navigation persistante entre sessions *(v0.7.1)*
+
+Les boutons `←` et `→` restent fonctionnels **après un redémarrage de l'application**. Chaque onglet conserve sa pile de navigation (jusqu'à 50 entrées) dans la configuration locale. À la réouverture, les pages précédemment visitées sont accessibles via `←` sans avoir à les retrouver manuellement dans l'historique.
+
+- **Pendant une session** : navigation native Chromium (cache de page, état de formulaire préservé)
+- **Après redémarrage** : mode simulé — rechargement de la page précédente depuis l'URL sauvegardée
+- **Retour au mode natif** : automatique dès la première navigation organique (barre d'adresse ou clic sur un lien)
+- **Dropdown** : le survol de `←` / `→` pendant 500 ms affiche la pile de navigation, y compris les entrées restaurées
 
 ### Barre d'adresse intelligente (omnibar)
 
@@ -198,188 +194,108 @@ Organisez vos onglets par glisser-déposer, comme dans Chrome ou Edge.
 
 Clic droit sur un onglet → *Épingler l'onglet*. Affichés en icône seule à l'extrême gauche de la barre, jusqu'à 5 onglets épinglés simultanément. Non déplaçables, non ajoutables à un groupe ; **conservés entre les sessions** (depuis v0.6.1).
 
-### Menu contextuel onglet
-
-Clic droit sur un onglet : *Rouvrir l'onglet fermé* · *Épingler/Désépingler* · *Ajouter à un groupe* · *Retirer du groupe* · *Fermer l'onglet*.
-
 ---
 
 ## Synchronisation
 
-### Scroll
+La synchronisation maintient portrait et paysage sur la même URL et le même état vidéo.
 
-Le défilement de la fenêtre Paysage est reproduit dans le Portrait en pourcentage de hauteur de page.
-
-### Vidéo
-
-Les événements play / pause / seek détectés dans Paysage sont appliqués au Portrait via un protocole de commandes séquencées atomiques (anti-boucle) :
-
-| Action utilisateur | Séquence envoyée au portrait |
-|---|---|
-| Pause | ① `pause()` → ② `seek-to(t)` après 50 ms |
-| Lecture | ① `seek-to(t)` → ② `play()` après 100 ms |
-| Sync périodique (5 s) | `drift-check(t)` — appliqué uniquement si portrait est à l'arrêt ET écart > 2 s |
-
-Plateformes supportées : YouTube, TikTok, Instagram, générique.
-
-> La vidéo dans le Portrait est **toujours mute par défaut**. Si l'utilisateur active le son, un bouton **🔇 Remettre en mute** apparaît en bas à droite.
-
-### Démarrage différé
-
-La synchronisation s'active 3 secondes après l'ouverture, le temps que les deux fenêtres soient prêtes.
-
-### Pause automatique YouTube
-
-Quand l'utilisateur ouvre une vidéo YouTube classique, elle est automatiquement mise en pause dans les deux fenêtres :
-- **Si une publicité est en cours** : la pub joue librement ; la vidéo réelle est pausée à la fin.
-- **Si pas de pub** : pause immédiate à la seconde zéro.
-
-Désactivable dans **Paramètres → Général → Pause automatique des vidéos YouTube**.
-
-> Les **YouTube Shorts** ne sont pas concernés.
+- **Démarrage automatique** à l'ouverture (état : `● Actif`)
+- **Pause / Reprendre** : bouton `●` ou menu déroulant
+- **Redémarrer** : recharge le portrait sur l'URL du paysage et réinitialise l'état vidéo
+- **Suivi de scroll** : le scroll paysage se propage vers portrait (proportionnel à la hauteur de page)
+- **Sync vidéo** : play, pause et seek déclenchés dans paysage se reproduisent dans portrait avec compensation de latence
+- Plateformes supportées : YouTube (classique + Shorts), TikTok, Instagram
 
 ---
 
 ## Mode Focus
 
-Appuyez sur **`Ctrl+Shift+H`** ou **`F11`** pour masquer la toolbar et maximiser la zone de capture OBS.
+`Ctrl+Shift+H` ou `F11` masque la toolbar et la barre d'onglets pour maximiser la zone de capture OBS. Un badge de confirmation s'affiche 2 secondes.
 
-La toolbar reste accessible sans quitter le mode :
-- **Survol du bord supérieur** (bande invisible de 8 px) : la toolbar réapparaît 2 secondes
-- **Déplacer la souris sur la toolbar** : elle reste visible tant que la souris y est
-- Un **badge discret** en bas à droite confirme l'activation (disparaît après 2 s)
-- Même raccourci pour désactiver
+- **Réaffichage temporaire** : survolez la bande de 8 px en haut de l'écran → la toolbar apparaît 2 secondes
+- **Réaffichage permanent** : refaire `Ctrl+Shift+H` / `F11`
 
 ---
 
 ## Favoris
-## Favoris
 
-Mettez n'importe quelle page en favori d'un simple clic sur l'étoile **★** dans la barre de contrôle.
-Mettez n'importe quelle page en favori d'un simple clic sur l'étoile **★** dans la barre de contrôle.
+Bouton `★` dans la toolbar pour ajouter / retirer la page courante. Panneau latéral via **⚙️ → Favoris** :
 
-- **☆** (inactif) → la page n'est pas en favori
-- **★ dorée** (actif) → la page est en favori. Un toast de confirmation s'affiche.
+- Champ de recherche
+- Clic sur un favori → navigation immédiate
+- `✕` par entrée pour supprimer
 
-### Panneau latéral Favoris
-
-Accessible via **⚙️ → Favoris** :
-- **☆** (inactif) → la page n'est pas en favori
-- **★ dorée** (actif) → la page est en favori. Un toast de confirmation s'affiche.
-
-### Panneau latéral Favoris
-
-Accessible via **⚙️ → Favoris** :
-- Barre de recherche fulltext sur URL et titre
-- Cliquer sur une entrée navigue directement vers cette page
-- Suppression individuelle
-- Fermeture par ✕, `Échap`, ou clic extérieur
-- Suppression individuelle
-- Fermeture par ✕, `Échap`, ou clic extérieur
-
-**Persistance** : stockés dans `%AppData%/DualView/favorites.json` — maximum 500 entrées.
+Les favoris sont persistés dans `%APPDATA%\DualView\favorites.json`.
 
 ---
 
 ## Historique de navigation
 
-Un historique persistant est conservé entre les sessions :
-- Accessible via **⚙️ → Historique**
-- Affiché dans les suggestions de l'omnibar pendant la frappe
-- Alimenté automatiquement par toutes les navigations (toutes sessions confondues)
+Panneau latéral via **⚙️ → Historique** :
 
-Dropdown **← →** : survolez un bouton pendant 500 ms pour afficher l'historique de l'onglet actif.
-**Persistance** : stockés dans `%AppData%/DualView/favorites.json` — maximum 500 entrées.
+- Regroupé par période (Aujourd'hui, Hier, Cette semaine, par mois)
+- Champ de recherche (fulltext sur URL + titre)
+- Clic sur une entrée → navigation
+- `✕` par entrée pour supprimer une URL
+- **Effacer tout** pour vider l'historique
 
----
-
-## Historique de navigation
-
-Un historique persistant est conservé entre les sessions :
-- Accessible via **⚙️ → Historique**
-- Affiché dans les suggestions de l'omnibar pendant la frappe
-- Alimenté automatiquement par toutes les navigations (toutes sessions confondues)
-
-Dropdown **← →** : survolez un bouton pendant 500 ms pour afficher l'historique de l'onglet actif.
+Max 5 000 entrées (FIFO). Persisté dans `%APPDATA%\DualView\history.json`.
 
 ---
 
 ## Captures d'écran
 
-Le bouton **📷** capture simultanément les deux vues en PNG horodaté :
+Bouton `📷` dans la toolbar → capture PNG instantanée des deux fenêtres (paysage + portrait).
 
-- Nommage : `dualview_YYYY-MM-DD_HH-mm-ss_paysage.png` + `_portrait.png`
-- Dossier configurable dans **Paramètres → Général → Captures d'écran** (par défaut : dossier Images)
-- Toast de confirmation avec le chemin de sauvegarde
+- Dossier configurable dans **Paramètres → Général → Dossier de captures**
+- Nom automatique : `dualview-<YYYY-MM-DD>-<HHmmss>-<paysage|portrait>.png`
+- Toast de confirmation avec le chemin du dossier
 
 ---
 
 ## Page de démarrage — Top domaines
 
-Quand **Paramètres → Général → Nouveaux onglets** est réglé sur **"Page vide"**, les onglets vides affichent automatiquement vos sites les plus fréquentés :
-
-- Jusqu'à **10 domaines** classés par nombre de visites (toutes sessions confondues)
-- Aucun doublon (normalisé par hostname, `www.` ignoré)
-- Favicon de chaque site avec fallback sur l'initiale du domaine
-- Visible dans **les deux fenêtres** — Paysage et Portrait affichent la même grille
-- Clic → navigation directe dans l'onglet actif
+Sur un onglet vide (mode *Nouvel onglet vide* activé dans les Paramètres), une grille des 10 domaines les plus visités s'affiche, calculée depuis l'historique de navigation.
 
 ---
 
 ## Redimensionnement Portrait
 
-**⚙️ → Redimensionner** ouvre une modale avec :
+Bouton **⚙️ → Redimensionner** → modale avec :
 
-- **Préréglages** : iPhone 15 (390×844), Pixel 8 (412×915), Galaxy S24 (360×780), iPad (768×1024)
-- **Taille libre** : redimensionnez manuellement la fenêtre Portrait (contour orange)
-- **Valider** verrouille la taille. **Annuler** restaure la taille précédente.
+- **Préréglages** : iPhone SE / 15, Galaxy S24, iPad Mini, Pixel 8
+- **Taille libre** : redimensionnez directement la fenêtre Portrait avec la souris
+
+Le préréglage sélectionné est mémorisé pour les sessions suivantes.
 
 ---
 
 ## Réouverture de la fenêtre Portrait
 
-Si la fenêtre Portrait est fermée accidentellement, rouvrez-la sans redémarrer DualView :
-
-1. Cliquez sur **⚙️** dans la toolbar Paysage
-2. Sélectionnez **"Rouvrir le portrait"** (entrée visible uniquement si Portrait fermé)
-3. La fenêtre se rouvre à sa **dernière position et taille connue**
-4. Tous les onglets ouverts dans Paysage sont **automatiquement reconstruits** dans le Portrait
+Si la fenêtre Portrait est fermée accidentellement, **⚙️ → Rouvrir le portrait** la reconstruit complètement (même URL, même état de sync).
 
 ---
 
 ## Services connectés
 
-Connexion aux services web depuis **Paramètres → Services connectés** :
+**⚙️ → Paramètres → Services** — 11 services pré-configurés + URL personnalisée :
 
-- **11 services pré-configurés** : Google, Microsoft, Instagram, Facebook, Twitch, TikTok, X/Twitter, Discord, Steam, **GitHub, GitLab** *(GitHub et GitLab ajoutés en v0.4.7)*
-- Connexion dans une **fenêtre dédiée** qui contourne les restrictions des webviews Electron : email/mot de passe
-- **Clés d'accès désactivées** *(depuis v0.6.2)* : Windows Hello, Touch ID et clés de sécurité FIDO2 ne sont plus proposés dans la fenêtre de connexion, pour des raisons de sécurité
-- **URL personnalisée** avec bouton "J'ai terminé" + confirmation
-- **Détection automatique de connexion** par cookies
+Google · Microsoft · Instagram · Facebook · Twitch · TikTok · Twitter/X · Discord · Steam · GitHub · GitLab
 
-### Détection des pages de connexion
-
-- **Paysage** : popup avec bouton "Se connecter" direct pour le service détecté
-- **Portrait** : overlay plein écran, disparaît automatiquement à la navigation
+Chaque service ouvre une fenêtre de connexion isolée (partition dédiée, anti-détection Electron renforcé) qui partage les cookies avec les webviews DualView.
 
 ---
 
 ## Intégration OBS
 
-Pilotez DualView **sans quitter OBS**, de deux façons complémentaires :
+DualView intègre un **serveur local HTTP + WebSocket** (`127.0.0.1`, token d'auth) permettant de piloter l'application depuis OBS Studio via un script Lua (`obs-integration/dualview-obs-hotkeys.lua`).
 
-### Panneau de dock OBS
+Actions disponibles depuis OBS :
 
-Un panneau intégré à l'interface OBS pour contrôler la synchronisation, l'URL et les onglets à la souris, avec affichage de l'état en temps réel (sync, URL, onglet actif).
-
-### Hotkeys OBS natives (script Lua)
-
-Le script `obs-integration/dualview-obs-hotkeys.lua` ajoute de vrais raccourcis clavier OBS pour :
-- Pause / Reprendre / Redémarrer la sync
-- Navigation (retour / avance / recharger)
+- Navigation ← / → / ↺ / 🏠
+- Chargement d'une URL
 - Gestion des onglets (nouvel onglet / fermer)
-
-Le script est **cross-platform** : détecte automatiquement l'OS et adapte la commande curl.
 
 ### Configuration
 
@@ -494,45 +410,25 @@ Pour l'historique, 4 options de limite : **500** (défaut) · **1 000** · **5 0
 | Anti-détection Electron | `preload-auth.js` (5 couches) + flag `AutomationControlled` |
 | IPC sécurisé | `contextIsolation` + preload scripts |
 | Serveur OBS local | Lié à `127.0.0.1` + token d'authentification |
-| Mesure | Détail |
-|--------|--------|
-| Téléchargements bloqués | Exception : enregistrement d'image via clic droit |
-| Permissions refusées | Caméra, micro, géolocalisation, notifications |
-| Navigation limitée | `http://`, `https://`, `file://` uniquement |
-| Anti-détection Electron | `preload-auth.js` (5 couches) + flag `AutomationControlled` |
-| IPC sécurisé | `contextIsolation` + preload scripts |
-| Serveur OBS local | Lié à `127.0.0.1` + token d'authentification |
+
+> **Note sur les logs console** : des messages `ERR_NETWORK_ACCESS_DENIED` ou `ERR_ABORTED` peuvent apparaître dans la console de développement. Ils sont attendus : le premier signale le bloqueur de trackers en action (ex. Optimizely) ; le second provient de YouTube qui normalise ses URLs mobile/desktop en interne, ou du handler `will-download` qui annule les téléchargements non autorisés. Aucun impact fonctionnel.
 
 ---
 
-## Persistance des données
 ## Persistance des données
 
 | Donnée | Emplacement |
 |--------|-------------|
 | Position / taille des fenêtres | `%APPDATA%\DualView\dualview-config.json` |
-| Position / taille des fenêtres | `%APPDATA%\DualView\dualview-config.json` |
-| Onglets & URLs | idem |
+| Onglets, URLs & piles de navigation | idem *(v0.7.1)* |
 | Groupes d'onglets | idem |
 | Paramètres & Services | idem |
-| Historique de navigation | `%APPDATA%\DualView\history.json` |
-| Favoris | `%APPDATA%\DualView\favorites.json` |
-| Cookies & sessions | `%APPDATA%\DualView\Partitions\persist_dualview\` |
 | Historique de navigation | `%APPDATA%\DualView\history.json` |
 | Favoris | `%APPDATA%\DualView\favorites.json` |
 | Cookies & sessions | `%APPDATA%\DualView\Partitions\persist_dualview\` |
 
 ---
 
-## Stack technique
-
-- **Electron 42** (Chromium 130+, Node.js 22)
-- **IPC sécurisé** : `contextIsolation` + preload scripts
-- **Anti-détection** : `preload-auth.js` (5 couches) + flag `AutomationControlled`
-- **Contrôle OBS** : serveur local HTTP+WebSocket (`obs-control.js`, `127.0.0.1` + token), dock `obs-dock.html`, script Lua hotkeys
-- **Cookies** : partition `persist:dualview` partagée entre webviews et fenêtres auth
-- **Persistance** : `fs` + JSON natif
-- **Installeur** : electron-builder — NSIS (Windows) · DMG (macOS) · AppImage + deb (Linux)
 ## Stack technique
 
 - **Electron 42** (Chromium 130+, Node.js 22)
@@ -573,17 +469,18 @@ Supprimez `%APPDATA%\DualView\` pour effacer toutes les données locales.
 
 | Version | Résumé |
 |---------|--------|
-| 0.7.0 | Récupération crash webview (render-process-gone, overlay inline, auto-reload 10s) ; lecteur PDF natif (`plugins="true"`) ; vérification de mise à jour (API GitHub, bouton Paramètres → Général) ; corrections : GitHub/GitLab dans Services connectés, `detectServiceKeyFromUrl()`, `MaxListenersExceededWarning` → 200, `ERR_ABORTED` filtrés, `#dev-btn` résiduel supprimé ; raccourcis clavier redessinés (cartes + `<kbd>` stylés) |
-| 0.6.2 | **Sécurité** : clés d'accès (WebAuthn — Windows Hello, Touch ID, FIDO2) désactivées dans la fenêtre d'authentification des services connectés ; email/mot de passe uniquement |
-| 0.6.1 | Fixes : drag & drop hors groupe (zone de repli), onglets épinglés persistés entre sessions, groupe orphelin lors d'un déplacement inter-groupes, console silencieuse pour les favicons (fetch déporté au main process) |
+| 0.7.1 | **Navigation persistante entre sessions** : pile `navStack[]`/`navIndex` par onglet, persistée dans la config. Boutons `←`/`→` fonctionnels après redémarrage (mode simulé → rechargement URL ; mode natif → cache Chromium). Dropdown ← → alimenté depuis la pile restaurée. Correction bug `_simModeSet` supprimé par le `did-navigate` du chargement initial. |
+| 0.7.0 | Récupération crash webview (render-process-gone, overlay inline, auto-reload 10s) ; lecteur PDF natif (`plugins="true"`) ; vérification de mise à jour (API GitHub, bouton Paramètres → Général) ; corrections : GitHub/GitLab dans Services connectés, `detectServiceKeyFromUrl()`, `MaxListenersExceededWarning` → 200, `ERR_ABORTED` filtrés, `#dev-btn` résiduel supprimé ; raccourcis clavier redessinés |
+| 0.6.2 | **Sécurité** : clés d'accès (WebAuthn — Windows Hello, Touch ID, FIDO2) désactivées dans la fenêtre d'authentification |
+| 0.6.1 | Fixes : drag & drop hors groupe, onglets épinglés persistés, groupe orphelin, console silencieuse pour les favicons |
 | 0.6.0 | Groupes d'onglets, onglets épinglés, rouvrir l'onglet fermé, favicons réels, menu contextuel natif |
-| 0.5.4 | Menu contextuel : retour/avance grisés, imprimer via PDF natif OS, code source dans onglet dédié, inspecter élément, impression page avec aperçu logiciel natif dans l'OS  |
-| 0.5.3 | Onglets déplaçables : Drag & Drop avec ligne indicatrice verticale et opacité de l'onglet déplacé, typage des onglets (web, paramètres, vide) |
-| 0.5.2 | Export / Import de configuration : 18 éléments sélectionnables (paramètres, historique avec limite, favoris, dimensions portrait), merge sélectif à l'import, restart auto si apparence/langue |
-| 0.5.1 | Section Raccourcis clavier dans Paramètres (Windows/Linux/macOS) ; correctifs topsites (clics, race condition, disparition au 2e onglet) ; `pointer-events` webview vide |
+| 0.5.4 | Menu contextuel étendu : retour/avance grisés, imprimer PDF, code source, inspecter élément |
+| 0.5.3 | Onglets déplaçables (Drag & Drop), typage des onglets |
+| 0.5.2 | Export / Import de configuration sélectif |
+| 0.5.1 | Section Raccourcis clavier dans Paramètres ; correctifs topsites |
 | 0.5.0 | Mode Focus, Top domaines, fusion Apparence+Langue, réouverture Portrait |
 | 0.4.7 | Favoris (★ toolbar + panneau latéral) |
-| 0.4.6 | Refactoring `main.js` (−38%), fixes AUTO_PAUSE, thème portrait |
+| 0.4.6 | Refactoring `main.js` (−38 %), fixes AUTO_PAUSE, thème portrait |
 | 0.4.5 | Support macOS et Linux, script Lua cross-platform |
 | 0.4.4 | Refactoring CSS/JS, i18n portrait, restructuration `src/` |
 | 0.4.3 | Refonte sync vidéo anti-boucle |

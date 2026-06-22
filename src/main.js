@@ -1,6 +1,14 @@
 /**
  * DualView - Main Process
- * Version: 0.7.0
+ * Version: 0.7.1
+ *
+ * Changements v0.7.1 :
+ * - Téléchargements configurables : setting 'allowDownloads' + 'downloadDir'.
+ *   session-security.js géère le will-download ; main.js tracke la liste en
+ *   mémoire (_downloads) et expose : get-downloads, clear-downloads,
+ *   open-download-folder, open-download-file, choose-download-dir.
+ *   setupSessionSecurity() reçoit getAllowDownloads/getDownloadDir/onDownload*.
+ * - Nouveaux settings validés dans save-settings : allowDownloads, downloadDir.
  *
  * Changements v0.7.0 :
  * - Vérification de mise à jour : fetchLatestReleaseTag()/isNewerVersion()
@@ -343,6 +351,10 @@ let resizeMode   = false;
 // Flag : chemin de sauvegarde positionné par "Enregistrer l'image sous…"
 // avant downloadURL() pour que will-download laisse passer ce seul téléchargement.
 let _pendingImageSavePath = null;
+
+// ── Liste des téléchargements en mémoire (v0.7.1) ────────────────────────────
+// Taille max : 100 entrées (les plus récentes). Non persistée entre sessions.
+let _downloads = [];
 
 // ── Helpers thème ─────────────────────────────────────────────────────────────
 function getTheme() {
@@ -695,6 +707,13 @@ ipcMain.on('history-delete-url',    (event, { url })  => { if (history) history.
 ipcMain.on('history-clear-all',     ()                => { if (history) history.clearAll(); });
 ipcMain.on('history-clear-tab',     (event, { tabId }) => { if (history) history.clearTab(tabId); });
 
+// Suppression de tout l'historique lié à un domaine (v0.7.1 — panneau historique)
+// Retourne le nombre d'entrées supprimées.
+ipcMain.handle('history-delete-domain', (event, { domain }) => {
+    if (!domain || typeof domain !== 'string') return 0;
+    return history ? history.deleteByDomain(domain) : 0;
+});
+
 // ── Favoris (v0.4.7) ─────────────────────────────────────────────────────────
 ipcMain.handle('favorites-add',      (event, { url, title }) => favorites ? favorites.add({ url, title }) : false);
 ipcMain.handle('favorites-remove',   (event, { url })        => { if (favorites) favorites.deleteUrl(url); return true; });
@@ -988,6 +1007,10 @@ ipcMain.on('save-settings', (event, settings) => {
         screenshotDir:      v => typeof v === 'string',
         portraitPreset:     v => typeof v === 'string',
         autoMutePortrait:   v => typeof v === 'boolean',
+        // v0.7.1 — téléchargements configurables
+        allowDownloads:     v => typeof v === 'boolean',
+        downloadDir:        v => typeof v === 'string',
+        downloadAskPath:    v => typeof v === 'boolean',
     };
     const current        = configGet('settings') || Object.assign({}, SETTINGS_DEFAULTS);
     const prevObsEnabled = current.obsEnabled;
@@ -1352,6 +1375,60 @@ ipcMain.handle('choose-screenshot-dir', async () => {
     return dir;
 });
 
+// ── Téléchargements configurables (v0.7.1) ────────────────────────────────────
+// get-downloads  : retourne la liste en mémoire (max 100 entrées)
+// clear-downloads : vide la liste
+// open-download-folder : ouvre le dossier contenant le fichier dans l'explorateur
+// open-download-file   : ouvre directement le fichier téléchargé
+// choose-download-dir  : dialogue de sélection du dossier de destination
+
+ipcMain.handle('get-downloads', () => [..._downloads]);
+
+ipcMain.handle('clear-downloads', () => {
+    _downloads = [];
+    return true;
+});
+
+// Suppression individuelle d'un téléchargement de la liste (v0.7.1 update)
+ipcMain.handle('remove-download', (event, id) => {
+    if (!id) return false;
+    const before = _downloads.length;
+    _downloads = _downloads.filter(d => d.id !== id);
+    return _downloads.length !== before;
+});
+
+ipcMain.handle('open-download-folder', async (event, filePath) => {
+    try {
+        if (!filePath || typeof filePath !== 'string') return false;
+        // Sécurité : ne pas ouvrir un chemin arbitraire — on normalise et on
+        // s'assure que c'est un chemin absolu sur le système local.
+        const normalized = path.normalize(filePath);
+        const folder = path.dirname(normalized);
+        await shell.openPath(folder);
+        return true;
+    } catch { return false; }
+});
+
+ipcMain.handle('open-download-file', async (event, filePath) => {
+    try {
+        if (!filePath || typeof filePath !== 'string') return false;
+        const normalized = path.normalize(filePath);
+        const { error } = await shell.openPath(normalized);
+        return !error;
+    } catch { return false; }
+});
+
+ipcMain.handle('choose-download-dir', async () => {
+    const result = await dialog.showOpenDialog(landscapeWin, {
+        title:      'Dossier de téléchargements',
+        properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    const dir = result.filePaths[0];
+    configSet('settings.downloadDir', dir);
+    return dir;
+});
+
 // ── Export / Import configuration (v0.5.2) ────────────────────────────────────
 
 /**
@@ -1713,6 +1790,28 @@ app.whenReady().then(() => {
         getPendingImageSavePath:   () => _pendingImageSavePath,
         clearPendingImageSavePath: () => { _pendingImageSavePath = null; },
         getLandscapeWin:           () => landscapeWin,
+        // ── Téléchargements configurables (v0.7.1) ───────────────────────────
+        getAllowDownloads:  () => !!configGet('settings.allowDownloads'),
+        getDownloadDir:    () => configGet('settings.downloadDir') || '',
+        getDownloadAskPath:() => !!configGet('settings.downloadAskPath'),
+        onDownloadStarted: (item) => {
+            _downloads.unshift(item);
+            if (_downloads.length > 100) _downloads.pop();
+            if (landscapeWin && !landscapeWin.isDestroyed())
+                landscapeWin.webContents.send('download-started', item);
+        },
+        onDownloadUpdated: (item) => {
+            const idx = _downloads.findIndex(d => d.id === item.id);
+            if (idx !== -1) _downloads[idx] = item;
+            if (landscapeWin && !landscapeWin.isDestroyed())
+                landscapeWin.webContents.send('download-updated', item);
+        },
+        onDownloadDone: (item) => {
+            const idx = _downloads.findIndex(d => d.id === item.id);
+            if (idx !== -1) _downloads[idx] = item;
+            if (landscapeWin && !landscapeWin.isDestroyed())
+                landscapeWin.webContents.send('download-done', item);
+        },
     });
     createLandscapeWindow();
     createPortraitWindow();

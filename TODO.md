@@ -1,230 +1,188 @@
-# DualView — TODO
+# DualView — Résumé du TODO (v0.7.1)
 
-> Améliorations et nouvelles fonctionnalités identifiées à partir de la v0.3.2.
-> Classées par priorité. Cocher une case une fois l'item livré et reporté dans `CHANGELOG.md`.
-> Dernière version livrée : **v0.7.0**.
+**Dernière version livrée :** v0.7.1  
+**Date du résumé :** juin 2026  
 
 ---
 
-## 🔴 Priorité 0 — Bugs bloquants à corriger avant v1.0.0
+## 📊 Vue d'ensemble — Statut global
 
-> Incohérences entre code réel et documentation, ou régressions fonctionnelles.
-> À traiter **avant** toute nouvelle fonctionnalité.
+| Priorité | Total | ✅ Livré | ⏳ En cours | Items restants |
+|----------|-------|---------|-----------|----------------|
+| **🔴 P0** — Bugs bloquants | 8 | **8** | 0 | **0** ✨ |
+| **🟡 P1** — UX quotidienne | 4 | **4** | 0 | **0** ✨ |
+| **🟡 P2** — Créateur/streamer | 2 | **1** | 0 | **1** en attente |
+| **🟡 P2 bis** — UX v0.5.x | 4 | **4** | 0 | **0** ✨ |
+| **🟡 P3** — Robustesse open source | 3 | **2** | 0 | **1** en attente |
+| **🟢 P4** — Différenciation | 3 | **0** | 0 | **3** nice to have |
+| **🟢 P5** — Navigateur supplémentaires | 5 | **5** | 0 | **0** ✨ |
+| **Structure** | 3 | **3** | 0 | **0** ✨ |
+| | | | | |
+| **TOTAL** | **32 items** | **27** (84%) | **0** | **5** (16%) |
+
+---
+
+## 🔴 Priorité 0 — Bugs bloquants (V1.0.0)
+
+**Status : 100% complété en v0.7.0** ✅
 
 ### Code vs Documentation
+- ✅ Bloqueur de publicités : documenté comme "détecteur" (overlay + compte à rebours uniquement)
+- ✅ README.md : synchronisé (11 services, sections dédupliquées)
+- ✅ CONTRIBUTING.md : corrigé (`npm start` uniquement)
+- ✅ detectServiceKeyFromUrl() : GitHub/GitLab ajoutés
 
-- [x] **Bloqueur de publicités : réconcilier code et doc** *(v0.7.0 — option ②)*
-  Description du problème : `README.md` et `ARCHITECTURE.md` promettaient un bloqueur \"3 niveaux\"
-  (réseau 50+ domaines + ctier=A googlevideo, DOM CSS cosmétique, JS stub IMA). Code réel :
-  - Niveau 1 : seulement 8 domaines, aucune trace de googlevideo.com ou ctier
-  - Niveau 2 : aucune CSS cosmétique (sélecteurs ytd-ad-*, ytp-*) injectée
-  - Niveau 3 : aucun stub google.ima (Object.defineProperty pour AdsLoader/AdsManager)
+### Fonctionnalités régressées
+- ✅ Gestion crash/récupération webview : render-process-gone + page de récupération
+- ✅ Affichage PDF : `plugins="true"` sur les webviews
+- ✅ Mécanisme de mise à jour : bouton "Vérifier les mises à jour" (option minimale)
+- ✅ Résidu #dev-btn : supprimé
+
+---
+
+## 🟡 Priorité 1 — Expérience utilisateur quotidienne
+
+**Status : 100% complété** ✅
+
+- ✅ A. Préréglages de taille Portrait (v0.4.0)
+- ✅ B. Capture instantanée PNG (v0.4.0)
+- ✅ C. Historique de navigation dropdown (v0.4.0)
+- ✅ M. Groupes d'onglets, épinglés, favicons (v0.6.0)
+
+---
+
+## 🟡 Priorité 2 — Fonctionnalités créateur / streamer
+
+**Status : 50% complété** (1/2)
+
+- ⏳ **D. Export de configuration OBS** — En attente (format JSON incompatible, v0.5.0)
+- ✅ F. Mode Focus (masquer toolbar) (v0.5.0)
+
+---
+
+## 🟡 Priorité 2 bis — Expérience utilisateur (v0.5.x)
+
+**Status : 100% complété** ✅
+
+- ✅ Section Raccourcis clavier (v0.5.1)
+- ✅ Correctifs topsites (v0.5.1)
+- ✅ Top 10 domaines (v0.5.0)
+- ✅ Fusion Apparence+Langue (v0.5.0)
+- ✅ Réouverture fenêtre portrait (v0.5.0)
+
+---
+
+## 🟡 Priorité 3 — Robustesse et écosystème open source
+
+**Status : 67% complété** (2/3)
+
+- ✅ G. Support macOS/Linux cross-platform (v0.4.5+)
+- ✅ H. Export/Import de configuration (v0.5.2)
+- ⏳ **I. Tests automatisés (Playwright)** — Toujours en attente (CI/build.yml sans tests)
+
+---
+
+## 🟢 Priorité 4 — Différenciation
+
+**Status : 0% — Nice to have post-1.0.0** 
+
+- [ ] J. Injection CSS/JS personnalisé par domaine (type Stylus)
+- [ ] K. Comparaison visuelle côte à côte (split diff responsive design)
+- [ ] L. Pause automatique YouTube Shorts (TBD — SPA YouTube instable)
+
+---
+
+## 🟢 Priorité 5 — Fonctionnalités navigateur supplémentaires
+
+**Status : 100% complété en v0.7.1** ✅
+
+Ajouté en juin 2026 pour combler les écarts avec un navigateur classique.
+
+- ✅ **Recherche dans la page (`Ctrl+F`)** (v0.7.1)
+  - Barre inline (top-right de la zone webview) avec counter "X de Y"
+  - API `findInPage()` + navigation ↑↓ + Escape pour fermer
   
-  Seul `AD_POLL_SCRIPT` **détecte** les pubs YouTube en mémoire pour l'overlay portrait,
-  mais ne bloque rien.
+- ✅ **Zoom de page (`Ctrl+`/`Ctrl-`/`Ctrl+0`)** (v0.7.1)
+  - Persistance par domaine via `localStorage`
+  - Toast temporaire d'affichage du niveau (ex. "Zoom : 110%")
+  - Restauration automatique à chaque navigation sur le domaine
   
-  ✅ Option ② choisie : la documentation a été **corrigée** pour refléter la réalité du code.
-  `README.md` et `ARCHITECTURE.md` décrivent désormais le mécanisme comme un **détecteur de pub**
-  (overlay portrait + compte à rebours) et non un bloqueur. La restauration des niveaux 2 et 3
-  est reportée (prio 4, risque TOS YouTube) — voir la nouvelle entrée TODO priorité 4.
-
-- [x] **README.md : sections dupliquées et services non synchronisés** *(v0.7.0)*
-  - ✅ Services mis à jour : \"11 pré-configurés\" (Google, Microsoft, Instagram, Facebook, Twitch,
-    TikTok, X/Twitter, Discord, Steam, **GitHub, GitLab**)
-  - ✅ Sections Captures d'écran / Persistance / Stack / Sécurité dédupliquées
-  - ✅ Nouvelles fonctionnalités v0.7.0 documentées (récupération crash, lecteur PDF, mise à jour)
-
-- [x] **CONTRIBUTING.md : documente le mode --dev supprimé en v0.5.4** *(v0.7.0)*
-  - ✅ Section \"Lancer l'application\" réécrite : `npm start` uniquement
-  - ✅ `preload-dev.js` retiré de l'arborescence listée
-  - ✅ Note explicative pour les futurs contributeurs qui tomberaient sur une référence à `--dev`
-
-- [x] **detectServiceKeyFromUrl() : pas à jour pour GitHub/GitLab** *(v0.7.0)*
-  - ✅ `url-guard.js` : cas `github.com` → `'github'` et `gitlab.com` → `'gitlab'` ajoutés
-
-### Fonctionnalités régressées ou incomplètes
-
-- [x] **Gestion de crash/récupération webview : totalement absent** *(v0.7.0)*
-  - ✅ Handler `render-process-gone` sur chaque webview (landscape + portrait)
-  - ✅ Page de récupération inline `#crash-recovery` (landscape) / `#crash-overlay` (portrait)
-  - ✅ Auto-reload après 10 s d'inactivité + bouton manuel \"Recharger maintenant\"
-  - ✅ Toast discret notifiant le crash (`tabCrashedToast`, i18n FR/EN)
-  - ✅ `unresponsive` détecté → toast `tabUnresponsiveToast` (page ne répond plus)
-  - ✅ Onglet fermé pendant la récupération : timer annulé proprement
-  - ✅ `skipIpc:true` dans recoverCrashedTab : pas de cycle tab-closed/tab-created vers portrait
-
-- [x] **Affichage PDF : probablement bloqué comme téléchargement** *(v0.7.0)*
-  - ✅ `plugins="true"` ajouté dans `landscape-views.js` (createWebview)
-  - ✅ `plugins="true"` ajouté dans `portrait-app.js` (createWebview)
-
-- [x] **Aucun mécanisme de mise à jour (automatique ou manuel)** *(v0.7.0 — option minimale)*
-  - ✅ `fetchLatestReleaseTag()` + `isNewerVersion()` dans `main.js`
-  - ✅ Handler IPC `check-for-update` (sans dépendance npm) + `open-external-url`
-  - ✅ Bouton \"Vérifier les mises à jour\" dans Paramètres → Général
-  - ✅ `GITHUB_REPO` dans `config-manager.js` (à renseigner avant publication)
-  - ✅ i18n FR/EN (8 nouvelles clés)
-
-- [x] **Résidu mort : bouton #dev-btn dans landscape.html** *(v0.7.0)*
-  - ✅ Bouton `<button id="dev-btn">` supprimé de `landscape.html`
-  - ✅ Règles CSS `#dev-btn` et `body.dev-mode #dev-btn` supprimées de `landscape.css`
+- ✅ **Affichage PDF natif** (v0.7.0)
+  - Infrastructure en place : `plugins="true"` sur les webviews
+  - PDF affichés directement dans la webview (lecteur Chromium natif)
+  
+- ✅ **Téléchargements configurables** (v0.7.1)
+  - Case à cocher dans Paramètres → Confidentialité
+  - Dossier de destination configurable (défaut : Téléchargements OS)
+  - Mini-gestionnaire : panneau ⬇️ dans le menu ⚙️, liste, ouvrir dossier/fichier, effacer
+  
+- ✅ **Indicateur de chargement** (v0.7.1)
+  - Barre de progression linéaire 3 px en haut de la zone webview
+  - Theme-aware (couleur `--accent`)
+  - Fade-out 0.5s à la fin du chargement
 
 ---
 
-## Priorité 1 — Expérience utilisateur quotidienne
+## 📈 Graphique d'avancement
 
-- [x] **A. Préréglages de taille Portrait**
-  Ajouter un sélecteur de device préconfiguré dans la toolbar (menu déroulant ou popup) :
-  iPhone 15 (390×844), Pixel 8 (412×915), Galaxy S24 (360×780), iPad (768×1024).
-  ✅ Livré en v0.4.0 — modale ⚙️ → Redimensionner.
+```
+Version 1.0.0 (objectif)
+├─ Priorité 0 (Bugs bloquants)       ████████████████████ 100% ✅
+├─ Priorité 1 (UX quotidienne)       ████████████████████ 100% ✅
+├─ Priorité 2 (Créateur)             ██████████░░░░░░░░░░  50%
+└─ Priorité 3 (Robustesse)           ██████████████░░░░░░  67%
 
-- [x] **B. Capture instantanée (screenshot)**
-  Bouton dans la toolbar pour capturer les deux vues simultanément en PNG.
-  ✅ Livré en v0.4.0 — bouton 📷, dossier configurable dans Paramètres.
+Version 1.0.0 + (Post-launch)
+├─ Priorité 4 (Différenciation)      ░░░░░░░░░░░░░░░░░░░░   0%
+└─ Priorité 5 (Navigateur)           ████████████████████ 100% ✅
 
-- [x] **C. Historique de navigation par onglet**
-  Dropdown au survol (500 ms) des boutons ← → affichant les URLs de l'onglet actif.
-  ✅ Livré en v0.4.0 — dropdown avec fermeture auto 500ms unfocus (v0.4.2).
-
-- [x] **M. Groupes d'onglets, onglets épinglés, rouvrir l'onglet fermé, favicons**
-  Demandé hors backlog initial. Groupes colorés nommables avec drag & drop in/out
-  et persistance ; onglets épinglés (max 5, persistés depuis v0.6.1) ; historique
-  illimité des onglets fermés (`Ctrl+Shift+T`) ; favicons réels extraits des
-  balises de la page avec repli en cascade. Menu contextuel natif OS sur les
-  onglets et les labels de groupe.
-  ✅ Livré en v0.6.0. Correctifs en v0.6.1 : drag & drop hors groupe, persistance
-  épinglés, groupe orphelin lors d'un déplacement inter-groupes, console
-  DevTools silencieuse pour les favicons (fetch déporté au main process).
+Structure Open Source                 ████████████████████ 100% ✅
+```
 
 ---
 
-## Priorité 2 — Fonctionnalités créateur / streamer
+## 🎯 Prochaines étapes recommandées (post-v0.7.1)
 
-- [ ] **D. Export de configuration OBS (scènes prédéfinies)**
-  Assistant dans Paramètres → OBS générant un fichier `.json` importable directement
-  dans OBS avec les deux sources "Capture de fenêtre" (Paysage + Portrait) déjà
-  configurées, nommées et positionnées.
-  _(Tenté en v0.5.0 — le format JSON généré n'était pas compatible avec OBS. Reporté.)_
+### Court terme (v1.0.0)
+1. **P2-D : Export OBS** — Réessayer le format JSON (format actuel incompatible depuis v0.5.0)
+2. **P3-I : Tests Playwright** — Ajouter 3-5 tests de régression au build.yml (valeur signal)
+3. **Stabilisation v1.0.0** — Validation terrain des fonctionnalités P5 livrées en v0.7.1
 
-- [ ] **E. Indicateur réseau dans la toolbar**
-  Afficher le temps de chargement de la dernière navigation (via `did-finish-load` + timestamp)
-  et un indicateur de latence. Utile en live pour diagnostiquer une page lente.
+### Moyen terme (v1.2.0+)
+1. **P4-J : Injection CSS/JS** — Architecture type Stylus (répondre à l'absence d'extensions)
+2. **P4-K : Split diff** — Outil unique pour responsive design testing
 
-- [x] **F. Mode Focus — masquer la toolbar**
-  Raccourci clavier (`Ctrl+Shift+H` ou `F11`) pour masquer la toolbar et maximiser
-  l'espace de capture OBS. La toolbar réapparaît au survol (bande 8 px) ou sur nouvelle pression.
-  ✅ Livré en v0.5.0 — bande de détection + badge discret + toast.
+### Long terme (v2.0.0)
+1. **P4-L : YouTube Shorts** — À revoir si YouTube stabilise son architecture
+2. **P4 items** — Intégration complète comme outil pro d'une alternative à Polypane
 
 ---
 
-## Priorité 2 bis — Expérience utilisateur (v0.5.1)
+## 📝 Notes importantes
 
-- [x] **Section Raccourcis clavier dans les Paramètres**
-  Nouvelle entrée ⚓ dans la barre latérale des Paramètres. Trois tableaux (Navigation,
-  Onglets, Interface) avec distinction Windows/Linux vs macOS. 18 clés i18n FR/EN.
-  ✅ Livré en v0.5.1 — `landscape.html`, `landscape-i18n.js`, `landscape.css`.
+### Raison du découpage Priorité 0 / 1 / 2 / 5
 
-- [x] **Correctifs topsites — clics et race condition**
-  Clics sur les icônes du top 10 bloqués par la webview `about:blank` (`pointer-events`).
-  Race condition `maybeShowTopSites()` causant la disparition du top 10 au 2e onglet vide.
-  Manipulation `style.display` inline écrasant les règles CSS `pointer-events`.
-  ✅ Livré en v0.5.1 — `landscape-views.js`, `landscape-tabs.js`, `landscape-ui.js`, `landscape.css`.
+Le **Priorité 0** a été ajouté rétrospectivement (v0.7.0) pour catégoriser les **bugs critiques découverts lors de l'audit du code** :
+- Écarts majeurs doc ↔ code (bloqueur pub)
+- Régressions fonctionnelles (crash webview, PDF)
+- Documentation obsolète (--dev, services)
 
----
+Tous ont été corrigés en v0.7.0 pour atteindre une base solide avant la v1.0.0 grand public.
 
-## Priorité 2 bis — Expérience utilisateur (v0.5.0)
+### Priorité 5 = Nouveau backlog navigateur (juin 2026)
 
-- [x] **Top 10 domaines sur onglet vide**
-  Quand "Nouveaux onglets" est réglé sur "Page vide", afficher les domaines les plus
-  visités (historique toutes sessions, dédoublonné, max 10). Paysage + portrait.
-  ✅ Livré en v0.5.0.
-
-- [x] **Fusion Apparence + Langue dans Général**
-  Déplacer les sections "Apparence" et "Langue" dans "Général" pour simplifier la
-  navigation dans les paramètres (4 entrées au lieu de 6).
-  ✅ Livré en v0.5.0.
-
-- [x] **Réouverture fenêtre portrait**
-  Bouton "Rouvrir le portrait" dans ⚙️, visible uniquement si la fenêtre portrait est
-  fermée. Reconstruction complète du pool d'onglets au rouvrir.
-  ✅ Livré en v0.5.0.
+Créé pour **compléter progressivement les fonctionnalités de navigateur classique** sans repousser la v1.0.0. À cet stade, l'app est un **navigateur dual restreint hautement optimisé pour la diffusion OBS**, pas un Chrome replacement — ce qui est voulu.
 
 ---
 
-## Priorité 3 — Robustesse et écosystème open source
+## 🔗 Fichiers documentaires liés
 
-- [x] **G. Support macOS / Linux**
-  Electron supporte nativement les trois plateformes. Travail nécessaire :
-  - ✅ `app.getPath('userData')` utilisé partout — aucun chemin Windows en dur
-  - ✅ Script Lua OBS rendu cross-platform (détection OS, curl natif macOS/Linux)
-  - ✅ Cibles electron-builder ajoutées : `.dmg` (macOS x64+arm64), `.AppImage` + `.deb` (Linux)
-  - ✅ `installer/build-installer.sh` créé (macOS + Linux)
-  - ✅ GitHub Actions mis à jour : 3 jobs séparés (windows/macos/linux) + job release
-
-- [x] **H. Export / Import de configuration**
-  Bouton "Exporter ma config" (onglets, services, paramètres OBS) en JSON et
-  "Importer" dans Paramètres → Général. Facilite les réinstallations et le partage
-  de setup entre contributeurs.
-  ✅ Livré en v0.5.2 — section Export/Import dans les Paramètres, export sélectif + import avec merge sélectif.
-
-- [ ] **I. Tests automatisés de base**
-  Ajouter 3 à 5 tests Playwright vérifiant :
-  - Ouverture des deux fenêtres
-  - Synchronisation de navigation sur une URL de test
-  - Pause / reprise de la sync
-  Signal de qualité fort pour les contributeurs potentiels.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — Architecture technique détaillée (v0.6.2)
+- [`CHANGELOG.md`](./CHANGELOG.md) — Historique des versions au format Keep a Changelog
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — Guide pour contributeurs (v0.7.0)
+- [`README.md`](./README.md) — Documentation utilisateur (v0.7.0, 11 services)
+- [`VERSION_HISTORY.md`](./VERSION_HISTORY.md) — Détail des changements par version
 
 ---
 
-## Priorité 4 — Différenciation
-
-- [ ] **J. Injection de CSS / JS personnalisé par domaine**
-  Interface dans Paramètres permettant d'associer du CSS ou du JS à un domaine
-  (ex. masquer un bandeau cookie sur `site.com`). Injecter via
-  `webContents.insertCSS()` et `executeJavaScript()` au `did-finish-load`.
-  _Référence : extension Stylus, Polypane._
-
-- [ ] **K. Comparaison visuelle côte à côte (split diff)**
-  Mode optionnel : capture périodique des deux vues, superposition avec une ligne
-  de partage draggable pour comparer visuellement Desktop vs Mobile.
-  Utile pour les tests de responsive design.
-
-- [ ] **L. Pause automatique YouTube Shorts**
-  Actuellement exclue (complexité de l'autoplay SPA YouTube Shorts).
-  À retravailler quand YouTube stabilise son architecture Shorts.
-
----
-
-## Structure open source
-
-> ✅ v0.4.4 : Refactoring CSS/JS (landscape + portrait), restructuration src/, i18n portrait.
-
-
-- [x] **CONTRIBUTING.md**
-  Créer ce fichier (premier consulté par un contributeur potentiel) contenant :
-  - Prérequis et lancement (`npm start`, DevTools via Ctrl+Maj+I)
-  - Convention de nommage des branches
-  - Processus de Pull Request
-
-- [x] **CHANGELOG.md**
-  Créer un changelog structuré au format [Keep a Changelog](https://keepachangelog.com)
-  en reprenant les sections des versions existantes.
-  Indexé par GitHub, facilite le suivi des versions pour les utilisateurs.
-
-- [x] **GitHub Actions — build automatique**
-  Créer `.github/workflows/build.yml` pour :
-  - Lancer le build sur chaque tag `v*`
-  - Publier le `.exe` (et à terme `.dmg` / `.AppImage`) en GitHub Release automatiquement
-
----
-
-## Légende priorités
-
-| Symbole | Signification |
-|---------|--------------|
-| 🔴 | Bloquant / très demandé |
-| 🟡 | Valeur ajoutée significative |
-| 🟢 | Nice to have / différenciation |
-
-_G (cross-platform) reste la priorité suivante pour le meilleur ratio impact / effort._
-
-_CONTRIBUTING.md, CHANGELOG.md et GitHub Actions ✅ livrés en v0.4.4._
+**Généré automatiquement — à jour avec `/TODO.md` v0.7.1**

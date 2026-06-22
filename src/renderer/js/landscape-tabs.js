@@ -680,15 +680,19 @@ function switchTab(id) {
         const wv = getActiveWebview();
         if (!isNewWebview && wv && wv.canGoBack) {
             try {
-                updateNavButtons({
-                    canGoBack:    wv.canGoBack(),
-                    canGoForward: wv.canGoForward ? wv.canGoForward() : false,
-                });
+                // v0.9.0 — utilise navHooks.navState pour tenir compte du mode simulé
+                const navState = (typeof navHooks !== 'undefined')
+                    ? navHooks.navState(wv)
+                    : { canGoBack: wv.canGoBack(), canGoForward: wv.canGoForward ? wv.canGoForward() : false };
+                updateNavButtons(navState);
             } catch (_) {
                 updateNavButtons({ canGoBack: false, canGoForward: false });
             }
         } else {
-            updateNavButtons({ canGoBack: false, canGoForward: false });
+            // v0.9.0 — même si la webview est neuve, la pile simulée peut avoir du contenu
+            const simBack = (typeof simCanGoBack !== 'undefined') ? simCanGoBack(id) : false;
+            const simFwd  = (typeof simCanGoForward !== 'undefined') ? simCanGoForward(id) : false;
+            updateNavButtons({ canGoBack: simBack, canGoForward: simFwd });
         }
         window.dualview.switchTab(id);
         refreshFavoriteBtnForUrl(tab.url || '');
@@ -757,6 +761,8 @@ function closeTab(id) {
     pinnedRemove(id);
     _faviconCache.delete(id);
     _faviconPending.delete(id);
+    // v0.9.0 — nettoyer la pile de navigation simulée
+    if (typeof _cleanupNavStack === 'function') _cleanupNavStack(id);
 
     tabs = tabs.filter(t => t.id !== id);
     destroyWebview(id);

@@ -9,12 +9,20 @@
  * Ne jamais en installer un second dans auth-window.js ou ailleurs — cela
  * écraserait celui-ci et provoquerait ERR_ABORTED sur toutes les webviews portrait.
  *
+ * v0.7.1 : téléchargements configurables. Quand getAllowDownloads() = true,
+ *   les téléchargements sont sauvegardés dans getDownloadDir() (ou le dossier
+ *   Téléchargements de l'OS par défaut) et trackés via onDownloadStarted/
+ *   onDownloadUpdated/onDownloadDone. Quand = false (défaut), comportement
+ *   inchangé : annulation + notification 'download-blocked'.
+ *
  * Extrait de main.js v0.4.5 pour améliorer la maintenabilité open source.
  */
 
 'use strict';
 
-const { session } = require('electron');
+const { session, app } = require('electron');
+const path = require('path');
+const fs   = require('fs');
 
 // ── Bloqueur de publicités (niveau réseau) ────────────────────────────────────
 
@@ -79,8 +87,24 @@ function isBlockedUrl(urlStr, initiatorUrl) {
  * @param {Function} opts.getPendingImageSavePath  getter → string|null
  * @param {Function} opts.clearPendingImageSavePath setter (remet à null)
  * @param {Function} opts.getLandscapeWin           getter → BrowserWindow|null
+ * @param {Function} [opts.getAllowDownloads]       getter → boolean (v0.7.1)
+ * @param {Function} [opts.getDownloadDir]          getter → string (v0.7.1)
+ * @param {Function} [opts.getDownloadAskPath]      getter → boolean (v0.7.1)
+ * @param {Function} [opts.onDownloadStarted]       callback(item) (v0.7.1)
+ * @param {Function} [opts.onDownloadUpdated]       callback(item) (v0.7.1)
+ * @param {Function} [opts.onDownloadDone]          callback(item) (v0.7.1)
  */
-function setupSessionSecurity({ getPendingImageSavePath, clearPendingImageSavePath, getLandscapeWin }) {
+function setupSessionSecurity({
+    getPendingImageSavePath,
+    clearPendingImageSavePath,
+    getLandscapeWin,
+    getAllowDownloads,
+    getDownloadDir,
+    getDownloadAskPath,
+    onDownloadStarted,
+    onDownloadUpdated,
+    onDownloadDone,
+}) {
     const ses = session.fromPartition('persist:dualview');
 
     // Niveau 1 — Bloqueur réseau
@@ -108,15 +132,113 @@ function setupSessionSecurity({ getPendingImageSavePath, clearPendingImageSavePa
         callback(false);
     });
 
-    // Blocage des téléchargements — exception : images via clic droit
-    // (flag _pendingImageSavePath positionné avant downloadURL())
+    // ── Gestion des téléchargements (v0.7.1) ─────────────────────────────────
+    // Deux modes :
+    //   - allowDownloads = false (défaut sécurisé) : annulation + toast
+    //   - allowDownloads = true  : sauvegarde automatique + tracking
     ses.on('will-download', (event, item) => {
+        // Exception prioritaire : enregistrement d'image via clic droit
+        // (flag _pendingImageSavePath positionné avant downloadURL() dans context-menu.js)
         const savePath = getPendingImageSavePath();
         if (savePath) {
             item.setSavePath(savePath);
             clearPendingImageSavePath();
             return;
         }
+
+        // Téléchargements activés dans les paramètres ?
+        if (getAllowDownloads && getAllowDownloads()) {
+            // ── Mode "Toujours demander" (v0.7.1) ────────────────────────────
+            // Si downloadAskPath est actif, on NE fixe PAS setSavePath() →
+            // Electron affiche le dialogue natif de l'OS (Enregistrer sous…).
+            // Le tracking est lancé avant le dialogue ; path sera renseigné
+            // après confirmation via item.getSavePath() dans les callbacks.
+            if (getDownloadAskPath && getDownloadAskPath()) {
+                const dlTrackAsk = {
+                    id:            Date.now().toString() + '_' + Math.random().toString(36).slice(2, 7),
+                    filename:      item.getFilename() || 'fichier',
+                    path:          '',        // inconnu tant que l'utilisateur n'a pas choisi
+                    url:           item.getURL(),
+                    totalBytes:    item.getTotalBytes(),
+                    receivedBytes: 0,
+                    state:         'in-progress',
+                    startTime:     Date.now(),
+                    endTime:       null,
+                    askPath:       true,
+                };
+
+                item.on('updated', (_e, state) => {
+                    dlTrackAsk.receivedBytes = item.getReceivedBytes();
+                    dlTrackAsk.path          = item.getSavePath() || dlTrackAsk.path;
+                    dlTrackAsk.state         = state;
+                    if (onDownloadUpdated) onDownloadUpdated({ ...dlTrackAsk });
+                });
+
+                item.once('done', (_e, state) => {
+                    dlTrackAsk.state   = state;
+                    dlTrackAsk.path    = item.getSavePath() || dlTrackAsk.path;
+                    dlTrackAsk.endTime = Date.now();
+                    if (onDownloadDone) onDownloadDone({ ...dlTrackAsk });
+                });
+
+                if (onDownloadStarted) onDownloadStarted({ ...dlTrackAsk });
+                // Ne PAS appeler setSavePath() → dialogue natif OS
+                return;
+            }
+
+            // ── Mode dossier fixe (défaut quand downloadAskPath = false) ─────
+            // Dossier de destination : paramètre utilisateur OU Téléchargements de l'OS
+            let dlDir = (getDownloadDir && getDownloadDir()) || '';
+            if (!dlDir) dlDir = app.getPath('downloads');
+            try { fs.mkdirSync(dlDir, { recursive: true }); } catch { /* non bloquant */ }
+
+            // Sanitisation du nom de fichier (caractères interdits sur tous les OS)
+            const rawName = item.getFilename() || 'fichier';
+            const safeName = rawName.replace(/[/\\:*?"<>|]/g, '_');
+
+            // Éviter les collisions de nom : suffixe numérique si nécessaire
+            let destPath = path.join(dlDir, safeName);
+            if (fs.existsSync(destPath)) {
+                const ext  = path.extname(safeName);
+                const base = path.basename(safeName, ext);
+                let n = 1;
+                while (fs.existsSync(destPath)) {
+                    destPath = path.join(dlDir, `${base} (${n})${ext}`);
+                    n++;
+                }
+            }
+            item.setSavePath(destPath);
+
+            // Objet de tracking partagé entre les callbacks
+            const dlTrack = {
+                id:            Date.now().toString() + '_' + Math.random().toString(36).slice(2, 7),
+                filename:      safeName,
+                path:          destPath,
+                url:           item.getURL(),
+                totalBytes:    item.getTotalBytes(),
+                receivedBytes: 0,
+                state:         'in-progress',
+                startTime:     Date.now(),
+                endTime:       null,
+            };
+
+            item.on('updated', (_e, state) => {
+                dlTrack.receivedBytes = item.getReceivedBytes();
+                dlTrack.state         = state; // 'progressing' | 'interrupted'
+                if (onDownloadUpdated) onDownloadUpdated({ ...dlTrack });
+            });
+
+            item.once('done', (_e, state) => {
+                dlTrack.state   = state; // 'completed' | 'cancelled' | 'interrupted'
+                dlTrack.endTime = Date.now();
+                if (onDownloadDone) onDownloadDone({ ...dlTrack });
+            });
+
+            if (onDownloadStarted) onDownloadStarted({ ...dlTrack });
+            return;
+        }
+
+        // Téléchargements désactivés — comportement par défaut
         item.cancel();
         const lw = getLandscapeWin();
         if (lw && !lw.isDestroyed()) {

@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.7.0.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.7.1.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -45,10 +45,55 @@
 | ★ | Ajouter / retirer la page des favoris (étoile creuse = non sauvegardé, étoile dorée = favori) |
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
-| ⚙️ | Menu : Redimensionner / Historique / Favoris / **Rouvrir le portrait** / Paramètres |
+| ⚙️ | Menu : Redimensionner / Historique / Favoris / **Téléchargements** / **Rouvrir le portrait** / Paramètres |
 
 **Raccourcis clavier** (tableau complet dans **Paramètres → Raccourcis clavier** depuis v0.5.1)
 
+---
+
+## v0.7.1 — Juin 2026
+
+### Nouvelles fonctionnalités navigateur (Priorité 5)
+
+#### 1. Indicateur de chargement
+Barre de progression **3 px** en haut de la zone webview, theme-aware (bleu clair/foncé), avec fade-out automatique 0,5 s à la fin de chaque chargement. N'affecte que l'onglet actif.
+
+#### 2. Recherche dans la page — Ctrl+F
+Ouvre une barre de recherche inline en haut à droite de la zone webview. Affiche un compteur **"X de Y"** en temps réel. Navigation avec ↑↓ ou `Enter`/`Shift+Enter`. Fermeture via ✕ ou `Escape`.
+
+| Raccourci | Action |
+|-----------|--------|
+| `Ctrl+F` | Ouvrir la recherche dans la page |
+| `Enter` / `↓` | Résultat suivant |
+| `Shift+Enter` / `↑` | Résultat précédent |
+| `Escape` | Fermer la recherche |
+
+#### 3. Zoom de page — Ctrl+/Ctrl−/Ctrl+0
+Contrôle du zoom par paliers de 5 %. Persistance par domaine (survit aux rechargements).
+
+| Raccourci | Action |
+|-----------|--------|
+| `Ctrl++` | Zoom avant (+5%) |
+| `Ctrl+−` | Zoom arrière (−5%) |
+| `Ctrl+0` | Réinitialiser (100%) |
+
+#### 4. Affichage PDF natif (documenté)
+Le lecteur PDF Chromium intégré est actif depuis la v0.7.0 grâce à l'attribut `plugins="true"` sur les webviews. Les URL `.pdf` s'affichent directement dans la webview sans téléchargement.
+
+#### 5. Téléchargements configurables
+Nouveau paramètre dans **Paramètres → Confidentialité** :
+
+- **Case à cocher** "Autoriser les téléchargements" (défaut : désactivé)
+- **Dossier de destination** configurable (défaut : dossier Téléchargements de l'OS)
+- **Panneau ⬇️ Téléchargements** dans le menu ⚙️ :
+  - Liste des téléchargements de la session en cours
+  - Barre de progression live pour les téléchargements actifs
+  - Boutons pour ouvrir le fichier (📂) ou son dossier (📁)
+  - "Effacer la liste" pour vider l'historique de session
+
+> **Note de sécurité** : les téléchargements restent désactivés par défaut. L'exception "Enregistrer l'image sous…" via le clic droit fonctionne toujours indépendamment de ce paramètre.
+
+---
 | Raccourci Windows/Linux | Raccourci macOS | Fonction |
 |------------------------|-----------------|----------|
 | `Ctrl+Shift+H` ou `F11` | `⌘+Shift+H` ou `F11` | Activer / désactiver le **Mode Focus** |
@@ -810,3 +855,5 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.6.1 | **Fix** : glisser un onglet vers un espace vide de la barre (après le dernier onglet, etc.) ne le retirait pas de son groupe (zone de drop de repli ajoutée sur `#tab-bar`) ; onglets épinglés non restaurés entre sessions (`pinnedTabs` désormais inclus dans la persistance) ; groupe orphelin invisible ("zombie") lors du déplacement d'un onglet vers un nouveau groupe (`groupAddTab` nettoie l'ancien groupe avant réaffectation) ; erreurs `favicon.ico`/`icon.ico`/`logo.ico` polluant la console DevTools (récupération HTTP entièrement déportée vers le process principal via `net.request` ; le renderer n'assigne plus que des `data:` URL déjà vérifiées). |
 | 0.6.2 | **Sécurité** : clés d'accès (WebAuthn) désactivées dans la fenêtre d'authentification des services connectés — Windows Hello, Touch ID et clés FIDO2 ne sont plus proposés, email/mot de passe uniquement (`preload-auth.js` : masquage `window.PublicKeyCredential` + interception `navigator.credentials.create()`/`.get()` pour les requêtes `publicKey`). |
 | 0.7.0 | **Récupération crash webview** : `render-process-gone` + `unresponsive` sur toutes les webviews (landscape + portrait) ; overlay inline `#crash-recovery` / `#crash-overlay` ; auto-reload après 10 s + bouton manuel ; `recoverCrashedTab()` avec `skipIpc:true` (portrait non impacté). **Lecteur PDF natif** : `plugins="true"` sur toutes les `<webview>` — navigation vers un `.pdf` affiche le document au lieu de déclencher un toast "téléchargement bloqué". **Vérification de mise à jour** : `fetchLatestReleaseTag()` + `isNewerVersion()` + IPC `check-for-update`/`open-external-url` + bouton Paramètres → Général (sans dépendance npm). **Fix** : GitHub/GitLab invisibles dans Services connectés (`SERVICE_ICONS`/`SERVICE_LABELS` incomplets depuis v0.4.7) ; `detectServiceKeyFromUrl()` ignorait github.com et gitlab.com ; `MaxListenersExceededWarning` → `setMaxListeners(200)` ; `ERR_ABORTED` non capturés au démarrage → `process.on('unhandledRejection')` filtre les rejections bénignes ; `#dev-btn` résiduel (mode `--dev` supprimé en v0.5.4) retiré du markup et du CSS. **Raccourcis clavier** redessinés : trois cartes par catégorie, touches `<kbd>` avec ombre et bordure basse, badges plateformes Win/Linux et macOS. **Documentation** : bloqueur pub corrigé en "détection pub" ; `CONTRIBUTING.md` mode `--dev` retiré ; `VERSION_HISTORY.md` + `README.md` + `ARCHITECTURE.md` + `HOW_TO_INSTALL.md` mis à jour. |
+| 0.7.1 | **Indicateur de chargement** : barre 3 px theme-aware, fade-out 0.5 s. **Recherche dans la page** : Ctrl+F, barre inline top-right, counter "X de Y", nav ↑↓, Escape. **Zoom de page** : Ctrl+/Ctrl−/Ctrl+0, paliers 5 %, persistance par domaine (localStorage), toast. **PDF natif** : documenté (infrastructure active depuis v0.7.0). **Téléchargements configurables** : autoriser/bloquer, case "Toujours demander" (dialogue natif OS, grise la section dossier), dossier de destination, panneau ⬇️ dans menu ⚙️ avec liste, barre de progression live, suppression individuelle 🗑️, effacer tout. **Historique** : barre d'actions sur résultats de recherche — "Supprimer N résultat(s)" + "Supprimer tout lié à domain.com" si détection domaine. i18n FR/EN étendue. |
+| 0.9.0 | **Navigation ←/→ persistante entre sessions**. Chaque onglet maintient une pile `navStack[]` + `navIndex` synchronisée dans `tabs[]` via `saveTabs()`. Après redémarrage, la pile native Chromium est vide mais notre pile est restaurée depuis le config JSON. Mode hybride : pendant une session → pile native Electron (goBack/goForward avec cache de page) ; après restart → mode simulé (rechargement de l'URL précédente). Retour en mode natif dès la première navigation organique (barre d'adresse, lien). Dropdown ← → (survol 500 ms) alimenté depuis la pile simulée quand la pile native est vide. Boutons ← → correctement activés/grisés selon la pile disponible. `navHooks` dans `landscape-ui.js` : dispatch remplaçable par `landscape-views.js` sans modifier les handlers existants. Nettoyage à la fermeture d'un onglet. Taille max 50 entrées par onglet. |

@@ -160,13 +160,36 @@ const backBtn = document.getElementById('back-btn');
 const forwardBtn = document.getElementById('forward-btn');
 function updateNavButtons(state) { backBtn.disabled = !state.canGoBack; forwardBtn.disabled = !state.canGoForward; }
 window.dualview.on('nav-state-changed', updateNavButtons);
+
+/**
+ * Hooks de navigation remplaçables par landscape-views.js pour prendre en charge
+ * la pile simulée persistante (v0.9.0).
+ * Défaut : comportement natif Electron (wv.goBack / wv.canGoBack).
+ */
+const navHooks = {
+    /** Navigue en arrière dans la webview active. */
+    goBack: (wv) => {
+        if (wv && wv.canGoBack && wv.canGoBack()) wv.goBack();
+    },
+    /** Navigue en avant dans la webview active. */
+    goForward: (wv) => {
+        if (wv && wv.canGoForward && wv.canGoForward()) wv.goForward();
+    },
+    /** Retourne l'état de navigation (canGoBack / canGoForward) pour updateNavButtons. */
+    navState: (wv) => ({
+        canGoBack:    wv && wv.canGoBack    ? wv.canGoBack()    : false,
+        canGoForward: wv && wv.canGoForward ? wv.canGoForward() : false,
+    }),
+};
+
 backBtn.addEventListener('click', () => { if (!backBtn.disabled) window.dualview.navBack(); });
 forwardBtn.addEventListener('click', () => { if (!forwardBtn.disabled) window.dualview.navForward(); });
-window.dualview.on('webview-go-back', () => { const wv = getActiveWebview(); if (wv && wv.canGoBack && wv.canGoBack()) wv.goBack(); });
-window.dualview.on('webview-go-forward', () => { const wv = getActiveWebview(); if (wv && wv.canGoForward && wv.canGoForward()) wv.goForward(); });
+window.dualview.on('webview-go-back',    () => navHooks.goBack(getActiveWebview()));
+window.dualview.on('webview-go-forward', () => navHooks.goForward(getActiveWebview()));
+
 function sendNavState(wv) {
     if (!wv) wv = getActiveWebview();
-    window.dualview.notifyNavState({ canGoBack: wv && wv.canGoBack ? wv.canGoBack() : false, canGoForward: wv && wv.canGoForward ? wv.canGoForward() : false });
+    window.dualview.notifyNavState(navHooks.navState(wv));
 }
 document.getElementById('reload-btn').addEventListener('click', () => {
     if (activeTabId === SETTINGS_TAB_ID) return;
