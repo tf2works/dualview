@@ -436,6 +436,8 @@ function showWebview(tabId) {
     // .hidden remplace style.display inline — évite d'écraser pointer-events (fix v0.5.1)
     emptyState.classList.toggle('hidden', !!hasUrl);
     if (!hasUrl) maybeShowTopSites();
+    // ── Sync comparaison (P4-K — v0.8.0) — mettre à jour la colonne mobile
+    if (typeof _compareSync === 'function' && wv) _compareSync(wv.src || '');
 }
 
 function getActiveWebview() { return webviewPool.get(activeTabId) || null; }
@@ -530,6 +532,8 @@ function attachWebviewListeners(wv, tabId) {
         wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
         // Tentative immédiate : player peut déjà être présent sur rechargement
         injectAutoPause(wv);
+        // Injection CSS/JS utilisateur (P4-J — v0.8.0)
+        if (typeof applyUserScripts === 'function') applyUserScripts(wv, wv.getURL ? wv.getURL() : '');
         // Réinjection à 2s : couvre les pages lentes à initialiser leur player
         setTimeout(() => {
             if (!webviewPool.has(tabId)) return;
@@ -634,6 +638,11 @@ function attachWebviewListeners(wv, tabId) {
             // ── Restaurer le zoom du domaine (P5 — v0.7.1) ───────────────────
             const zf = _getDomainZoom(e.url);
             if (zf !== 1.0 && wv.setZoomFactor) wv.setZoomFactor(zf);
+            // ── Injection CSS/JS utilisateur (P4-J — v0.8.0) ─────────────────
+            if (tabId === activeTabId && typeof applyUserScripts === 'function')
+                applyUserScripts(wv, e.url);
+            // ── Sync webview de comparaison (P4-K — v0.8.0) ──────────────────
+            if (tabId === activeTabId) _compareSync(e.url);
         }
         if (tabId === activeTabId) sendNavState(wv);
     });
@@ -801,3 +810,92 @@ document.getElementById('auth-confirm-backdrop').addEventListener('click', () =>
     document.getElementById('auth-confirm-dialog').classList.remove('show');
     window.dualview.cancelCustomAuth();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Mode comparaison Desktop / Mobile (P4-K — v0.8.0)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Affiche une colonne mobile (390 px) à droite de la webview active pour
+// comparer le rendu desktop et mobile de la même URL en live.
+// Le mode est un toggle sans état persisté (désactivé au redémarrage).
+//
+// Architecture :
+//   - #compare-col (HTML) : conteneur de la colonne mobile, masqué par défaut
+//   - #compare-wv  (HTML) : <webview> dédié, UA mobile, même session dualview
+//   - body.compare-mode (CSS) : active le layout split via les règles CSS dédiées
+//   - _compareSync(url)  : synchronise l'URL du compare-wv avec la tab active
+
+const _compareBtn = document.getElementById('compare-btn');
+const _compareCol = document.getElementById('compare-col');
+const _compareWv  = document.getElementById('compare-wv');
+let _compareActive = false;
+
+// User-agent iPhone 15 (Safari 17) — force le rendu mobile des sites
+const _MOBILE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+
+/**
+ * Synchronise l'URL du panneau de comparaison avec l'URL fournie.
+ * Sans effet si le mode comparaison est inactif.
+ * @param {string} url
+ */
+function _compareSync(url) {
+    if (!_compareActive || !_compareWv) return;
+    if (!url || url === 'about:blank') { _compareWv.src = 'about:blank'; return; }
+    // Ne recharger que si l'URL a changé (éviter les reloads inutiles)
+    try { if (new URL(_compareWv.src).href === new URL(url).href) return; } catch { /* ignore */ }
+    _compareWv.src = url;
+}
+
+/**
+ * Active ou désactive le mode comparaison.
+ */
+function toggleCompareMode() {
+    _compareActive = !_compareActive;
+    document.body.classList.toggle('compare-mode', _compareActive);
+
+    if (_compareBtn) {
+        _compareBtn.classList.toggle('active', _compareActive);
+        _compareBtn.title = t(_compareActive ? 'compareModeOff' : 'compareModeOn');
+    }
+
+    if (_compareActive) {
+        // Synchroniser immédiatement avec l'onglet actif
+        const wv = getActiveWebview();
+        const url = wv && wv.getURL ? wv.getURL() : '';
+        _compareSync(url || '');
+        if (typeof showToast === 'function') showToast(t('compareModeOn'));
+    } else {
+        // Décharger le contenu et libérer les ressources réseau
+        if (_compareWv) _compareWv.src = 'about:blank';
+        if (typeof showToast === 'function') showToast(t('compareModeOff'));
+    }
+}
+
+// Listener bouton
+if (_compareBtn) {
+    _compareBtn.addEventListener('click', toggleCompareMode);
+}
+
+// Raccourci clavier Ctrl+Shift+C
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        toggleCompareMode();
+    }
+});
+
+// Initialisation du user-agent mobile sur le compare-wv (attribut HTML)
+// L'attribut useragent= sur <webview> est lu avant la première navigation.
+// On le pose ici en JS au cas où le DOM est déjà prêt.
+if (_compareWv && !_compareWv.getAttribute('useragent')) {
+    _compareWv.setAttribute('useragent', _MOBILE_UA);
+}
+
+/**
+ * Retourne le compare-webview si le mode comparaison est actif, null sinon.
+ * Utilisé par landscape-pollers.js pour le scroll synchronisé (P4-K — v0.8.0).
+ * Déclaré avec function pour être accessible globalement depuis les autres scripts.
+ */
+function getCompareWebview() {
+    return (_compareActive && _compareWv) ? _compareWv : null;
+}

@@ -34,6 +34,9 @@
             <span id="sync-btn-label">Sync…</span>
         </button>
 
+        <!-- Bouton mode comparaison (P4-K — v0.8.0) -->
+        <button id="compare-btn" class="nav-btn" title="Mode comparaison desktop/mobile (Ctrl+Shift+C)">⊞</button>
+
         <button id="gear-btn" title="⚙️">&#9881;&#65039;</button>
 
         <!-- Dropdown nav-history (v0.4.0) — dans toolbar pour position:absolute -->
@@ -185,6 +188,20 @@
             <div class="sub" data-i18n="tabCrashedDesc">Reconnexion automatique dans quelques secondes…</div>
             <button id="crash-recovery-reload" data-i18n="tabCrashedReload">&#128260; Recharger maintenant</button>
         </div>
+        <!-- Colonne Mobile — Mode comparaison (P4-K — v0.8.0) -->
+        <div id="compare-col">
+            <div id="compare-col-header">
+                <span id="compare-label-desktop" data-i18n="compareLabelDesktop">🖥 Desktop</span>
+                <span id="compare-label-sep">|</span>
+                <span id="compare-label-mobile" data-i18n="compareLabelMobile">📱 Mobile</span>
+            </div>
+            <webview id="compare-wv"
+                     partition="persist:dualview"
+                     useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                     plugins="true"
+                     src="about:blank">
+            </webview>
+        </div>
     </div>
 
     <!-- Panneau Paramètres -->
@@ -206,6 +223,7 @@
             <div class="s-nav" data-section="obs"><span class="s-nav-icon">&#128250;</span><span data-i18n="settingsObs">OBS</span></div>
             <div class="s-nav" data-section="shortcuts"><span class="s-nav-icon">&#9875;</span><span data-i18n="settingsShortcuts">Raccourcis clavier</span></div>
             <div class="s-nav" data-section="exportimport"><span class="s-nav-icon">&#128228;</span><span data-i18n="settingsExportImport">Export / Import</span></div>
+            <div class="s-nav" data-section="userscripts"><span class="s-nav-icon">&#128393;</span><span data-i18n="settingsUserScripts">Scripts &amp; Styles</span></div>
         </div>
         <div class="s-content">
             <!-- Général -->
@@ -571,6 +589,11 @@
                             <span class="sc-action" data-i18n="scCloseDropdown">Fermer menus / dropdowns</span>
                             <span class="sc-col sc-both" style="grid-column: 2 / span 2"><kbd>Échap</kbd></span>
                         </div>
+                        <div class="sc-row">
+                            <span class="sc-action" data-i18n="scCompareMode">Mode comparaison</span>
+                            <span class="sc-col sc-win"><kbd>Ctrl</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>C</kbd></span>
+                            <span class="sc-col sc-mac"><kbd>⌘</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>C</kbd></span>
+                        </div>
                     </div>
                 </div>
 
@@ -606,6 +629,45 @@
                 <div class="s-desc" data-i18n="importDesc">Chargez un fichier de configuration DualView. Vous pourrez choisir quels paramètres appliquer.</div>
                 <button class="s-validate-btn" id="import-btn" style="margin-top:8px" data-i18n="importBtn">&#128229; Importer un fichier…</button>
                 <div id="import-msg" class="s-msg"></div>
+            </div>
+            <!-- Scripts & Styles (P4-J — v0.8.0) -->
+            <div id="section-userscripts" class="s-section">
+                <div class="s-heading" data-i18n="settingsUserScripts">Scripts &amp; Styles</div>
+                <div class="s-desc" data-i18n="usDesc">Injectez du CSS ou du JavaScript personnalisé sur n'importe quel domaine.</div>
+                <button class="s-validate-btn" id="us-add-btn" style="margin-top:14px" data-i18n="usAddBtn">+ Ajouter une règle</button>
+
+                <!-- Formulaire d'édition (caché par défaut) -->
+                <div id="us-form" class="hidden">
+                    <div class="s-divider" style="margin-top:16px"></div>
+                    <div class="s-label" id="us-form-title" style="margin-top:14px;margin-bottom:10px">Nouvelle règle</div>
+                    <div class="us-form-row">
+                        <label class="us-form-label" data-i18n="usLabelPlaceholder">Nom de la règle</label>
+                        <input type="text" id="us-form-label" class="s-input" data-i18n-placeholder="usLabelPlaceholder" placeholder="ex. GitHub compact" autocomplete="off" />
+                    </div>
+                    <div class="us-form-row">
+                        <label class="us-form-label" data-i18n="usDomainLabel">Domaine cible</label>
+                        <input type="text" id="us-form-domain" class="s-input" data-i18n-placeholder="usDomainPlaceholder" placeholder="github.com ou *.google.com" autocomplete="off" />
+                    </div>
+                    <div class="us-form-row">
+                        <label class="us-form-label" data-i18n="usCssLabel">CSS</label>
+                        <textarea id="us-form-css" class="us-textarea" rows="5" placeholder="body { font-size: 15px; }"></textarea>
+                    </div>
+                    <div class="us-form-row">
+                        <label class="us-form-label" data-i18n="usJsLabel">JavaScript</label>
+                        <textarea id="us-form-js" class="us-textarea" rows="4" placeholder="document.querySelector('aside')?.remove();"></textarea>
+                    </div>
+                    <div id="us-form-msg" class="s-msg"></div>
+                    <div class="us-form-actions">
+                        <button class="restart-cancel" id="us-form-cancel" data-i18n="usFormCancel">Annuler</button>
+                        <button class="s-validate-btn" id="us-form-save" data-i18n="usFormSave">Enregistrer</button>
+                    </div>
+                    <div class="s-divider" style="margin-top:16px"></div>
+                </div>
+
+                <!-- Liste des règles -->
+                <div id="us-list" style="margin-top:14px">
+                    <div class="us-empty" data-i18n="usEmpty">Aucune règle.</div>
+                </div>
             </div>
         </div>
     </div>
@@ -696,6 +758,7 @@
     <script src="js/landscape-i18n.js"></script>
     <script src="js/landscape-webview.js"></script>
     <script src="js/landscape-ui.js"></script>
+    <script src="js/landscape-injection.js"></script>
     <script src="js/landscape-views.js"></script>
     <script src="js/landscape-groups.js"></script>
     <script src="js/landscape-tabs.js"></script>

@@ -1,6 +1,6 @@
-# DualView — Résumé du TODO (v0.7.1)
+# DualView — Résumé du TODO (v0.8.0)
 
-**Dernière version livrée :** v0.7.1  
+**Dernière version livrée :** v0.8.0  
 **Date du résumé :** juin 2026  
 
 ---
@@ -13,12 +13,12 @@
 | **🟡 P1** — UX quotidienne | 4 | **4** | 0 | **0** ✨ |
 | **🟡 P2** — Créateur/streamer | 2 | **1** | 0 | **1** en attente |
 | **🟡 P2 bis** — UX v0.5.x | 4 | **4** | 0 | **0** ✨ |
-| **🟡 P3** — Robustesse open source | 3 | **2** | 0 | **1** en attente |
-| **🟢 P4** — Différenciation | 3 | **0** | 0 | **3** nice to have |
+| **🟡 P3** — Robustesse open source | 3 | **3** | 0 | **0** ✨ |
+| **🟢 P4** — Différenciation | 2 | **2** | 0 | **0** ✨ |
 | **🟢 P5** — Navigateur supplémentaires | 5 | **5** | 0 | **0** ✨ |
 | **Structure** | 3 | **3** | 0 | **0** ✨ |
 | | | | | |
-| **TOTAL** | **32 items** | **27** (84%) | **0** | **5** (16%) |
+| **TOTAL** | **31 items** | **30** (97%) | **0** | **1** (3%) |
 
 ---
 
@@ -74,21 +74,20 @@
 
 ## 🟡 Priorité 3 — Robustesse et écosystème open source
 
-**Status : 67% complété** (2/3)
+**Status : 100% complété en v0.8.0** ✅
 
 - ✅ G. Support macOS/Linux cross-platform (v0.4.5+)
 - ✅ H. Export/Import de configuration (v0.5.2)
-- ⏳ **I. Tests automatisés (Playwright)** — Toujours en attente (CI/build.yml sans tests)
+- ✅ **I. Tests automatisés (Playwright)** — 5 smoke tests + job CI (v0.8.0)
 
 ---
 
 ## 🟢 Priorité 4 — Différenciation
 
-**Status : 0% — Nice to have post-1.0.0** 
+**Status : 100% complété en v0.8.0** ✅
 
-- [ ] J. Injection CSS/JS personnalisé par domaine (type Stylus)
-- [ ] K. Comparaison visuelle côte à côte (split diff responsive design)
-- [ ] L. Pause automatique YouTube Shorts (TBD — SPA YouTube instable)
+- ✅ **J. Injection CSS/JS personnalisé par domaine** (v0.8.0) — Paramètres → Scripts & Styles
+- ✅ **K. Mode comparaison Desktop/Mobile** (v0.8.0) — bouton ⊞ dans la toolbar, raccourci Ctrl+Shift+C
 
 ---
 
@@ -130,10 +129,10 @@ Version 1.0.0 (objectif)
 ├─ Priorité 0 (Bugs bloquants)       ████████████████████ 100% ✅
 ├─ Priorité 1 (UX quotidienne)       ████████████████████ 100% ✅
 ├─ Priorité 2 (Créateur)             ██████████░░░░░░░░░░  50%
-└─ Priorité 3 (Robustesse)           ██████████████░░░░░░  67%
+└─ Priorité 3 (Robustesse)           ████████████████████ 100% ✅
 
-Version 1.0.0 + (Post-launch)
-├─ Priorité 4 (Différenciation)      ░░░░░░░░░░░░░░░░░░░░   0%
+Post-launch
+├─ Priorité 4 (Différenciation)      ████████████████████ 100% ✅
 └─ Priorité 5 (Navigateur)           ████████████████████ 100% ✅
 
 Structure Open Source                 ████████████████████ 100% ✅
@@ -141,20 +140,11 @@ Structure Open Source                 ██████████████
 
 ---
 
-## 🎯 Prochaines étapes recommandées (post-v0.7.1)
+## 🎯 Prochaine étape recommandée (post-v0.8.0)
 
 ### Court terme (v1.0.0)
 1. **P2-D : Export OBS** — Réessayer le format JSON (format actuel incompatible depuis v0.5.0)
-2. **P3-I : Tests Playwright** — Ajouter 3-5 tests de régression au build.yml (valeur signal)
-3. **Stabilisation v1.0.0** — Validation terrain des fonctionnalités P5 livrées en v0.7.1
-
-### Moyen terme (v1.2.0+)
-1. **P4-J : Injection CSS/JS** — Architecture type Stylus (répondre à l'absence d'extensions)
-2. **P4-K : Split diff** — Outil unique pour responsive design testing
-
-### Long terme (v2.0.0)
-1. **P4-L : YouTube Shorts** — À revoir si YouTube stabilise son architecture
-2. **P4 items** — Intégration complète comme outil pro d'une alternative à Polypane
+2. **Stabilisation v1.0.0** — Validation terrain de toutes les fonctionnalités livrées
 
 ---
 
@@ -177,12 +167,12 @@ Créé pour **compléter progressivement les fonctionnalités de navigateur clas
 
 ## 🔗 Fichiers documentaires liés
 
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — Architecture technique détaillée (v0.6.2)
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — Architecture technique détaillée (v0.8.0)
 - [`CHANGELOG.md`](./CHANGELOG.md) — Historique des versions au format Keep a Changelog
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — Guide pour contributeurs (v0.7.0)
-- [`README.md`](./README.md) — Documentation utilisateur (v0.7.0, 11 services)
+- [`README.md`](./README.md) — Documentation utilisateur (v0.8.0)
 - [`VERSION_HISTORY.md`](./VERSION_HISTORY.md) — Détail des changements par version
 
 ---
 
-**Généré automatiquement — à jour avec `/TODO.md` v0.7.1**
+**Généré automatiquement — à jour avec `/TODO.md` v0.8.0**

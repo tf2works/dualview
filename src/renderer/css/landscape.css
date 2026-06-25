@@ -3084,3 +3084,316 @@ body.focus-mode #focus-badge.visible {
 .hist-action-btn.hidden {
     display: none;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Mode comparaison Desktop / Mobile (P4-K — v0.8.0)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Bouton compare dans la toolbar */
+#compare-btn {
+    width: auto;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    white-space: nowrap
+}
+
+#compare-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent)
+}
+
+/* Colonne mobile — masquée par défaut */
+#compare-col {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 390px;
+    flex-direction: column;
+    border-left: 2px solid var(--accent);
+    background: var(--bg);
+    z-index: 10
+}
+
+/* En mode comparaison : afficher la colonne et rétrécir les webviews */
+body.compare-mode #compare-col {
+    display: flex
+}
+
+body.compare-mode .wv-landscape.active {
+    right: 390px;
+    width: auto
+}
+
+body.compare-mode #empty-state,
+body.compare-mode #crash-recovery {
+    right: 390px;
+    width: auto
+}
+
+/* En-tête de la colonne avec labels Desktop / Mobile */
+#compare-col-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 26px;
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    flex-shrink: 0;
+    padding: 0 8px
+}
+
+#compare-col-header #compare-label-sep {
+    color: var(--border)
+}
+
+#compare-wv {
+    flex: 1;
+    border: none;
+    width: 100%;
+    min-height: 0
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Injection CSS/JS par domaine — Section Paramètres (P4-J — v0.8.0)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Champ de texte générique dans les paramètres */
+.s-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--fg);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s
+}
+
+.s-input:focus {
+    border-color: var(--accent)
+}
+
+/* Ligne de formulaire injection */
+.us-form-row {
+    margin-bottom: 10px
+}
+
+.us-form-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fg-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px
+}
+
+/* Textarea CSS / JS */
+.us-textarea {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--fg);
+    font-size: 12px;
+    font-family: 'Consolas', 'Menlo', 'Monaco', monospace;
+    line-height: 1.5;
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.15s
+}
+
+.us-textarea:focus {
+    border-color: var(--accent)
+}
+
+/* Actions bas de formulaire */
+.us-form-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 10px
+}
+
+/* Message vide */
+.us-empty {
+    font-size: 13px;
+    color: var(--fg-muted);
+    padding: 12px 0
+}
+
+/* Item de règle */
+.us-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    margin-bottom: 7px;
+    background: var(--bg-tab-act);
+    transition: opacity 0.15s
+}
+
+.us-item-disabled {
+    opacity: 0.5
+}
+
+.us-item-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1
+}
+
+.us-item-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0
+}
+
+.us-item-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.us-item-domain {
+    font-size: 11px;
+    color: var(--fg-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.us-badges {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0
+}
+
+.us-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px
+}
+
+.us-badge-css {
+    background: #dbeafe;
+    color: #1d4ed8
+}
+
+[data-theme="dark"] .us-badge-css {
+    background: #1e3a5f;
+    color: #93c5fd
+}
+
+.us-badge-js {
+    background: #fef9c3;
+    color: #854d0e
+}
+
+[data-theme="dark"] .us-badge-js {
+    background: #3d2e00;
+    color: #fde68a
+}
+
+.us-item-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0
+}
+
+.us-edit-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 9px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--fg);
+    transition: background 0.12s
+}
+
+.us-edit-btn:hover {
+    background: var(--nav-btn-h)
+}
+
+.us-delete-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 3px 7px;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--fg-muted);
+    transition: color 0.12s, background 0.12s
+}
+
+.us-delete-btn:hover {
+    color: var(--danger);
+    background: rgba(220,53,69,0.1)
+}
+
+/* Toggle enable/disable */
+.us-toggle {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+    cursor: pointer
+}
+
+.us-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute
+}
+
+.us-toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 18px;
+    transition: background 0.2s
+}
+
+.us-toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    left: 3px;
+    top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s
+}
+
+.us-toggle input:checked + .us-toggle-slider {
+    background: var(--accent)
+}
+
+.us-toggle input:checked + .us-toggle-slider::before {
+    transform: translateX(14px)
+}

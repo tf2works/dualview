@@ -49,6 +49,8 @@ const SETTINGS_DEFAULTS = {
     allowDownloads:     false,  // false = bloqués (défaut sécurisé), true = autorisés
     downloadDir:        '',     // '' = dossier Téléchargements de l'OS par défaut
     downloadAskPath:    false,  // true = dialogue natif OS à chaque téléchargement (grise downloadDir)
+    // Injection CSS/JS par domaine (P4-J — v0.8.0)
+    userScripts:        [],     // [{ id, label, domain, css, js, enabled }]
 };
 
 // Préréglages de taille de la fenêtre portrait (v0.4.0)

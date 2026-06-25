@@ -142,6 +142,15 @@ function pollScroll() {
         if (typeof pct === 'number' && Math.abs(pct - lastScrollPct) > 0.001) {
             lastScrollPct = pct;
             window.dualview.sendScroll(pct);
+            // ── Scroll synchronisé sur le compare-wv (P4-K — v0.8.0) ──────────
+            // Même % de scroll que la webview desktop, appliqué en pixels
+            // relatifs à la hauteur scrollable de la page mobile.
+            const cwv = typeof getCompareWebview === 'function' ? getCompareWebview() : null;
+            if (cwv) {
+                cwv.executeJavaScript(
+                    `(function(){const el=document.documentElement,max=el.scrollHeight-el.clientHeight;if(max>0)window.scrollTo(0,max*${pct});})();true;`
+                ).catch(() => { });
+            }
         }
     }).catch(() => { });
 }

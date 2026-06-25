@@ -1,4 +1,4 @@
-# DualView v0.7.1
+# DualView v0.8.0
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -16,6 +16,8 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - [Onglets](#onglets)
 - [Synchronisation](#synchronisation)
 - [Mode Focus](#mode-focus)
+- [Mode comparaison Desktop/Mobile](#mode-comparaison-desktopmobile)
+- [Injection CSS/JS par domaine](#injection-cssjs-par-domaine)
 - [Favoris](#favoris)
 - [Historique de navigation](#historique-de-navigation)
 - [Captures d'écran](#captures-décran)
@@ -50,7 +52,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 
 ### Windows
 
-1. Double-cliquez sur **`DualView-Setup-0.7.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.8.0.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -215,6 +217,44 @@ La synchronisation maintient portrait et paysage sur la même URL et le même é
 
 - **Réaffichage temporaire** : survolez la bande de 8 px en haut de l'écran → la toolbar apparaît 2 secondes
 - **Réaffichage permanent** : refaire `Ctrl+Shift+H` / `F11`
+
+---
+
+## Mode comparaison Desktop/Mobile
+
+Affiche la même URL en rendu Desktop et Mobile **côte à côte** dans la fenêtre paysage, sans quitter l'app.
+
+**Activation** : bouton **⊞** dans la toolbar, ou `Ctrl+Shift+C`.
+
+- Une colonne de **390 px** apparaît à droite avec un User-Agent iPhone 15 (Safari 17)
+- La navigation suit automatiquement l'onglet actif
+- Les cookies sont partagés avec la session principale (`persist:dualview`)
+- Désactivation : re-cliquer ⊞ ou refaire `Ctrl+Shift+C`
+
+> Idéal pour valider le responsive design d'un site sans jongler entre deux navigateurs.
+
+---
+
+## Injection CSS/JS par domaine
+
+**Paramètres → Scripts & Styles** — injectez des personnalisations sur n'importe quel site.
+
+Chaque règle contient :
+
+| Champ | Description |
+|-------|-------------|
+| Nom | Libellé pour retrouver la règle dans la liste |
+| Domaine | `github.com` (exact) ou `*.google.com` (wildcard) |
+| CSS | Style injecté après chaque chargement (`insertCSS`) |
+| JS | Script injecté dans un `try/catch` (`executeJavaScript`) |
+| Activée | Toggle ON/OFF sans suppression |
+
+**Exemples d'usage :**
+- Agrandir la police sur un site mal dimensionné
+- Masquer une barre latérale encombrante pour la capture OBS
+- Pré-remplir automatiquement un champ récurrent
+
+Les règles sont persistées dans `dualview-config.json` et survivent aux redémarrages.
 
 ---
 

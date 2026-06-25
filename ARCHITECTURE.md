@@ -1,4 +1,4 @@
-# DualView - Architecture v0.6.2
+# DualView - Architecture v0.8.0
 
 ## Vue d'ensemble
 
@@ -41,6 +41,8 @@ main.js
   |     Menu ⚙️ : bouton "Rouvrir le portrait" si portrait fermé (v0.5.0)
   |     Onglets déplaçables Drag & Drop + typage TAB_TYPE_* (v0.5.3)
   |     tabTypes Map → activeTabType passé au menu contextuel (v0.5.4)
+  |     Mode comparaison ⊞ : colonne 390px UA-mobile, Ctrl+Shift+C (v0.8.0)
+  |     Injection CSS/JS par domaine : dom-ready + did-navigate (v0.8.0)
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     Pool de webviews mobile (miroir du pool landscape)
@@ -74,7 +76,8 @@ main.js
   |     settings        {restoreTabs, autoPauseVideo,
   |                      homepageMode, customHomepageUrl,
   |                      newTabMode, appearance, language,
-  |                      customServices[]}
+  |                      customServices[],
+  |                      userScripts[] (v0.8.0)}
 ```
 
 ---
@@ -538,14 +541,14 @@ webviews landscape/portrait, ni le reste de l'application.
 
 ```
 dualview/
-|-- package.json              v0.5.4 — script start-dev retiré (build:win / build:mac / build:linux)
-|-- ARCHITECTURE.md           Ce fichier
+|-- package.json              v0.8.0 — +@playwright/test, +playwright, script test
+|-- ARCHITECTURE.md           Ce fichier (v0.8.0)
 |-- CHANGELOG.md              Historique des versions (Keep a Changelog)
 |-- CONTRIBUTING.md           Guide de contribution (prérequis, branches, PR)
 |-- HOW_TO_INSTALL.md
-|-- README.md                 Guide général et liste des fonctionnalités de l'application
-|-- VERSION_HISTORY.md        Remplace l'ancien readme (Détails des mises à jour approtées dans les versions)
-|-- TODO.md
+|-- README.md                 Guide général et liste des fonctionnalités (v0.8.0)
+|-- VERSION_HISTORY.md        Détails des mises à jour par version (v0.8.0)
+|-- TODO.md                   Backlog (97% complété — P3+P4 ✅)
 |-- assets/
 |   |-- icon.ico
 |   |-- README.txt
@@ -554,6 +557,10 @@ dualview/
 |   |-- build-installer.bat   Build Windows (NSIS)
 |   |-- build-installer.ps1   Script PowerShell sous-jacent
 |   |-- build-installer.sh    Build macOS (DMG) et Linux (AppImage + deb)
+|
+|-- tests/                    Tests de régression Playwright (P3-I — v0.8.0)
+|   |-- playwright.config.js  Config : Electron, 1 worker, timeout 30s, JUnit
+|   |-- dualview.spec.js      5 smoke tests (démarrage, onglets, params, sync, nav)
 |
 |-- obs-integration/
 |   |-- dualview-obs-hotkeys.lua  Script Lua OBS v0.4.4 (cross-platform : Windows/macOS/Linux)
@@ -620,7 +627,7 @@ dualview/
     |                         + canal 'language-changed' [v0.4.7]
     |
     |-- renderer/             Fichiers chargés par BrowserWindow (UI)
-        |-- landscape.html    Fenêtre paysage v0.7.0
+        |-- landscape.html    Fenêtre paysage v0.8.0
         |   |                 + #focus-trigger + #focus-badge (Mode Focus) [v0.5.0]
         |   |                 + #topsites-grid dans #empty-state [v0.5.0]
         |   |                 + #menu-reopen-portrait dans ⚙️ [v0.5.0]
@@ -631,6 +638,9 @@ dualview/
         |   |                 + Bloc mise à jour (#s-update-check-btn) [v0.7.0]
         |   |                 + Raccourcis redessinés en cartes .sc-card [v0.7.0]
         |   |                 + #dev-btn supprimé (résidu mode --dev retiré en v0.5.4) [v0.7.0]
+        |   |                 + #compare-btn ⊞ toolbar + #compare-col + #compare-wv [v0.8.0]
+        |   |                 + nav item "Scripts & Styles" + #section-userscripts [v0.8.0]
+        |   |                 + <script src="js/landscape-injection.js"> [v0.8.0]
         |   |
         |-- portrait.html     Fenêtre portrait v0.7.0
         |   |                 + #topsites-grid dans #empty-state [v0.5.0]
@@ -639,7 +649,7 @@ dualview/
         |-- obs-dock.html     Page dock OBS
         |
         |-- css/
-        |   |-- landscape.css Styles fenêtre paysage v0.7.0
+        |   |-- landscape.css Styles fenêtre paysage v0.8.0
         |   |                 + .tab-dragging, .tab-drop-indicator (Drag & Drop) [v0.5.3]
         |   |                 + Mode Focus (.focus-mode, #focus-trigger, #focus-badge) [v0.5.0]
         |   |                 + Top domaines (.has-topsites, #topsites-grid, .topsite-*) [v0.5.0]
@@ -647,16 +657,20 @@ dualview/
         |   |                 + #crash-recovery [v0.7.0]
         |   |                 + cartes raccourcis clavier (.sc-card, .sc-row, kbd) [v0.7.0]
         |   |                 + #dev-btn et body.dev-mode #dev-btn supprimés [v0.7.0]
+        |   |                 + #compare-col, #compare-wv, body.compare-mode [v0.8.0]
+        |   |                 + .us-item, .us-badge-css/js, .us-toggle, .us-textarea [v0.8.0]
         |   |-- portrait.css  Styles fenêtre portrait v0.7.0
         |                     + Top domaines (.has-topsites, #topsites-grid, .topsite-*) [v0.5.0]
         |                     + #crash-overlay [v0.7.0]
         |
         |-- js/
-            |-- landscape-i18n.js    Traductions FR/EN v0.7.0
+            |-- landscape-i18n.js    Traductions FR/EN v0.8.0
             |                        + focusModeOn/Off/Badge, topSitesTitle, reopenPortrait [v0.5.0]
             |                        + clés favorites/favoriteAdded/etc. [v0.4.7]
             |                        + crash webview (tabCrashedToast/Title/Desc/Reload) [v0.7.0]
             |                        + mise à jour (updateLabel, updateCheckBtn, etc.) [v0.7.0]
+            |                        + injection CSS/JS (usDesc, usSaved, etc.) [v0.8.0]
+            |                        + comparaison (compareMode, compareLabelDesktop/Mobile) [v0.8.0]
             |-- landscape-webview.js Scripts injectés dans les webviews
             |                        (référence landscape-app.js dans les commentaires corrigée
             |                         → landscape-views.js — landscape-app.js n'a jamais existé
@@ -667,7 +681,12 @@ dualview/
             |                        + updateReopenPortraitBtn() [v0.5.0]
             |                        + handler #menu-reopen-portrait [v0.5.0]
             |                        + handler #menu-favorites [v0.4.7]
-            |-- landscape-views.js   Pool de webviews + popup login v0.7.0
+            |-- landscape-injection.js Injection CSS/JS par domaine (P4-J — v0.8.0)
+            |                          applyUserScripts(wv, url) — matching exact + wildcard
+            |                          renderUserScriptsList() — rendu CRUD dans Paramètres
+            |                          _injOpenForm(id) / _injCloseForm() — formulaire édition
+            |                          Persistance : currentSettings.userScripts[]
+            |-- landscape-views.js   Pool de webviews + mode comparaison v0.8.0
             |                        + appel maybeShowTopSites() dans showWebview() [v0.5.0]
             |                        + Guard try/catch canGoBack() avant dom-ready [v0.5.0]
             |                        + refreshFavoriteBtnForUrl après did-navigate [v0.4.7]
@@ -678,18 +697,23 @@ dualview/
             |                        + showCrashRecovery() + recoverCrashedTab() [v0.7.0]
             |                        + showWebview() vérifie crashedTabs avant affichage normal [v0.7.0]
             |                        + destroyWebview() nettoie crashedTabs + overlay [v0.7.0]
+            |                        + applyUserScripts() appelé dom-ready + did-navigate [v0.8.0]
+            |                        + toggleCompareMode() + _compareSync(url) [v0.8.0]
+            |                        + raccourci Ctrl+Shift+C (compare mode) [v0.8.0]
             |-- landscape-tabs.js    Onglets, navigation URL, omnibar, screenshot
             |                        + TAB_TYPE_WEB/SETTINGS/BLANK + getTabType() [v0.5.3]
             |                        + Drag & Drop avec ligne indicatrice (Option A) [v0.5.3]
             |                        + addTabWithUrl(url, title?) — title optionnel [v0.5.4]
             |                        + refreshFavoriteBtnForUrl après switchTab/update-addressbar [v0.4.7]
-            |-- landscape-settings.js Paramètres v0.7.0
+            |-- landscape-settings.js Paramètres v0.8.0
             |                         + Raccourcis Ctrl+Shift+H / F11 (Mode Focus) [v0.5.0]
             |                         + Apparence + Langue retirées de la nav latérale [v0.5.0]
             |                         + panneau favoris complet [v0.4.7]
             |                         + SERVICE_ICONS/LABELS incluent github/gitlab [v0.7.0]
             |                         + loadUpdateInfo() + listener #s-update-check-btn [v0.7.0]
+            |                         + renderUserScriptsList() appelé section userscripts [v0.8.0]
             |-- landscape-pollers.js Polling pub/vidéo/scroll + initialisation
+            |                        + pollScroll() sync compare-wv via getCompareWebview() [v0.8.0]
             |                        + retrait getIsDev / toggleDevTools / dev-btn / F12 [v0.5.4]
             |                        + refreshFavoriteBtnForUrl à l'init [v0.4.7]
             |-- portrait-i18n.js     Traductions FR/EN portrait v0.7.0
@@ -726,6 +750,7 @@ dualview/
 |-- dualview-config.json      Configuration (fenêtres, onglets, paramètres)
 |                             settings.autoPauseVideo (v0.4.2)
 |                             settings.customServices [{id,label,url,connected}]
+|                             settings.userScripts [{id,label,domain,css,js,enabled}] (v0.8.0)
 |-- history.json              Historique de navigation (v0.4.0)
 |                             [{url, title, visitedAt, tabId}, ...]
 |                             Max 5000 entrées, géré par history-manager.js
@@ -804,6 +829,8 @@ portraitPreset    | iphone15 / pixel8 / galaxys24 / ipad | Via modale redimensio
 | 0.6.1 | **Fix** drag & drop : dépôt dans un espace vide de la barre d'onglets retire désormais l'onglet de son groupe (zone de repli sur `#tab-bar`). **Fix** onglets épinglés persistés entre sessions (`pinnedTabs` dans `get-store`/`save-tabs`). **Fix** groupe orphelin ("zombie") lors du déplacement d'un onglet vers un nouveau groupe (`groupAddTab` nettoie l'ancien groupe). **Fix** erreurs favicon en console DevTools : fetch HTTP déporté dans le main process (`net.request`, nouveau canal IPC `fetch-favicon`), le renderer n'assigne plus que des data: URL déjà vérifiées. |
 | 0.6.2 | **Sécurité** : clés d'accès (WebAuthn) désactivées dans la fenêtre d'authentification des services connectés, toutes plateformes — Windows Hello, Touch ID et clés FIDO2 ne sont plus proposés, email/mot de passe uniquement. `window.PublicKeyCredential` masqué + `navigator.credentials.create()`/`.get()` interceptés pour rejeter les requêtes `publicKey` (`preload-auth.js`). |
 | 0.7.0 | **Crash recovery** : `render-process-gone` + `unresponsive` sur toutes les webviews (landscape + portrait) ; overlay inline `#crash-recovery`/`#crash-overlay` ; auto-reload 10 s ; `recoverCrashedTab()` avec `skipIpc:true`. **Lecteur PDF** : `plugins="true"` sur toutes les `<webview>`. **Vérification mise à jour** : `fetchLatestReleaseTag()` + `isNewerVersion()` + IPC `check-for-update`/`open-external-url` + bouton Paramètres → Général. **Correctifs** : `SERVICE_ICONS/LABELS` github/gitlab (tuiles invisibles depuis v0.4.7) ; `detectServiceKeyFromUrl()` github/gitlab ; `setMaxListeners(50→200)` landscape/portrait/webviews ; `process.on('unhandledRejection')` filtre `ERR_ABORTED` ; `#dev-btn` résiduel supprimé. **Documentation** : bloqueur pub corrigé en "détection pub" (3 niveaux jamais implémentés) ; `landscape-webview.js` référence `landscape-app.js` corrigée. **Raccourcis clavier** redessinés (cartes `.sc-card`, `<kbd>` stylés). |
+| 0.7.1 | **Navigateur P5** : indicateur de chargement (barre 3px theme-aware), recherche dans la page (Ctrl+F, `findInPage`, compteur X/Y), zoom par domaine (Ctrl+/−/0, persistance localStorage), téléchargements configurables (setting allowDownloads/downloadDir/downloadAskPath, mini-gestionnaire ⬇️), PDF natif documenté. |
+| 0.8.0 | **Tests node:test P3-I** : 5 smoke tests (`tests/dualview.spec.js`) + job CI `test` dans `build.yml`. **Injection CSS/JS P4-J** : nouveau module `landscape-injection.js` — `applyUserScripts(wv, url)` sur chaque `dom-ready` et `did-navigate` ; matching domaine exact ou wildcard `*.exemple.com` ; CRUD complet dans Paramètres → Scripts & Styles ; persistance dans `settings.userScripts[]`. **Mode comparaison P4-K** : bouton ⊞ toolbar + `Ctrl+Shift+C` ; colonne 390px UA iPhone 15 ; `_compareSync(url)` sur navigation + changement d'onglet ; `getCompareWebview()` + scroll synchronisé dans `pollScroll()` (même % appliqué à la hauteur scrollable mobile). |
 
 ---
 

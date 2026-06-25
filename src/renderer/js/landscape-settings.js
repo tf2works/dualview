@@ -119,6 +119,8 @@ function loadSettingsUI(s) {
     if (dirSection) dirSection.classList.toggle('grayed', s.downloadAskPath === true);
     applyTranslations();
     loadUpdateInfo();
+    // v0.8.0 — Injection CSS/JS : initialiser la liste si la section est déjà active
+    if (typeof renderUserScriptsList === 'function') renderUserScriptsList();
 }
 
 // ── Vérification de mise à jour (v0.7.0) ─────────────────────────────────────
@@ -288,6 +290,7 @@ document.querySelectorAll('.s-nav').forEach(nav => {
         if (nav.dataset.section === 'services') loadServicesStatus();
         if (nav.dataset.section === 'obs') loadObsInfo();
         if (nav.dataset.section === 'exportimport') buildExportChecklist();
+        if (nav.dataset.section === 'userscripts' && typeof renderUserScriptsList === 'function') renderUserScriptsList();
     });
 });
 

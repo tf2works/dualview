@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.7.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.8.0.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -46,8 +46,53 @@
 | 📷 | Capture instantanée des deux vues en PNG |
 | ● Sync | Contrôle synchronisation (Pause/Reprendre/Redémarrer) |
 | ⚙️ | Menu : Redimensionner / Historique / Favoris / **Téléchargements** / **Rouvrir le portrait** / Paramètres |
+| ⊞ | Mode comparaison Desktop/Mobile (`Ctrl+Shift+C`) — colonne 390 px mobile côte à côte |
 
 **Raccourcis clavier** (tableau complet dans **Paramètres → Raccourcis clavier** depuis v0.5.1)
+
+---
+
+## v0.8.0 — Juin 2026
+
+### Nouvelles fonctionnalités
+
+#### 1. Tests automatisés Playwright (P3-I)
+
+Infrastructure de tests de régression intégrée au pipeline CI GitHub Actions.
+
+- **5 smoke tests** couvrant les chemins critiques : démarrage de l'app, création d'onglets, ouverture et navigation dans les Paramètres, état de synchronisation, boutons de navigation.
+- Job `test` dans `.github/workflows/build.yml` — tourne avant les jobs de build sur chaque push et PR. Un échec bloque la release.
+- Exécution locale : `npm test`
+- Rapport JUnit généré dans `test-results/results.xml` (archivé 7 jours comme artefact CI).
+
+#### 2. Injection CSS/JS par domaine — Paramètres → Scripts & Styles (P4-J)
+
+Permet d'appliquer des personnalisations CSS et/ou JavaScript sur n'importe quel site visité, selon le domaine.
+
+**Règle :** `{ label, domaine, css, js, activée }`
+
+| Champ | Description |
+|-------|-------------|
+| Domaine | Exact (`github.com`) ou wildcard (`*.google.com`) |
+| CSS | Feuille de style injectée via `webview.insertCSS()` après chaque `dom-ready` |
+| JS | Script injecté dans un `try/catch` protégé via `webview.executeJavaScript()` |
+| Activée | Toggle ON/OFF sans supprimer la règle |
+
+**Accès :** Paramètres → **Scripts & Styles** (dernière entrée de la barre latérale).
+
+Les règles sont persistées dans `dualview-config.json` (`settings.userScripts`).
+
+#### 3. Mode comparaison Desktop/Mobile (P4-K)
+
+Affiche la même URL simultanément en rendu Desktop (fenêtre principale) et Mobile (colonne 390 px à droite) pour valider le responsive design sans quitter DualView.
+
+| Élément | Détail |
+|---------|--------|
+| Activation | Bouton **⊞** dans la toolbar, ou `Ctrl+Shift+C` |
+| Largeur colonne | 390 px (iPhone 15) |
+| User-Agent | Safari 17 iOS (identique à la fenêtre portrait) |
+| Session | Cookies partagés (`persist:dualview`) |
+| Sync | Navigation automatique — suit l'onglet actif et les changements d'onglet |
 
 ---
 
@@ -856,4 +901,5 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.6.2 | **Sécurité** : clés d'accès (WebAuthn) désactivées dans la fenêtre d'authentification des services connectés — Windows Hello, Touch ID et clés FIDO2 ne sont plus proposés, email/mot de passe uniquement (`preload-auth.js` : masquage `window.PublicKeyCredential` + interception `navigator.credentials.create()`/`.get()` pour les requêtes `publicKey`). |
 | 0.7.0 | **Récupération crash webview** : `render-process-gone` + `unresponsive` sur toutes les webviews (landscape + portrait) ; overlay inline `#crash-recovery` / `#crash-overlay` ; auto-reload après 10 s + bouton manuel ; `recoverCrashedTab()` avec `skipIpc:true` (portrait non impacté). **Lecteur PDF natif** : `plugins="true"` sur toutes les `<webview>` — navigation vers un `.pdf` affiche le document au lieu de déclencher un toast "téléchargement bloqué". **Vérification de mise à jour** : `fetchLatestReleaseTag()` + `isNewerVersion()` + IPC `check-for-update`/`open-external-url` + bouton Paramètres → Général (sans dépendance npm). **Fix** : GitHub/GitLab invisibles dans Services connectés (`SERVICE_ICONS`/`SERVICE_LABELS` incomplets depuis v0.4.7) ; `detectServiceKeyFromUrl()` ignorait github.com et gitlab.com ; `MaxListenersExceededWarning` → `setMaxListeners(200)` ; `ERR_ABORTED` non capturés au démarrage → `process.on('unhandledRejection')` filtre les rejections bénignes ; `#dev-btn` résiduel (mode `--dev` supprimé en v0.5.4) retiré du markup et du CSS. **Raccourcis clavier** redessinés : trois cartes par catégorie, touches `<kbd>` avec ombre et bordure basse, badges plateformes Win/Linux et macOS. **Documentation** : bloqueur pub corrigé en "détection pub" ; `CONTRIBUTING.md` mode `--dev` retiré ; `VERSION_HISTORY.md` + `README.md` + `ARCHITECTURE.md` + `HOW_TO_INSTALL.md` mis à jour. |
 | 0.7.1 | **Indicateur de chargement** : barre 3 px theme-aware, fade-out 0.5 s. **Recherche dans la page** : Ctrl+F, barre inline top-right, counter "X de Y", nav ↑↓, Escape. **Zoom de page** : Ctrl+/Ctrl−/Ctrl+0, paliers 5 %, persistance par domaine (localStorage), toast. **PDF natif** : documenté (infrastructure active depuis v0.7.0). **Téléchargements configurables** : autoriser/bloquer, case "Toujours demander" (dialogue natif OS, grise la section dossier), dossier de destination, panneau ⬇️ dans menu ⚙️ avec liste, barre de progression live, suppression individuelle 🗑️, effacer tout. **Historique** : barre d'actions sur résultats de recherche — "Supprimer N résultat(s)" + "Supprimer tout lié à domain.com" si détection domaine. i18n FR/EN étendue. |
-| 0.9.0 | **Navigation ←/→ persistante entre sessions**. Chaque onglet maintient une pile `navStack[]` + `navIndex` synchronisée dans `tabs[]` via `saveTabs()`. Après redémarrage, la pile native Chromium est vide mais notre pile est restaurée depuis le config JSON. Mode hybride : pendant une session → pile native Electron (goBack/goForward avec cache de page) ; après restart → mode simulé (rechargement de l'URL précédente). Retour en mode natif dès la première navigation organique (barre d'adresse, lien). Dropdown ← → (survol 500 ms) alimenté depuis la pile simulée quand la pile native est vide. Boutons ← → correctement activés/grisés selon la pile disponible. `navHooks` dans `landscape-ui.js` : dispatch remplaçable par `landscape-views.js` sans modifier les handlers existants. Nettoyage à la fermeture d'un onglet. Taille max 50 entrées par onglet. |
+| 0.7.2 | **Navigation ←/→ persistante entre sessions**. Chaque onglet maintient une pile `navStack[]` + `navIndex` synchronisée dans `tabs[]` via `saveTabs()`. Après redémarrage, la pile native Chromium est vide mais notre pile est restaurée depuis le config JSON. Mode hybride : pendant une session → pile native Electron (goBack/goForward avec cache de page) ; après restart → mode simulé (rechargement de l'URL précédente). Retour en mode natif dès la première navigation organique (barre d'adresse, lien). Dropdown ← → (survol 500 ms) alimenté depuis la pile simulée quand la pile native est vide. Boutons ← → correctement activés/grisés selon la pile disponible. `navHooks` dans `landscape-ui.js` : dispatch remplaçable par `landscape-views.js` sans modifier les handlers existants. Nettoyage à la fermeture d'un onglet. Taille max 50 entrées par onglet. |
+| 0.8.0 | **Tests node:test (P3-I)** : 5 smoke tests de régression (`tests/dualview.spec.js`) + job CI `test` dans `build.yml` (bloque la release en cas d'échec). **Injection CSS/JS par domaine (P4-J)** : nouveau module `landscape-injection.js` — `applyUserScripts(wv, url)` sur chaque `dom-ready` et `did-navigate` ; matching domaine exact ou wildcard `*.exemple.com` ; CRUD complet dans Paramètres → Scripts & Styles (toggle ON/OFF, édition inline, suppression confirmée) ; persistance dans `settings.userScripts[]` (`dualview-config.json`). **Mode comparaison Desktop/Mobile (P4-K)** : bouton ⊞ dans la toolbar + raccourci `Ctrl+Shift+C` ; colonne 390 px à droite avec User-Agent iPhone 15 Safari 17 ; synchronisation URL + scroll (`getCompareWebview()` dans `pollScroll()`) sur navigation et changement d'onglet ; cookies partagés (`persist:dualview`). **P4-L (YouTube Shorts auto-pause) retiré du backlog** : YouTube SPA trop instable, décision de ne pas l'implémenter. |
