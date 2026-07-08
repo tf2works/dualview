@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.9.1.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.9.2.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -49,6 +49,22 @@
 | ⊞ | Mode comparaison Desktop/Mobile (`Ctrl+Shift+C`) — colonne 390 px mobile côte à côte |
 
 **Raccourcis clavier** (tableau complet dans **Paramètres → Raccourcis clavier** depuis v0.5.1)
+
+---
+
+## v0.9.2 — Juillet 2026
+
+### Corrections
+
+#### 1. Mode vidéo seule — timeline non synchronisée pendant la lecture
+
+**Bug** : en mode vidéo seule, si l'utilisateur changeait la timeline (`currentTime`) via la barre custom pendant que la vidéo était **en lecture**, la fenêtre Portrait ne se mettait pas à jour. Le seek fonctionnait correctement lorsque la vidéo était en pause.
+
+**Cause** : `focusVideoSeek()` (`src/renderer/js/landscape-webview.js`) modifiait `currentTime` directement, sans jamais mettre la vidéo en pause au préalable — contrairement aux lecteurs natifs (YouTube, etc.) qui pausent automatiquement pendant un glisser de leur propre barre de progression. Cela ne déclenchait qu'un événement `seeked` isolé, que le protocole de synchronisation vidéo existant (v0.4.3) ignore par construction lorsque la vidéo Portrait est déjà en lecture (garde anti-boucle empêchant les allers-retours infinis de `seeked`).
+
+**Correction** : `focusVideoSeek()` met désormais la vidéo en pause avant le seek si elle jouait, puis relance la lecture ~120 ms après — reproduisant la séquence `pause → seek → play` déjà gérée correctement par le protocole existant. Aucune modification du protocole de synchronisation partagé (`main.js`, `preload-landscape.js`, `landscape-pollers.js`, `portrait-webview.js`), qui reste inchangé pour tous les autres usages (lecteurs natifs, drift-check périodique).
+
+Effet de bord attendu : légère pause visible (~120 ms) dans les deux fenêtres au moment du seek en lecture — identique au comportement déjà observé lors d'un scrub sur un lecteur YouTube classique.
 
 ---
 
@@ -921,3 +937,5 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.7.2 | **Navigation ←/→ persistante entre sessions**. Chaque onglet maintient une pile `navStack[]` + `navIndex` synchronisée dans `tabs[]` via `saveTabs()`. Après redémarrage, la pile native Chromium est vide mais notre pile est restaurée depuis le config JSON. Mode hybride : pendant une session → pile native Electron (goBack/goForward avec cache de page) ; après restart → mode simulé (rechargement de l'URL précédente). Retour en mode natif dès la première navigation organique (barre d'adresse, lien). Dropdown ← → (survol 500 ms) alimenté depuis la pile simulée quand la pile native est vide. Boutons ← → correctement activés/grisés selon la pile disponible. `navHooks` dans `landscape-ui.js` : dispatch remplaçable par `landscape-views.js` sans modifier les handlers existants. Nettoyage à la fermeture d'un onglet. Taille max 50 entrées par onglet. |
 | 0.8.0 | **Tests node:test (P3-I)** : 5 smoke tests de régression (`tests/dualview.spec.js`) + job CI `test` dans `build.yml` (bloque la release en cas d'échec). **Injection CSS/JS par domaine (P4-J)** : nouveau module `landscape-injection.js` — `applyUserScripts(wv, url)` sur chaque `dom-ready` et `did-navigate` ; matching domaine exact ou wildcard `*.exemple.com` ; CRUD complet dans Paramètres → Scripts & Styles (toggle ON/OFF, édition inline, suppression confirmée) ; persistance dans `settings.userScripts[]` (`dualview-config.json`). **Mode comparaison Desktop/Mobile (P4-K)** : bouton ⊞ dans la toolbar + raccourci `Ctrl+Shift+C` ; colonne 390 px à droite avec User-Agent iPhone 15 Safari 17 ; synchronisation URL + scroll (`getCompareWebview()` dans `pollScroll()`) sur navigation et changement d'onglet ; cookies partagés (`persist:dualview`). **P4-L (YouTube Shorts auto-pause) retiré du backlog** : YouTube SPA trop instable, décision de ne pas l'implémenter. |
 | 0.9.0 | **Mode vidéo seule** : isole la vidéo de l'onglet actif (YouTube, TikTok, Instagram, ou tout site avec un `<video>` détectable) dans les deux fenêtres, l'une après l'autre (paysage puis portrait, +400 ms). Activation depuis la fenêtre Paysage uniquement — clic droit sur une vidéo (`context-menu.js`, "Vidéo seule") ou `Ctrl+Shift+V`. Technique : ré-parentage du `<video>` dans un conteneur plein écran (`FOCUS_VIDEO_ACTIVATE/DEACTIVATE/STATE_SCRIPT`) plutôt que masquage CSS du reste du DOM — préserve les listeners de `VIDEO_WATCHER_SCRIPT`, donc play/pause/seek continuent d'être synchronisés vers portrait via le protocole vidéo existant (v0.4.3) sans nouveau canal de lecture. Barre de contrôle custom (lecture/pause, timeline, quitter), affichée dans les deux fenêtres, auto-hide après 1 s d'inactivité souris. Sortie (`Échap` ou bouton "Quitter") synchronisée entre les deux fenêtres quelle que soit celle où elle est déclenchée. Nouveau module `landscape-video-focus.js` (paysage) + logique dédiée dans `portrait-app.js`/`portrait-webview.js`. Garde `window.__dualviewVideoFocusActive` empêchant `AUTO_PAUSE_SCRIPT` de mettre en pause la vidéo pendant l'activation. Sortie automatique propre sur navigation complète (`did-navigate`). Raccourcis de changement d'onglet/navigation bloqués tant que le mode est actif. |
+| 0.9.1 | **Recherche dans les paramètres** : barre de recherche unique en tête du panneau Paramètres, index construit depuis les libellés déjà affichés (FR/EN sans dictionnaire séparé), tolérance aux fautes de frappe (Levenshtein), redirection + surlignage vers la bonne section, navigation clavier ↑↓/Entrée/Échap. Nouveau module `landscape-settings-search.js`. |
+| 0.9.2 | **Fix mode vidéo seule** : la timeline ne se synchronisait pas vers Portrait quand un seek était fait pendant la lecture (fonctionnait seulement en pause). `focusVideoSeek()` pause désormais la vidéo avant le seek (si elle jouait) puis relance la lecture ~120 ms après, reproduisant la séquence `pause → seek → play` déjà gérée par le protocole de synchro existant (v0.4.3), sans toucher au protocole partagé. |

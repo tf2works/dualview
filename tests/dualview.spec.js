@@ -59,13 +59,13 @@ test('01 — structure : fichiers principaux présents', () => {
 });
 
 // ── Test 02 — package.json ────────────────────────────────────────────────────
-// Vérifie que la version est 0.9.0 et que les scripts essentiels sont présents.
+// Vérifie que la version est 0.9.2 et que les scripts essentiels sont présents.
 
-test('02 — package.json : version 0.9.0 et scripts corrects', () => {
+test('02 — package.json : version 0.9.2 et scripts corrects', () => {
     const raw = fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8');
     const pkg = JSON.parse(raw);
 
-    assert.equal(pkg.version, '0.9.0', 'Version attendue : 0.9.0');
+    assert.equal(pkg.version, '0.9.2', 'Version attendue : 0.9.2');
     assert.equal(pkg.main, 'src/main.js', 'main doit pointer sur src/main.js');
     assert.ok(pkg.scripts && pkg.scripts.start, 'Script "start" manquant');
     assert.ok(pkg.scripts && pkg.scripts.test,  'Script "test" manquant');
@@ -179,4 +179,29 @@ test('05 — i18n : clés v0.8.0 présentes en FR et EN', () => {
             `Clé i18n manquante : "${key}"`
         );
     }
+});
+
+// ── Test 06 — focusVideoSeek — pause/reprise autour du seek (v0.9.2) ─────────
+// Garde de non-régression statique : le script injecté ne peut pas être
+// exécuté ici (pas de vrai <video>/webview dans node:test), on vérifie donc
+// par analyse de source que la séquence pause → seek → play est bien
+// présente, pour éviter qu'un futur refactor ne réintroduise le bug
+// "seek en lecture non synchronisé vers Portrait" (mode vidéo seule).
+test('06 — landscape-webview : focusVideoSeek pause/reprend autour du seek', () => {
+    const src = fs.readFileSync(
+        path.join(ROOT, 'src/renderer/js/landscape-webview.js'), 'utf8'
+    );
+
+    const fnMatch = src.match(/function focusVideoSeek\(wv, t\)[\s\S]*?\n}/);
+    assert.ok(fnMatch, 'Fonction focusVideoSeek introuvable');
+    const fnSrc = fnMatch[0];
+
+    assert.ok(/wasPlaying\s*=\s*!v\.paused/.test(fnSrc),
+        'focusVideoSeek doit détecter si la vidéo jouait avant le seek');
+    assert.ok(/if\s*\(\s*wasPlaying\s*\)\s*v\.pause\(\)/.test(fnSrc),
+        'focusVideoSeek doit pauser la vidéo avant le seek si elle jouait');
+    assert.ok(/v\.currentTime\s*=/.test(fnSrc),
+        'focusVideoSeek doit toujours affecter currentTime');
+    assert.ok(/setTimeout\([\s\S]*v\.play\(\)/.test(fnSrc),
+        'focusVideoSeek doit relancer la lecture après le seek si elle jouait');
 });

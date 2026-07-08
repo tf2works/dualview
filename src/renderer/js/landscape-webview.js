@@ -1,6 +1,11 @@
 /*
  * DualView - Scripts injectés dans les webviews (fenêtre paysage)
- * Version: 0.4.6
+ * Version: 0.9.2
+ *
+ * Changements v0.9.2 :
+ * - Fix : focusVideoSeek() pause/reprend désormais la vidéo autour du seek
+ *   (mode vidéo seule) pour que la synchro portrait fonctionne aussi pendant
+ *   la lecture, pas seulement en pause (voir commentaire sur la fonction).
  *
  * Ce fichier contient les scripts exécutés à l'intérieur des webviews
  * via executeJavaScript() et les fonctions utilitaires associées.
@@ -319,7 +324,36 @@ function focusVideoDeactivate(wv) { return wv.executeJavaScript(FOCUS_VIDEO_DEAC
 function focusVideoGetState(wv)   { return wv.executeJavaScript(FOCUS_VIDEO_STATE_SCRIPT).catch(() => null); }
 function focusVideoPlay(wv)  { wv.executeJavaScript('window.__dualviewFocusVideo&&window.__dualviewFocusVideo.play().catch(()=>{});true;').catch(() => { }); }
 function focusVideoPause(wv) { wv.executeJavaScript('window.__dualviewFocusVideo&&window.__dualviewFocusVideo.pause();true;').catch(() => { }); }
-function focusVideoSeek(wv, t) { wv.executeJavaScript('if(window.__dualviewFocusVideo)window.__dualviewFocusVideo.currentTime=' + Number(t) + ';true;').catch(() => { }); }
+// v0.9.2 — fix : un seek en mode vidéo seule pendant la LECTURE ne se
+// synchronisait pas côté portrait. Cause : contrairement aux lecteurs natifs
+// (ex. YouTube, qui pausent automatiquement pendant le scrub de leur propre
+// barre de progression), cette fonction se contentait de modifier
+// `currentTime` sans jamais mettre la vidéo en pause. Cela ne déclenchait
+// qu'un `seeked` isolé (sans `pause`/`play` autour) sur window.__dualviewVideoEvent
+// (voir écouteurs posés dans VIDEO_WATCHER_SCRIPT plus haut) → landscape-pollers.js
+// route ça vers sendVideoPlay(t) → le protocole `video-cmd{seek-to}` envoyé au
+// portrait est ignoré par la garde anti-boucle de portrait-webview.js
+// (`if (video.paused) currentTime = t`), puisque le portrait était déjà en
+// lecture à ce moment-là → seek perdu côté portrait.
+// Fix : on reproduit le comportement d'un lecteur natif en pausant avant le
+// seek (si la vidéo jouait) puis en relançant la lecture juste après. Cela
+// déclenche la séquence pause → seeked → play, déjà gérée correctement par
+// le protocole existant (le seek-to est accepté pendant la pause déclenchée
+// par ce même appel). Aucune modification du protocole partagé
+// (main.js / preload-landscape.js / landscape-pollers.js / portrait-webview.js)
+// n'a été nécessaire.
+function focusVideoSeek(wv, t) {
+    const script = `(function(){
+        const v = window.__dualviewFocusVideo;
+        if (!v) return false;
+        const wasPlaying = !v.paused;
+        if (wasPlaying) v.pause();
+        v.currentTime = ${Number(t)};
+        if (wasPlaying) setTimeout(() => { v.play().catch(() => {}); }, 120);
+        return true;
+    })();`;
+    wv.executeJavaScript(script).catch(() => { });
+}
 
 function resetWatcherFlags(wv) {
     wv.executeJavaScript('window.__dualviewVideoWatcher=false;window.__dualviewVideoState={playing:false,currentTime:0,platform:"generic",hasVideo:false};window.__dualviewVideoEvent=null;window.__dualviewAutoPauseDone=false;true;').catch(() => { });

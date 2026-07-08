@@ -7,6 +7,16 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.9.2] — 2026
+
+### Corrigé
+
+- **Mode vidéo seule — timeline non synchronisée pendant la lecture** (`src/renderer/js/landscape-webview.js` — `focusVideoSeek`)
+  - Bug : un seek fait via la barre custom du mode vidéo seule ne se répercutait sur la fenêtre Portrait que si la vidéo était en pause. Pendant la lecture, le seek était silencieusement ignoré côté Portrait.
+  - Cause : `focusVideoSeek()` modifiait `currentTime` sans jamais mettre la vidéo en pause, contrairement aux lecteurs natifs (YouTube, etc.) qui pausent automatiquement pendant un scrub. Cela déclenchait un `seeked` isolé (sans `pause`/`play` autour), que le protocole de synchronisation existant (`video-cmd{seek-to}`) ignore par construction lorsque la vidéo Portrait est déjà en lecture (garde anti-boucle).
+  - Correctif : `focusVideoSeek()` met désormais la vidéo en pause avant le seek (si elle jouait), puis relance la lecture ~120ms après — reproduisant la séquence `pause → seek → play` déjà gérée correctement par le protocole de synchro existant. Aucune modification du protocole partagé (`main.js`, `preload-landscape.js`, `landscape-pollers.js`, `portrait-webview.js`).
+  - Effet de bord attendu : micro-pause (~120ms) visible dans les deux fenêtres au moment du seek en lecture, identique au comportement déjà observé avec un scrub YouTube classique.
+
 ## [0.9.1] — 2026
 
 ### Ajouté
