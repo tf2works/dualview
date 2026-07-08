@@ -16,6 +16,15 @@
     <!-- Indicateur sync -->
     <div id="sync-indicator"></div>
 
+    <!-- Mode vidéo seule (v0.9.0) — barre de contrôle custom, auto-hide -->
+    <div id="video-focus-bar" class="vf-hidden">
+        <button id="vf-playpause" title="Lecture / Pause">▶</button>
+        <span id="vf-time-current">0:00</span>
+        <input type="range" id="vf-progress" min="0" max="1000" value="0" step="1">
+        <span id="vf-time-duration">0:00</span>
+        <button id="vf-exit" data-i18n="videoFocusExitBtn" title="Quitter le mode vidéo seule (Échap)">✕ Quitter</button>
+    </div>
+
     <div id="webview-container">
         <div id="empty-state">
             <div class="icon">&#128241;</div>

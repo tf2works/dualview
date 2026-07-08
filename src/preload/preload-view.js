@@ -36,6 +36,13 @@ contextBridge.exposeInMainWorld('dualview', {
     // Navigation depuis portrait (v0.5.0 — top domaines)
     navigate: (url) => ipcRenderer.send('navigate', url),
 
+    // ── Mode vidéo seule (v0.9.0) ────────────────────────────────
+    // L'activation ne peut se faire que depuis le paysage (voir
+    // preload-landscape.js) ; le portrait peut en revanche demander la
+    // sortie (bouton "quitter" ou Échap) et relayer play/pause/seek.
+    videoFocusExit: () => ipcRenderer.send('video-focus-exit'),
+    videoFocusControl: (action, time) => ipcRenderer.send('video-focus-control', { action, time }),
+
     on: (channel, callback) => {
         const valid = [
             'load-url', 'apply-scroll', 'theme-changed', 'resize-mode',
@@ -47,6 +54,8 @@ contextBridge.exposeInMainWorld('dualview', {
             'auto-mute-portrait-changed',
             'language-changed',
             'show-topsites',
+            // v0.9.0 — Mode vidéo seule
+            'video-focus-cmd',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

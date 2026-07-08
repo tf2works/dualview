@@ -17,6 +17,7 @@ et **pilotable directement depuis OBS** (dock + raccourcis clavier).
 - [Synchronisation](#synchronisation)
 - [Mode Focus](#mode-focus)
 - [Mode comparaison Desktop/Mobile](#mode-comparaison-desktopmobile)
+- [Mode vidéo seule](#mode-vidéo-seule)
 - [Injection CSS/JS par domaine](#injection-cssjs-par-domaine)
 - [Favoris](#favoris)
 - [Historique de navigation](#historique-de-navigation)
@@ -149,7 +150,8 @@ Les raccourcis utilisent `Ctrl` sur Windows/Linux et `⌘ Cmd` sur macOS. Les to
 | Action | Windows / Linux | macOS |
 |--------|----------------|-------|
 | Mode Focus (masquer toolbar) | `Ctrl+Shift+H` ou `F11` | `⌘+Shift+H` ou `F11` |
-| Fermer menus / dropdowns | `Échap` | `Échap` |
+| Mode vidéo seule | `Ctrl+Shift+V` | `⌘+Shift+V` |
+| Fermer menus / dropdowns / quitter le mode vidéo seule | `Échap` | `Échap` |
 
 > Le tableau complet est également consultable dans **Paramètres → Raccourcis clavier**.
 
@@ -163,7 +165,7 @@ Tout lien `target="_blank"` ou `window.open()` s'ouvre dans un **nouvel onglet D
 
 ### Menu contextuel (clic droit)
 
-Clic droit dans la webview paysage : lien, image, texte sélectionné, page.
+Clic droit dans la webview paysage : lien, image, texte sélectionné, page, **vidéo** (*"Vidéo seule"*, voir [Mode vidéo seule](#mode-vidéo-seule)).
 L'option **"Enregistrer l'image sous…"** ouvre un dialogue système natif (seule exception aux téléchargements bloqués).
 
 ---
@@ -232,6 +234,29 @@ Affiche la même URL en rendu Desktop et Mobile **côte à côte** dans la fenê
 - Désactivation : re-cliquer ⊞ ou refaire `Ctrl+Shift+C`
 
 > Idéal pour valider le responsive design d'un site sans jongler entre deux navigateurs.
+
+---
+
+## Mode vidéo seule
+
+Isole la vidéo en cours de lecture (YouTube, TikTok, Instagram, ou tout site avec une vidéo détectable) dans les deux fenêtres — plus rien d'autre à l'écran, juste la vidéo et une barre de contrôle discrète.
+
+**Activation** *(uniquement depuis la fenêtre Paysage)* :
+- Raccourci `Ctrl+Shift+V` — **fonctionne toujours**, quel que soit l'endroit où se trouve le focus (y compris en pleine interaction avec la vidéo)
+- Clic droit sur la vidéo → **"Vidéo seule"** — disponible sur les sites qui n'ont pas leur propre menu contextuel custom. Sur YouTube (et d'autres lecteurs avec menu maison), le clic droit affiche le menu du site lui-même : utilisez le raccourci clavier dans ce cas.
+
+À l'activation, la fenêtre Paysage bascule en premier, suivie de la fenêtre Portrait un instant après.
+
+**Barre de contrôle** — apparaît au survol de la souris, se masque après 1 seconde d'inactivité :
+- ⏯ Lecture / Pause
+- Timeline (glisser pour avancer/reculer dans la vidéo)
+- ✕ Quitter
+
+**Sortie** : bouton "Quitter", ou `Échap` — depuis **n'importe laquelle** des deux fenêtres, elles restent synchronisées.
+
+- Les onglets, la barre d'adresse et la barre d'outils sont masqués ; les raccourcis de changement d'onglet / navigation (`Alt+←/→`, `Ctrl+T/W`, `Ctrl+Tab`…) sont désactivés le temps du mode.
+- La synchronisation play/pause/timeline habituelle entre Paysage et Portrait continue de fonctionner normalement pendant le mode vidéo seule.
+- Si aucune vidéo n'est détectée sur la page active, un message d'avertissement s'affiche et le mode ne s'active pas.
 
 ---
 
@@ -509,6 +534,7 @@ Supprimez `%APPDATA%\DualView\` pour effacer toutes les données locales.
 
 | Version | Résumé |
 |---------|--------|
+| 0.9.0 | **Mode vidéo seule** : isole la vidéo active dans les deux fenêtres (`Ctrl+Shift+V` ou clic droit → "Vidéo seule", paysage uniquement), barre de contrôle custom auto-hide, sortie synchronisée entre les deux fenêtres. |
 | 0.7.1 | **Navigation persistante entre sessions** : pile `navStack[]`/`navIndex` par onglet, persistée dans la config. Boutons `←`/`→` fonctionnels après redémarrage (mode simulé → rechargement URL ; mode natif → cache Chromium). Dropdown ← → alimenté depuis la pile restaurée. Correction bug `_simModeSet` supprimé par le `did-navigate` du chargement initial. |
 | 0.7.0 | Récupération crash webview (render-process-gone, overlay inline, auto-reload 10s) ; lecteur PDF natif (`plugins="true"`) ; vérification de mise à jour (API GitHub, bouton Paramètres → Général) ; corrections : GitHub/GitLab dans Services connectés, `detectServiceKeyFromUrl()`, `MaxListenersExceededWarning` → 200, `ERR_ABORTED` filtrés, `#dev-btn` résiduel supprimé ; raccourcis clavier redessinés |
 | 0.6.2 | **Sécurité** : clés d'accès (WebAuthn — Windows Hello, Touch ID, FIDO2) désactivées dans la fenêtre d'authentification |

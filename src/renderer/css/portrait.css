@@ -484,3 +484,57 @@ body.resize-mode #resize-overlay {
     line-height: 1;
 }
     #remute-dismiss:hover { background: rgba(255,255,255,0.12); }
+/* ── Mode vidéo seule (v0.9.0) ── */
+/* Masque les overlays non essentiels ("seule la vidéo") pendant le mode */
+body.video-focus-mode #sync-indicator,
+body.video-focus-mode #remute-btn {
+    display: none !important;
+}
+
+#video-focus-bar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(15,17,17,0.92);
+    color: #fff;
+    z-index: 2000;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+}
+
+body.video-focus-mode #video-focus-bar { display: flex }
+
+#video-focus-bar.vf-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#vf-playpause, #vf-exit {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 9px;
+    cursor: pointer;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+#vf-playpause:hover, #vf-exit:hover { background: rgba(255,255,255,0.12) }
+
+#vf-time-current, #vf-time-duration {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255,255,255,0.85);
+    flex-shrink: 0;
+    min-width: 30px;
+    text-align: center;
+}
+
+#vf-progress {
+    flex: 1;
+    accent-color: var(--accent, #0066cc);
+    cursor: pointer;
+}

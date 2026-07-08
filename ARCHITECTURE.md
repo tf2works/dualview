@@ -1,4 +1,4 @@
-# DualView - Architecture v0.8.0
+# DualView - Architecture v0.9.0
 
 ## Vue d'ensemble
 
@@ -43,6 +43,8 @@ main.js
   |     tabTypes Map → activeTabType passé au menu contextuel (v0.5.4)
   |     Mode comparaison ⊞ : colonne 390px UA-mobile, Ctrl+Shift+C (v0.8.0)
   |     Injection CSS/JS par domaine : dom-ready + did-navigate (v0.8.0)
+  |     Mode vidéo seule : IPC 'video-focus-enter'/'exit'/'control' (v0.9.0)
+  |                        activation paysage uniquement, sortie/contrôle bidirectionnels
   |
   |-- BrowserWindow: portraitWin (portrait.html)
   |     Pool de webviews mobile (miroir du pool landscape)
@@ -310,7 +312,196 @@ portrait (portrait-app.js + portrait-webview.js)
 
 ---
 
-## Favicons d'onglets v0.6.0 (fetch déporté au main process en v0.6.1)
+## Mode vidéo seule v0.9.0
+
+### Principe
+
+Isole la vidéo de l'onglet actif (YouTube, TikTok, Instagram, ou tout site
+avec un `<video>` détectable) dans les deux fenêtres, sans rien d'autre à
+l'écran — voir maquette dans le ticket d'origine. Contrairement au Mode Focus
+(v0.5.0, qui masque uniquement le chrome de DualView), ce mode masque aussi
+le chrome DU SITE VISITÉ (contrôles natifs YouTube, titre, commentaires…).
+
+### Activation — paysage uniquement
+
+```
+Clic droit sur une vidéo (mediaType==='video')
+  → core/context-menu.js : item "Vidéo seule"
+  → landscapeWin.send('context-menu-action', {action:'video-focus-on'})
+  → landscape-video-focus.js écoute ce canal → activateVideoFocus()
+
+Raccourci Ctrl+Shift+V (landscape-settings.js) → toggleVideoFocus()
+  (fonctionne aussi pour SORTIR du mode, contrairement au clic droit)
+```
+
+### Isolation de la vidéo — ré-parentage plutôt que CSS
+
+`FOCUS_VIDEO_ACTIVATE_SCRIPT` (landscape-webview.js / portrait-webview.js,
+exécuté via `executeJavaScript`) :
+  1. retrouve le `<video>` avec les mêmes sélecteurs par plateforme que
+     `VIDEO_WATCHER_SCRIPT`/`VIDEO_EXECUTOR_SCRIPT` (youtube/tiktok/instagram/
+     générique)
+  2. le déplace (`appendChild`, pas de clonage) dans un `<div>` `position:fixed;
+     inset:0` ajouté à `document.documentElement`
+  3. étire la vidéo en `object-fit:contain`, masque le débordement du body
+
+Choix : un `<video>` déplacé dans le même document Chromium NE relance PAS sa
+lecture ni ne perd ses listeners — donc les listeners `play`/`pause`/`seeked`
+posés par `VIDEO_WATCHER_SCRIPT` (paysage) restent actifs après le
+ré-parentage, et le pipeline de sync vidéo existant (v0.4.3) continue de
+fonctionner sans modification. C'est plus robuste qu'un `display:none` en
+cascade sur le reste du DOM, qui casse sur les sites avec `position:fixed`/
+`z-index` élevés ou `contain`.
+
+⚠️ Limite non totalement vérifiée : sur un site fortement React/Polymer, si
+le framework re-render son arbre pendant que le `<video>` est déplacé, il
+peut le recréer/supprimer. Un `MutationObserver` de secours tente de
+raccrocher un nouveau `<video>` trouvé dans ce cas (paysage uniquement) — à
+valider manuellement sur YouTube/TikTok/Instagram avant diffusion large.
+
+`FOCUS_VIDEO_DEACTIVATE_SCRIPT` restaure le `<video>` à son emplacement
+d'origine (parent + position dans la fratrie mémorisés à l'activation).
+
+### Séquencement paysage → portrait
+
+```
+landscape-video-focus.js : activateVideoFocus()
+  → activation LOCALE immédiate (paysage)
+  → window.dualview.videoFocusEnter() → IPC 'video-focus-enter'
+       → main.js attend VIDEO_FOCUS_PORTRAIT_DELAY_MS (400 ms)
+       → portraitWin.send('video-focus-cmd', {action:'enter'})
+            → portrait-app.js : activateVideoFocusLocal()
+```
+
+### Contrôle de la lecture — aucun nouveau protocole vidéo
+
+La barre de contrôle custom (`#video-focus-bar`, présente dans les deux
+fenêtres) pilote toujours le `<video>` de la webview PAYSAGE :
+  - actions déclenchées depuis la barre paysage → appliquées directement
+    (`focusVideoPlay/Pause/Seek` dans landscape-video-focus.js)
+  - actions déclenchées depuis la barre portrait → `video-focus-control`
+    (IPC) → main.js relaie à `landscapeWin` → `video-focus-control-cmd` →
+    appliquées sur la même webview paysage
+
+Dans les deux cas, `play()`/`pause()`/`currentTime=` déclenchent les mêmes
+événements natifs que `VIDEO_WATCHER_SCRIPT` observe déjà → la propagation
+vers portrait passe par `video-play`/`video-pause`/`video-drift-check`
+(protocole v0.4.3, inchangé). Le portrait ne pilote donc jamais sa propre
+vidéo directement — il ne fait qu'afficher l'état de SA copie (déjà tenue à
+jour par `VIDEO_EXECUTOR_SCRIPT`), lu via `FOCUS_VIDEO_STATE_SCRIPT` pour
+alimenter sa propre timeline.
+
+### Sortie — synchronisée entre les deux fenêtres
+
+Bouton "Quitter", `Échap`, ou nouvelle activation — déclenchable depuis
+N'IMPORTE laquelle des deux fenêtres :
+
+```
+[fenêtre source] deactivate*Local({skipIpc:false})
+  → window.dualview.videoFocusExit() → IPC 'video-focus-exit'
+       → main.js relaie à l'AUTRE fenêtre (event.sender identifie l'origine)
+       → 'video-focus-cmd' {action:'exit'} → deactivate*Local({skipIpc:true})
+```
+
+Sortie automatique et silencieuse (`videoFocusHandleHardNavigation()`) sur
+`did-navigate` (navigation complète, PAS SPA) : le conteneur plein écran ne
+survit pas à la destruction du contexte de page — inutile/risqué d'y
+exécuter `FOCUS_VIDEO_DEACTIVATE_SCRIPT`, seul le nettoyage côté UI Electron
+est effectué.
+
+### Garde AUTO_PAUSE_SCRIPT (ne jamais pauser à l'activation)
+
+```
+FOCUS_VIDEO_ACTIVATE_SCRIPT pose window.__dualviewVideoFocusActive = true
+  (contexte de LA PAGE, pas du renderer Electron)
+AUTO_PAUSE_SCRIPT (landscape + portrait) sort immédiatement si ce flag est vrai
+
+Aucun wv.reload()/loadURL() n'est jamais appelé pendant l'activation
+  → dom-ready/did-navigate ne se redéclenchent pas
+  → injectAutoPause() n'est donc de toute façon jamais réinvoqué pendant
+    le mode (garde défensive en plus, pas la seule protection)
+```
+
+### Blocage des raccourcis de navigation pendant le mode (paysage)
+
+Barre d'onglets et barre d'adresse étant masquées, `landscape-settings.js`
+bloque `Alt+←/→`, `F5`/`Ctrl+R`, `Ctrl+T`, `Ctrl+W`, `Ctrl+Shift+T`,
+`Ctrl+Tab`/`Ctrl+Shift+Tab` tant que `videoFocusActive` est vrai. `Ctrl+Shift+V`
+et `Échap` restent actifs pour permettre de quitter le mode au clavier.
+Note : les boutons souris Retour/Avance (`mouse-nav`) ne sont pas bloqués à
+ce jour — limite connue.
+
+### Correctif — raccourci clavier fiable quel que soit le focus, retour arrière sur l'interception du clic droit, et centrage plein cadre
+
+Trois ajustements suite à un test réel :
+
+1. **`Ctrl+Shift+V` inopérant** *(conservé)* : un `<webview>` est un
+   `WebContents` séparé — tant que le focus clavier s'y trouve (quasi
+   toujours, dès qu'on interagit avec la vidéo), les événements `keydown` ne
+   remontent JAMAIS au `document` de la fenêtre hôte où était posé le
+   raccourci (`landscape-settings.js`). Fix : interception supplémentaire via
+   `before-input-event` sur le `WebContents` de CHAQUE webview attachée
+   (`main.js`, dans `did-attach-webview`), qui reçoit l'input quel que soit
+   le focus. Même correctif pour `Échap` (sortie du mode), y compris côté
+   Portrait — gardé par un flag `videoFocusModeActive` côté main.js pour ne
+   jamais avaler un Échap "normal" (fermer un dropdown du site, etc.) quand
+   le mode n'est pas actif.
+2. **Retour arrière sur l'interception du clic droit** : la 1ʳᵉ itération
+   interceptait `contextmenu` en phase de capture pour contourner le
+   `preventDefault()` de YouTube et ouvrir un menu natif minimal
+   ("Vidéo seule" uniquement) — mais cela faisait disparaître tout le menu
+   contextuel natif du site (lecture en boucle, copier l'URL, etc.), perte
+   jugée trop pénalisante. `VIDEO_CONTEXT_INTERCEPT_SCRIPT`, la sonde
+   associée et le canal IPC `show-video-context-menu` ont été retirés : le
+   clic droit réaffiche le menu natif complet du site. L'entrée
+   "Vidéo seule" dans `context-menu.js` (`mediaType==='video'`) reste
+   disponible en fallback pour les sites qui n'annulent pas `contextmenu`.
+   `Ctrl+Shift+V` devient le point d'entrée principal recommandé.
+3. **Vidéo non centrée / non pleine largeur en Paysage** : le CSS du site
+   (YouTube notamment) fixe souvent le `<video>` en `position:absolute` et/ou
+   une largeur maximale figée via ses propres classes, parfois en
+   `!important` — une fois le `<video>` ré-parenté, ces règles restaient
+   actives (elles ciblent la classe, pas la position dans le DOM) et
+   empêchaient la vidéo de remplir le conteneur plein écran (symptôme visible
+   uniquement en Paysage ; en Portrait, plus étroit, il passait inaperçu).
+   Fix (`landscape-webview.js`, `portrait-webview.js`) : retrait de
+   `class`/`id` du `<video>` isolé (ne matche plus les sélecteurs CSS du
+   site) + chaque propriété forcée en `!important`
+   (`position:absolute;inset:0;width/height:100%;max-width/max-height:none;
+   transform:none`). `class`/`id` restaurés à la sortie du mode.
+
+Les raccourcis DOM `keydown` existants (`landscape-settings.js`,
+`portrait-app.js`) sont conservés en complément — ils couvrent le cas où le
+focus est resté sur le chrome de DualView (barre d'outils, omnibar) plutôt
+que dans la webview.
+
+### Correctif (3ᵉ itération) — style vidéo réappliqué en continu, survol souris fiable
+
+1. **Style écrasé après coup par le lecteur du site** : le correctif
+   précédent (`!important` posé une fois à l'activation) ne suffisait pas —
+   YouTube (et probablement d'autres) a sa propre boucle JS qui réapplique
+   régulièrement un style inline sur son `<video>` (recalcul à chaque
+   changement de qualité/redimensionnement interne), écrasant le nôtre peu
+   après l'activation. Fix : un `MutationObserver({attributes:true,
+   attributeFilter:['style','class']})` posé directement sur le `<video>`
+   isolé réapplique `FORCED_VIDEO_STYLE` (et retire toute classe réintroduite)
+   dès que le site y retouche — boucle de réassertion continue plutôt
+   qu'un correctif ponctuel. Ajout de `min-width:0`/`min-height:0`/
+   `object-position:center center` explicites en complément.
+2. **Barre de contrôle peu réactive au survol (Paysage)** : même famille de
+   limite que le raccourci clavier (`before-input-event`) — un `mousemove`
+   posé sur le `document` de la fenêtre hôte ne se déclenche jamais pour un
+   mouvement de souris au-dessus du contenu de la webview elle-même, qui
+   occupe la quasi-totalité de la fenêtre en mode vidéo seule. Fix : le
+   mouvement est détecté **côté page** (`window.__dualviewFocusLastMove`,
+   mis à jour par un écouteur `mousemove` capture posé une fois à
+   l'activation) et lu par le poll d'état existant (`focusVideoGetState`,
+   resserré à 200 ms) — dès qu'un nouvel horodatage est détecté,
+   `videoFocusResetAutoHide()` est appelé, quel que soit l'endroit de la
+   fenêtre survolé. Le `mousemove` posé sur le document hôte reste en
+   complément (mouvement au-dessus de la barre elle-même). Même correctif
+   appliqué côté Portrait par cohérence, bien que non explicitement demandé
+   pour cette fenêtre.
 
 ### Pourquoi le fetch HTTP a été déplacé dans le main process (v0.6.1)
 Chromium logge automatiquement dans la console DevTools tout échec de
@@ -610,6 +801,8 @@ dualview/
     |   |                     + code source via executeJavaScript (TAB_TYPE_WEB) [v0.5.4]
     |   |                     + inspecter élément (tous onglets, sans IS_DEV) [v0.5.4]
     |   |                     + activeTabType reçu depuis main.js [v0.5.4]
+    |   |                     + entrée "Vidéo seule" (mediaType==='video') → action
+    |   |                       'video-focus-on' [v0.9.0]
     |
     |-- preload/              Scripts de pont IPC (main world → renderer)
     |   |-- preload-auth.js   Anti-détection Electron (authWin)
@@ -620,11 +813,13 @@ dualview/
     |   |                         + addCustomService() [v0.4.7]
     |   |                         + favoritesAdd/Remove/Is/GetAll/Search [v0.4.7]
     |   |                         + checkForUpdate() + openExternalUrl() [v0.7.0]
+    |   |                         + videoFocusEnter()/videoFocusExit() [v0.9.0]
     |   |-- preload-view.js   API IPC renderer portrait v0.5.0
     |                         + navigate(url) [v0.5.0]
     |                         + canal 'show-topsites' [v0.5.0]
     |                         + getSettings() [v0.4.7]
     |                         + canal 'language-changed' [v0.4.7]
+    |                         + videoFocusExit()/videoFocusControl() [v0.9.0]
     |
     |-- renderer/             Fichiers chargés par BrowserWindow (UI)
         |-- landscape.html    Fenêtre paysage v0.8.0
@@ -641,10 +836,12 @@ dualview/
         |   |                 + #compare-btn ⊞ toolbar + #compare-col + #compare-wv [v0.8.0]
         |   |                 + nav item "Scripts & Styles" + #section-userscripts [v0.8.0]
         |   |                 + <script src="js/landscape-injection.js"> [v0.8.0]
+        |   |                 + #video-focus-bar + <script src="js/landscape-video-focus.js"> [v0.9.0]
         |   |
         |-- portrait.html     Fenêtre portrait v0.7.0
         |   |                 + #topsites-grid dans #empty-state [v0.5.0]
         |   |                 + #crash-overlay (overlay récupération crash) [v0.7.0]
+        |   |                 + #video-focus-bar [v0.9.0]
         |   |
         |-- obs-dock.html     Page dock OBS
         |
@@ -659,9 +856,11 @@ dualview/
         |   |                 + #dev-btn et body.dev-mode #dev-btn supprimés [v0.7.0]
         |   |                 + #compare-col, #compare-wv, body.compare-mode [v0.8.0]
         |   |                 + .us-item, .us-badge-css/js, .us-toggle, .us-textarea [v0.8.0]
+        |   |                 + body.video-focus-mode, #video-focus-bar, #vf-* [v0.9.0]
         |   |-- portrait.css  Styles fenêtre portrait v0.7.0
         |                     + Top domaines (.has-topsites, #topsites-grid, .topsite-*) [v0.5.0]
         |                     + #crash-overlay [v0.7.0]
+        |                     + body.video-focus-mode, #video-focus-bar, #vf-* [v0.9.0]
         |
         |-- js/
             |-- landscape-i18n.js    Traductions FR/EN v0.8.0
@@ -671,10 +870,13 @@ dualview/
             |                        + mise à jour (updateLabel, updateCheckBtn, etc.) [v0.7.0]
             |                        + injection CSS/JS (usDesc, usSaved, etc.) [v0.8.0]
             |                        + comparaison (compareMode, compareLabelDesktop/Mobile) [v0.8.0]
+            |                        + videoFocusOn/Off/NoVideo/Play/Pause/ExitBtn [v0.9.0]
             |-- landscape-webview.js Scripts injectés dans les webviews
             |                        (référence landscape-app.js dans les commentaires corrigée
             |                         → landscape-views.js — landscape-app.js n'a jamais existé
             |                           dans la structure src/ actuelle) [v0.7.0]
+            |                        + FOCUS_VIDEO_ACTIVATE/DEACTIVATE/STATE_SCRIPT [v0.9.0]
+            |                        + garde __dualviewVideoFocusActive dans AUTO_PAUSE_SCRIPT [v0.9.0]
             |-- landscape-ui.js      État global, sync, thème, toast, nav, menu ⚙️, resize v0.5.0
             |                        + setFocusMode() + logique survol Mode Focus [v0.5.0]
             |                        + renderTopSites() + maybeShowTopSites() [v0.5.0]
@@ -700,6 +902,14 @@ dualview/
             |                        + applyUserScripts() appelé dom-ready + did-navigate [v0.8.0]
             |                        + toggleCompareMode() + _compareSync(url) [v0.8.0]
             |                        + raccourci Ctrl+Shift+C (compare mode) [v0.8.0]
+            |                        + sortie propre Mode vidéo seule sur did-navigate [v0.9.0]
+            |-- landscape-video-focus.js Mode vidéo seule — orchestration paysage (v0.9.0)
+            |                            activateVideoFocus()/deactivateVideoFocus()/toggleVideoFocus()
+            |                            videoFocusHandleHardNavigation() — sortie sur navigation complète
+            |                            barre custom #video-focus-bar (lecture/pause/timeline/quitter),
+            |                            auto-hide 1s ; écoute 'context-menu-action' (video-focus-on),
+            |                            'video-focus-cmd' (exit depuis portrait), 'video-focus-control-cmd'
+            |                            (play/pause/seek depuis portrait)
             |-- landscape-tabs.js    Onglets, navigation URL, omnibar, screenshot
             |                        + TAB_TYPE_WEB/SETTINGS/BLANK + getTabType() [v0.5.3]
             |                        + Drag & Drop avec ligne indicatrice (Option A) [v0.5.3]
@@ -712,6 +922,7 @@ dualview/
             |                         + SERVICE_ICONS/LABELS incluent github/gitlab [v0.7.0]
             |                         + loadUpdateInfo() + listener #s-update-check-btn [v0.7.0]
             |                         + renderUserScriptsList() appelé section userscripts [v0.8.0]
+            |                         + raccourci Ctrl+Shift+V + blocage raccourcis nav/onglets [v0.9.0]
             |-- landscape-pollers.js Polling pub/vidéo/scroll + initialisation
             |                        + pollScroll() sync compare-wv via getCompareWebview() [v0.8.0]
             |                        + retrait getIsDev / toggleDevTools / dev-btn / F12 [v0.5.4]
@@ -719,6 +930,7 @@ dualview/
             |-- portrait-i18n.js     Traductions FR/EN portrait v0.7.0
             |                        + topSitesTitle [v0.5.0]
             |                        + crash overlay (crashTitle, crashSub, crashReload) [v0.7.0]
+            |                        + videoFocusExitBtn [v0.9.0]
             |-- portrait-app.js      Logique portrait v0.7.0
             |                        + handler 'show-topsites' → grille top domaines [v0.5.0]
             |                        + plugins="true" sur chaque <webview> [v0.7.0]
@@ -728,7 +940,14 @@ dualview/
             |                        + render-process-gone dans attachWebviewListeners [v0.7.0]
             |                        + did-navigate/did-navigate-in-page → portraitTabUrls [v0.7.0]
             |                        + showWebview() vérifie crashedTabs [v0.7.0]
+            |                        + Mode vidéo seule : activateVideoFocusLocal()/
+            |                          deactivateVideoFocusLocal() — jamais initiateur, ne relaie que
+            |                          play/pause/seek au paysage (video-focus-control) [v0.9.0]
+            |                        + Échap → sortie mode vidéo seule (1er raccourci clavier
+            |                          global du portrait) [v0.9.0]
             |-- portrait-webview.js  Scripts injectés portrait
+            |                        + FOCUS_VIDEO_ACTIVATE/DEACTIVATE/STATE_SCRIPT [v0.9.0]
+            |                        + garde __dualviewVideoFocusActive dans AUTO_PAUSE_SCRIPT [v0.9.0]
 ```
 
 ### Principe de séparation (open source maintenability)
@@ -831,6 +1050,7 @@ portraitPreset    | iphone15 / pixel8 / galaxys24 / ipad | Via modale redimensio
 | 0.7.0 | **Crash recovery** : `render-process-gone` + `unresponsive` sur toutes les webviews (landscape + portrait) ; overlay inline `#crash-recovery`/`#crash-overlay` ; auto-reload 10 s ; `recoverCrashedTab()` avec `skipIpc:true`. **Lecteur PDF** : `plugins="true"` sur toutes les `<webview>`. **Vérification mise à jour** : `fetchLatestReleaseTag()` + `isNewerVersion()` + IPC `check-for-update`/`open-external-url` + bouton Paramètres → Général. **Correctifs** : `SERVICE_ICONS/LABELS` github/gitlab (tuiles invisibles depuis v0.4.7) ; `detectServiceKeyFromUrl()` github/gitlab ; `setMaxListeners(50→200)` landscape/portrait/webviews ; `process.on('unhandledRejection')` filtre `ERR_ABORTED` ; `#dev-btn` résiduel supprimé. **Documentation** : bloqueur pub corrigé en "détection pub" (3 niveaux jamais implémentés) ; `landscape-webview.js` référence `landscape-app.js` corrigée. **Raccourcis clavier** redessinés (cartes `.sc-card`, `<kbd>` stylés). |
 | 0.7.1 | **Navigateur P5** : indicateur de chargement (barre 3px theme-aware), recherche dans la page (Ctrl+F, `findInPage`, compteur X/Y), zoom par domaine (Ctrl+/−/0, persistance localStorage), téléchargements configurables (setting allowDownloads/downloadDir/downloadAskPath, mini-gestionnaire ⬇️), PDF natif documenté. |
 | 0.8.0 | **Tests node:test P3-I** : 5 smoke tests (`tests/dualview.spec.js`) + job CI `test` dans `build.yml`. **Injection CSS/JS P4-J** : nouveau module `landscape-injection.js` — `applyUserScripts(wv, url)` sur chaque `dom-ready` et `did-navigate` ; matching domaine exact ou wildcard `*.exemple.com` ; CRUD complet dans Paramètres → Scripts & Styles ; persistance dans `settings.userScripts[]`. **Mode comparaison P4-K** : bouton ⊞ toolbar + `Ctrl+Shift+C` ; colonne 390px UA iPhone 15 ; `_compareSync(url)` sur navigation + changement d'onglet ; `getCompareWebview()` + scroll synchronisé dans `pollScroll()` (même % appliqué à la hauteur scrollable mobile). |
+| 0.9.0 | **Mode vidéo seule** : isole la vidéo de l'onglet actif (YouTube/TikTok/Instagram/générique) dans les deux fenêtres, l'une après l'autre (paysage puis portrait, +400 ms). Activation paysage uniquement — clic droit sur une vidéo (`context-menu.js`, `params.mediaType==='video'`) ou `Ctrl+Shift+V` ; nouveau module `landscape-video-focus.js` (paysage) + bloc dédié dans `portrait-app.js`. Ré-parente le `<video>` détecté dans un conteneur plein écran (`FOCUS_VIDEO_ACTIVATE_SCRIPT`/`_DEACTIVATE_SCRIPT`/`_STATE_SCRIPT` dans `landscape-webview.js`/`portrait-webview.js`) plutôt que de masquer le DOM en CSS, ce qui préserve les listeners de `VIDEO_WATCHER_SCRIPT` → play/pause/seek continuent de synchroniser via le protocole vidéo existant (v0.4.3), sans nouveau canal dédié à la lecture. Barre de contrôle custom (lecture/pause, timeline, quitter) superposée à la webview, auto-hide 1 s d'inactivité souris. Sortie (Échap ou bouton) synchronisée entre les deux fenêtres (`video-focus-enter`/`video-focus-exit` IPC) ; contrôle depuis le portrait relayé au paysage (`video-focus-control` → `video-focus-control-cmd`, le paysage reste seul maître de la lecture). Garde `window.__dualviewVideoFocusActive` (contexte page) empêchant `AUTO_PAUSE_SCRIPT` de mettre en pause pendant l'activation ; sortie automatique propre sur navigation complète (`did-navigate`) puisque le conteneur ne survit pas à un changement de page. Raccourcis de changement d'onglet/navigation (`Alt+←/→`, `Ctrl+T/W`, `Ctrl+Shift+T`, `Ctrl+Tab`, `F5`) bloqués tant que le mode est actif (barre d'onglets masquée). |
 
 ---
 

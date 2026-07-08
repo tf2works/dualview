@@ -18,6 +18,9 @@
  *   v0.5.4b — fix canGoBack/Forward deprecated → navigationHistory API
  *              fix impression → printToPDF + fichier temp + shell.openExternal (aperçu OS complet)
  *              suppression @cliqz/adblocker-electron (dépendance inutilisée → logs parasites)
+ *   v0.9.0 — entrée "Vidéo seule" (params.mediaType === 'video') → action
+ *             'video-focus-on' relayée via 'context-menu-action' (voir
+ *             landscape-video-focus.js)
  */
 
 'use strict';
@@ -112,6 +115,21 @@ async function buildAndShowContextMenu(params, wvContents, { getLandscapeWin, co
         menu.append(new MenuItem({
             label: isFr ? "Copier l'adresse de l'image" : 'Copy image address',
             click() { clipboard.writeText(params.srcURL); },
+        }));
+        menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // ── Vidéo (v0.9.0 — Mode vidéo seule) ───────────────────────────────────────
+    // Proposé uniquement au clic droit sur un élément <video> (params.mediaType).
+    // Déclenche la même action que le raccourci Ctrl+Shift+V : le renderer
+    // (landscape-video-focus.js) retrouve lui-même la vidéo active dans la
+    // webview, il n'est pas nécessaire de transmettre de sélecteur ici.
+    if (params.mediaType === 'video') {
+        menu.append(new MenuItem({
+            label: isFr ? 'Vidéo seule' : 'Video only',
+            click() {
+                landscapeWin.webContents.send('context-menu-action', { action: 'video-focus-on' });
+            },
         }));
         menu.append(new MenuItem({ type: 'separator' }));
     }

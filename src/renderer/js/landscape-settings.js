@@ -1503,6 +1503,13 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
+    // Échap — Mode vidéo seule (v0.9.0) — priorité sur les autres actions Échap
+    if (e.key === 'Escape' && !isInput && typeof videoFocusActive !== 'undefined' && videoFocusActive) {
+        e.preventDefault();
+        deactivateVideoFocus();
+        return;
+    }
+
     // Échap — Fermer dropdowns / quitter l'omnibar
     if (e.key === 'Escape' && !isInput) {
         document.getElementById('gear-menu').classList.remove('open');
@@ -1515,6 +1522,29 @@ document.addEventListener('keydown', (e) => {
 
     // Raccourcis bloqués si focus dans un champ de saisie (sauf ceux ci-dessus)
     if (isInput) return;
+
+    // Ctrl+Shift+V — Toggle Mode vidéo seule (v0.9.0) — actif même si le
+    // mode est déjà en cours, pour permettre de le quitter au clavier.
+    if (e.key === 'V' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        toggleVideoFocus();
+        return;
+    }
+
+    // v0.9.0 — Mode vidéo seule actif : bloquer les raccourcis de changement
+    // d'onglet / navigation (barre d'onglets et barre d'adresse masquées,
+    // ces actions n'ont donc pas de retour visuel cohérent dans ce mode).
+    if (typeof videoFocusActive !== 'undefined' && videoFocusActive) {
+        const blocked =
+            (e.key === 'ArrowLeft'  && e.altKey) ||
+            (e.key === 'ArrowRight' && e.altKey) ||
+            (e.key === 'F5') || (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey) ||
+            (e.key === 't' && (e.ctrlKey || e.metaKey) && !e.shiftKey) ||
+            (e.key === 'w' && (e.ctrlKey || e.metaKey) && !e.shiftKey) ||
+            (e.key === 'T' && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+            (e.key === 'Tab' && e.ctrlKey);
+        if (blocked) { e.preventDefault(); return; }
+    }
 
     // Alt+← — Retour
     if (e.key === 'ArrowLeft' && e.altKey) {

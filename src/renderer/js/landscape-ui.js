@@ -38,8 +38,6 @@
 const webviewCont = document.getElementById('webview-container');
 const emptyState = document.getElementById('empty-state');
 const settingsPanel = document.getElementById('settings-panel');
-const indicator = document.getElementById('video-indicator');
-const indicatorTxt = document.getElementById('video-indicator-text');
 const SETTINGS_TAB_ID = '__settings__';
 let currentSettings = {};
 let tabs = [];
@@ -148,12 +146,11 @@ window.dualview.on('download-blocked', filename => {
 });
 
 // ── Indicateur vidéo ───────────────────────────────────────────────────────────
-function showIndicator(text, paused) {
-    indicatorTxt.textContent = text;
-    indicator.classList.toggle('paused', paused);
-    indicator.classList.add('visible');
-}
-function hideIndicator() { indicator.classList.remove('visible'); }
+// Retiré à la demande de l'utilisateur (badge "Lecture (youtube)"/"Pause (youtube)"
+// en bas à droite). Les fonctions restent en no-op plutôt que d'être supprimées
+// pour ne pas devoir modifier chaque site d'appel dans landscape-pollers.js.
+function showIndicator() { }
+function hideIndicator() { }
 
 // ── Nav ────────────────────────────────────────────────────────────────────────
 const backBtn = document.getElementById('back-btn');

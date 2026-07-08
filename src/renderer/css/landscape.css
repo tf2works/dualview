@@ -2295,6 +2295,76 @@ body.focus-mode #focus-badge.visible {
     opacity: 1
 }
 
+/* ── Mode vidéo seule (v0.9.0) ── */
+/*
+ * body.video-focus-mode : masque #tab-bar + #toolbar + #status-bar (comme
+ * Mode Focus, sans bande de survol — la seule interface visible est
+ * #video-focus-bar, qui gère son propre auto-hide en JS).
+ */
+body.video-focus-mode #tab-bar,
+body.video-focus-mode #toolbar,
+body.video-focus-mode #status-bar {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-100%);
+    transition: opacity 0.2s ease, transform 0.2s ease
+}
+
+body.video-focus-mode #tab-bar    { position: absolute; top: 0; left: 0; right: 0; z-index: 900 }
+body.video-focus-mode #toolbar    { position: absolute; top: 34px; left: 0; right: 0; z-index: 900 }
+body.video-focus-mode #status-bar { position: absolute; bottom: 0; left: 0; right: 0; z-index: 900 }
+
+/* Barre de contrôle custom — superposée à la webview, jamais dans son DOM */
+#video-focus-bar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(15,17,17,0.92);
+    color: #fff;
+    z-index: 2000;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+}
+
+body.video-focus-mode #video-focus-bar { display: flex }
+
+#video-focus-bar.vf-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#vf-playpause, #vf-exit {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.35);
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+#vf-playpause:hover, #vf-exit:hover { background: rgba(255,255,255,0.12) }
+
+#vf-time-current, #vf-time-duration {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255,255,255,0.85);
+    flex-shrink: 0;
+    min-width: 34px;
+    text-align: center;
+}
+
+#vf-progress {
+    flex: 1;
+    accent-color: var(--accent, #3b82f6);
+    cursor: pointer;
+}
+
+#vf-exit { margin-left: 6px }
+
 /* Screenshot settings (v0.4.0) */
 .screenshot-dir-row {
     display: flex;

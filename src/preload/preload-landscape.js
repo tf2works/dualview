@@ -60,6 +60,12 @@ contextBridge.exposeInMainWorld('dualview', {
     sendVideoPause: (t) => ipcRenderer.send('video-pause', t),
     sendVideoDriftCheck: (t) => ipcRenderer.send('video-drift-check', t),
     sendAdState: (payload) => ipcRenderer.send('ad-state', payload),
+
+    // ── Mode vidéo seule (v0.9.0) ────────────────────────────────
+    // Activation possible uniquement depuis cette fenêtre (paysage) ;
+    // la sortie peut être émise depuis paysage OU portrait.
+    videoFocusEnter: () => ipcRenderer.send('video-focus-enter'),
+    videoFocusExit: () => ipcRenderer.send('video-focus-exit'),
     notifyNavState: (s) => ipcRenderer.send('notify-nav-state', s),
 
     // ── Contrôle sync ──────────────────────────────────────────
@@ -181,6 +187,8 @@ contextBridge.exposeInMainWorld('dualview', {
             'group-rename-prompt',
             // v0.7.1 — téléchargements configurables
             'download-started', 'download-updated', 'download-done',
+            // v0.9.0 — Mode vidéo seule
+            'video-focus-cmd', 'video-focus-control-cmd',
         ];
         if (valid.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => callback(...args));

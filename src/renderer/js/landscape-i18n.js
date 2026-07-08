@@ -98,6 +98,13 @@ const I18N = {
         focusModeOn: 'Mode Focus activé — Ctrl+Shift+H pour quitter',
         focusModeOff: 'Mode Focus désactivé',
         focusBadge: 'Mode Focus — Ctrl+Shift+H pour quitter',
+        // v0.9.0 — Mode vidéo seule
+        videoFocusOn: 'Mode vidéo seule activé — Échap pour quitter',
+        videoFocusOff: 'Mode vidéo seule désactivé',
+        videoFocusNoVideo: 'Aucune vidéo détectée sur cette page',
+        videoFocusPlay: 'Lecture',
+        videoFocusPause: 'Pause',
+        videoFocusExitBtn: '✕ Quitter',
         topSitesTitle: 'Sites fréquents',
         reopenPortrait: 'Rouvrir le portrait',
         // v0.5.1
@@ -327,6 +334,13 @@ const I18N = {
         focusModeOn: 'Focus mode on — Ctrl+Shift+H to exit',
         focusModeOff: 'Focus mode off',
         focusBadge: 'Focus mode — Ctrl+Shift+H to exit',
+        // v0.9.0 — Video only mode
+        videoFocusOn: 'Video only mode on — Esc to exit',
+        videoFocusOff: 'Video only mode off',
+        videoFocusNoVideo: 'No video detected on this page',
+        videoFocusPlay: 'Play',
+        videoFocusPause: 'Pause',
+        videoFocusExitBtn: '✕ Exit',
         topSitesTitle: 'Frequently visited',
         reopenPortrait: 'Reopen portrait',
         // v0.5.1

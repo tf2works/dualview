@@ -49,6 +49,8 @@ const PORTRAIT_I18N = {
         crashTitle:       'Cette page a planté',
         crashSub:         'Reconnexion automatique dans quelques secondes…',
         crashReload:      '🔄 Recharger maintenant',
+        // v0.9.0 — Mode vidéo seule
+        videoFocusExitBtn: '✕ Quitter',
     },
     en: {
         syncActive:  '● Sync active',
@@ -75,6 +77,8 @@ const PORTRAIT_I18N = {
         crashTitle:       'This page has crashed',
         crashSub:         'Automatically reconnecting in a few seconds…',
         crashReload:      '🔄 Reload now',
+        // v0.9.0 — Video only mode
+        videoFocusExitBtn: '✕ Exit',
     }
 };
 

@@ -293,6 +293,11 @@ function attachWebviewListeners(wv, tabId) {
 
     // Navigation complète : même chose + AUTO_PAUSE (nouvelle vraie page)
     wv.addEventListener('did-navigate', (e) => {
+        // v0.9.0 — le conteneur "vidéo seule" ne survit pas à une navigation
+        // complète (contexte de page détruit) : sortir proprement côté UI.
+        if (tabId === activeTabId && typeof videoFocusHandleHardNavigation === 'function') {
+            videoFocusHandleHardNavigation();
+        }
         if (_safetyTimer) { clearTimeout(_safetyTimer); _safetyTimer = null; }
         resetPageFlags(wv);
         resetRemuteDismiss();
@@ -601,4 +606,145 @@ window.dualview.on('language-changed', lang => {
     applyPortraitTranslations();
     // Mettre à jour l'indicateur sync dynamiquement
     updateSyncIndicator(currentSyncState);
+});
+// ══════════════════════════════════════════════════════════════════════════════
+// MODE VIDÉO SEULE (v0.9.0)
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Le portrait ne peut jamais INITIER le mode (voir landscape-video-focus.js) :
+// il ne fait que réagir à 'video-focus-cmd' relayé par main.js, isoler sa
+// propre copie de la vidéo (déjà tenue à jour par le protocole de sync
+// vidéo existant), et relayer play/pause/seek vers le paysage (source de
+// vérité) plutôt que d'agir directement sur son <video> local — agir en
+// local créerait un conflit avec les commandes 'video-cmd' entrantes.
+
+let videoFocusActive = false;
+let videoFocusPollTimer = null;
+let videoFocusMissCount = 0;
+let videoFocusHideTimer = null;
+let videoFocusSeeking = false;
+
+const vfBar        = document.getElementById('video-focus-bar');
+const vfPlayPause   = document.getElementById('vf-playpause');
+const vfProgress    = document.getElementById('vf-progress');
+const vfTimeCurrent = document.getElementById('vf-time-current');
+const vfTimeTotal   = document.getElementById('vf-time-duration');
+const vfExitBtn     = document.getElementById('vf-exit');
+
+function _vfFmtTime(s) {
+    if (!isFinite(s) || s < 0) s = 0;
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return m + ':' + String(sec).padStart(2, '0');
+}
+
+async function activateVideoFocusLocal() {
+    if (videoFocusActive) return;
+    const wv = getActiveWebview();
+    if (!wv) return;
+    const result = await focusVideoActivate(wv);
+    if (!result || !result.ok) return; // pas de vidéo côté portrait : rien à afficher
+    videoFocusActive = true;
+    document.body.classList.add('video-focus-mode');
+    vfBar.classList.remove('vf-hidden');
+    videoFocusMissCount = 0;
+    videoFocusStartPolling(wv);
+    videoFocusScheduleAutoHide();
+}
+
+function deactivateVideoFocusLocal(opts) {
+    opts = opts || {};
+    if (!videoFocusActive) return;
+    videoFocusActive = false;
+    clearInterval(videoFocusPollTimer);
+    videoFocusPollTimer = null;
+    clearTimeout(videoFocusHideTimer);
+    document.body.classList.remove('video-focus-mode');
+    vfBar.classList.remove('vf-hidden');
+    if (!opts.skipWvScript) {
+        const wv = getActiveWebview();
+        if (wv) focusVideoDeactivate(wv);
+    }
+    if (!opts.skipIpc) window.dualview.videoFocusExit();
+}
+
+function videoFocusHandleHardNavigation() {
+    if (!videoFocusActive) return;
+    deactivateVideoFocusLocal({ skipWvScript: true });
+}
+
+let _lastGuestMove = 0;
+function videoFocusStartPolling(wv) {
+    clearInterval(videoFocusPollTimer);
+    _lastGuestMove = 0;
+    videoFocusPollTimer = setInterval(async () => {
+        const s = await focusVideoGetState(wv);
+        if (!s) {
+            videoFocusMissCount++;
+            if (videoFocusMissCount >= 2) videoFocusHandleHardNavigation();
+            return;
+        }
+        videoFocusMissCount = 0;
+        if (!videoFocusSeeking) {
+            vfProgress.value = s.duration > 0 ? String(Math.round((s.currentTime / s.duration) * 1000)) : '0';
+        }
+        vfTimeCurrent.textContent = _vfFmtTime(s.currentTime);
+        vfTimeTotal.textContent   = _vfFmtTime(s.duration);
+        vfPlayPause.textContent   = s.paused ? '▶' : '⏸';
+        if (s.lastMove && s.lastMove !== _lastGuestMove) {
+            _lastGuestMove = s.lastMove;
+            videoFocusResetAutoHide();
+        }
+    }, 200);
+}
+
+// ── Barre de contrôle — les actions sont relayées au paysage (source de vérité) ──
+vfPlayPause.addEventListener('click', () => {
+    window.dualview.videoFocusControl(vfPlayPause.textContent === '▶' ? 'play' : 'pause');
+    videoFocusResetAutoHide();
+});
+vfProgress.addEventListener('input', () => { videoFocusSeeking = true; videoFocusResetAutoHide(); });
+vfProgress.addEventListener('change', async () => {
+    videoFocusSeeking = false;
+    const wv = getActiveWebview();
+    if (!wv) return;
+    const s = await focusVideoGetState(wv);
+    if (!s || !s.duration) return;
+    window.dualview.videoFocusControl('seek', (Number(vfProgress.value) / 1000) * s.duration);
+});
+vfExitBtn.addEventListener('click', () => deactivateVideoFocusLocal());
+
+// ── Auto-hide (1 s d'inactivité souris) ───────────────────────────────────────
+function videoFocusScheduleAutoHide() {
+    clearTimeout(videoFocusHideTimer);
+    videoFocusHideTimer = setTimeout(() => {
+        if (videoFocusActive) vfBar.classList.add('vf-hidden');
+    }, 1000);
+}
+function videoFocusResetAutoHide() {
+    if (!videoFocusActive) return;
+    vfBar.classList.remove('vf-hidden');
+    videoFocusScheduleAutoHide();
+}
+document.addEventListener('mousemove', () => { if (videoFocusActive) videoFocusResetAutoHide(); });
+vfBar.addEventListener('mouseenter', () => { clearTimeout(videoFocusHideTimer); });
+vfBar.addEventListener('mouseleave', () => { if (videoFocusActive) videoFocusScheduleAutoHide(); });
+
+// ── Échap — sortir du mode (portrait n'avait aucun raccourci global avant v0.9.0) ──
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && videoFocusActive) {
+        e.preventDefault();
+        deactivateVideoFocusLocal();
+    }
+});
+
+// ── Réception des ordres depuis le paysage (relayés par main.js) ─────────────
+window.dualview.on('video-focus-cmd', (payload) => {
+    if (!payload) return;
+    if (payload.action === 'enter') activateVideoFocusLocal();
+    if (payload.action === 'exit')  deactivateVideoFocusLocal({ skipIpc: true });
+    // v0.9.0 — Échap intercepté au niveau WebContents (main.js, avant-input) :
+    // fonctionne même si le focus clavier est dans la webview. Sortie COMPLÈTE
+    // (avec notification IPC au paysage), contrairement à 'exit' ci-dessus qui
+    // réagit déjà à un ordre reçu de l'autre fenêtre.
+    if (payload.action === 'exit-request') deactivateVideoFocusLocal();
 });

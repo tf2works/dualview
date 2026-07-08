@@ -7,6 +7,50 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.9.0] — 2026
+
+### Ajouté
+
+- **Mode vidéo seule** (`landscape-video-focus.js`, `landscape-webview.js`, `landscape-views.js`, `landscape-settings.js`, `context-menu.js`, `portrait-app.js`, `portrait-webview.js`, `main.js`, `preload-landscape.js`, `preload-view.js`, `landscape.html`, `portrait.html`, `landscape.css`, `portrait.css`, `landscape-i18n.js`, `portrait-i18n.js`)
+  - Isole la vidéo de l'onglet actif (YouTube, TikTok, Instagram, ou tout site avec un `<video>` détectable) dans les deux fenêtres — plus rien d'autre à l'écran
+  - Activation **uniquement depuis la fenêtre Paysage** : clic droit sur une vidéo → *"Vidéo seule"*, ou raccourci `Ctrl+Shift+V`
+  - Séquencement à l'activation : fenêtre Paysage d'abord, fenêtre Portrait ensuite (+400 ms)
+  - Technique de ré-parentage du `<video>` dans un conteneur plein écran (`FOCUS_VIDEO_ACTIVATE_SCRIPT`/`_DEACTIVATE_SCRIPT`/`_STATE_SCRIPT`) plutôt que masquage CSS du reste du DOM — préserve les listeners `play`/`pause`/`seeked` déjà posés par `VIDEO_WATCHER_SCRIPT`, donc la synchronisation vidéo existante (v0.4.3) continue de fonctionner sans nouveau canal dédié à la lecture
+  - Barre de contrôle custom (lecture/pause, timeline, quitter) affichée dans les deux fenêtres, auto-hide après 1 s d'inactivité souris
+  - Sortie (`Échap` ou bouton "Quitter") synchronisée entre les deux fenêtres, déclenchable depuis n'importe laquelle des deux (`video-focus-enter`/`video-focus-exit` IPC)
+  - Contrôle depuis la barre Portrait relayé au Paysage (`video-focus-control`/`video-focus-control-cmd`) — le Paysage reste seul maître de la lecture
+  - Garde `window.__dualviewVideoFocusActive` (contexte de la page visitée) empêchant `AUTO_PAUSE_SCRIPT` de mettre la vidéo en pause pendant l'activation du mode
+  - Sortie automatique et silencieuse sur navigation complète (`did-navigate`) — le conteneur plein écran ne survit pas à un changement de page
+  - Raccourcis de changement d'onglet/navigation (`Alt+←/→`, `F5`, `Ctrl+T/W`, `Ctrl+Shift+T`, `Ctrl+Tab`) désactivés tant que le mode est actif (barre d'onglets masquée)
+  - Mode comparaison désactivé automatiquement à l'activation (incompatible avec "vidéo seule")
+
+### Corrigé
+
+- **Menu contextuel "Vidéo seule" invisible sur YouTube** : YouTube (et probablement d'autres lecteurs custom) annule l'événement natif `contextmenu` pour afficher son propre menu — ce qui empêchait l'événement `context-menu` d'Electron (et donc `context-menu.js`) de se déclencher. Ajout de `VIDEO_CONTEXT_INTERCEPT_SCRIPT` (`landscape-webview.js`, injecté à `dom-ready`) : écouteur `contextmenu` en phase de capture sur `document`, qui intercepte le clic AVANT le site et déclenche un vrai menu natif Electron (`show-video-context-menu` IPC → `main.js`) à la position exacte du clic.
+- **Raccourci `Ctrl+Shift+V` inopérant** : un `<webview>` étant un `WebContents` séparé, les événements clavier ne remontent jamais au `document` de la fenêtre hôte tant que le focus est dans la webview (cas normal dès qu'on interagit avec la vidéo) — le raccourci posé en DOM `keydown` (`landscape-settings.js`) ne se déclenchait donc quasiment jamais en pratique. Ajout d'un second point d'interception via `before-input-event` sur le `WebContents` de chaque webview (`main.js`, posé dans `did-attach-webview`), qui reçoit l'événement quel que soit l'endroit où se trouve le focus clavier. Même correctif appliqué à `Échap` (sortie du mode), y compris côté Portrait.
+
+### Corrigé (2ᵉ itération — retours de test réel)
+
+- **Vidéo non centrée / non pleine largeur en fenêtre Paysage** : le CSS du site visité (YouTube notamment) fixe souvent le `<video>` en `position:absolute` et/ou une largeur maximale figée via ses propres classes (ex. `.html5-main-video`), parfois en `!important`. Une fois le `<video>` ré-parenté hors de son wrapper d'origine, ces règles restaient actives (elles ciblent la classe, pas la position dans le DOM) et empêchaient la vidéo de remplir le conteneur plein écran — d'où la vidéo collée à gauche avec une bande noire au lieu d'être centrée en pleine largeur (constaté uniquement en Paysage ; le Portrait, plus étroit, masquait le symptôme). Fix (`landscape-webview.js`, `portrait-webview.js`) : retrait de `class`/`id` du `<video>` isolé (pour ne plus matcher les sélecteurs CSS du site) + chaque propriété de style forcée en `!important` (`position:absolute;inset:0;width/height:100%;max-width/max-height:none;transform:none`). `class`/`id` restaurés à la sortie du mode.
+- **Retour en arrière sur l'interception du clic droit** : après retour d'expérience, l'interception du `contextmenu` natif de YouTube (ajoutée en 1ʳᵉ itération pour contourner le `preventDefault()` du site) faisait disparaître tout le menu contextuel natif de YouTube au profit d'une unique entrée "Vidéo seule" — perte de fonctionnalités jugée trop pénalisante. `VIDEO_CONTEXT_INTERCEPT_SCRIPT`, la sonde associée dans `landscape-video-focus.js` et le canal IPC `show-video-context-menu` sont retirés : le clic droit affiche à nouveau le menu natif complet du site. L'entrée "Vidéo seule" dans `context-menu.js` (`mediaType==='video'`) reste disponible pour les sites qui n'annulent pas `contextmenu` (TikTok/Instagram/générique, à confirmer). Le raccourci `Ctrl+Shift+V` (fiable quel que soit le focus depuis la 1ʳᵉ itération) devient le point d'entrée principal recommandé.
+
+### Retiré
+
+- **Indicateur vidéo "Lecture (youtube)"/"Pause (youtube)"** (badge en bas à droite de la fenêtre Paysage) : retiré à la demande de l'utilisateur. `showIndicator()`/`hideIndicator()` (`landscape-ui.js`) passées en no-op — le markup HTML (`#video-indicator`, `landscape.html`) et son CSS restent en place mais totalement inertes (déjà masqués par défaut, jamais activés).
+
+### Corrigé (3ᵉ itération — retours de test réel)
+
+- **Vidéo toujours pas centrée/maximisée malgré le correctif précédent** : le correctif `!important` de la 2ᵉ itération ne s'appliquait qu'**une seule fois**, à l'activation. Or beaucoup de lecteurs (YouTube en tête) ont leur propre boucle JS qui **réapplique périodiquement** un style inline sur le `<video>` (recalcul à chaque changement de qualité/redimensionnement interne), écrasant notre style peu après. Fix (`landscape-webview.js`, `portrait-webview.js`) : un `MutationObserver` sur les attributs `style`/`class` du `<video>` isolé réapplique désormais notre style en continu dès que le site y retouche, avec en plus `min-width:0`/`min-height:0`/`object-position:center center` explicites.
+- **Barre de contrôle n'apparaissant pas de façon fiable au survol (Paysage)** : même famille de bug que le raccourci clavier — un `<webview>` étant un `WebContents` séparé, un `mousemove` posé sur le `document` de la fenêtre hôte ne se déclenche jamais pour un mouvement de souris au-dessus du contenu de la webview elle-même (qui occupe la quasi-totalité de la fenêtre en mode vidéo seule). Fix : le mouvement de souris est désormais détecté **côté page** (`window.__dualviewFocusLastMove`, mis à jour par un écouteur injecté) et sondé par le renderer (poll existant, resserré à 200 ms) pour déclencher l'apparition + réinitialiser le minuteur d'auto-hide (1 s), quel que soit l'endroit de la fenêtre survolé. Même correctif appliqué côté Portrait par cohérence.
+
+### Connu / limites
+
+- Le ré-parentage du `<video>` n'a pas été validé manuellement sur toutes les plateformes cibles (YouTube/TikTok/Instagram en React/Polymer) : un site qui re-render son arbre autour de la vidéo déplacée peut la recréer et interrompre la lecture. Un `MutationObserver` de secours tente de raccrocher un nouveau `<video>` trouvé (paysage uniquement) mais ce comportement doit être vérifié avant diffusion large.
+- Les boutons souris Retour/Avance (`mouse-nav`) ne sont pas bloqués pendant le mode vidéo seule.
+- Sur YouTube (et probablement d'autres lecteurs custom), le clic droit sur la vidéo affiche le menu natif du site, sans entrée "Vidéo seule" — utiliser `Ctrl+Shift+V` dans ce cas (voir "Retour en arrière" ci-dessus).
+
+---
+
 ## [0.7.1] — 2026
 
 ### Ajouté

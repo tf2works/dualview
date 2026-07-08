@@ -569,6 +569,16 @@ function attachWebviewListeners(wv, tabId) {
     });
 
     wv.addEventListener('did-navigate', (e) => {
+        // ── Mode vidéo seule (v0.9.0) ──────────────────────────────────────────
+        // Une navigation COMPLÈTE (pas SPA) détruit le contexte de la page :
+        // le conteneur plein écran créé par FOCUS_VIDEO_ACTIVATE_SCRIPT et le
+        // flag __dualviewVideoFocusActive disparaissent avec elle. On sort
+        // donc proprement du mode côté UI Electron plutôt que de le laisser
+        // dans un état incohérent (barre custom affichée sur une page qui n'a
+        // plus été isolée). Cas rare (ex. YouTube change de page hors SPA).
+        if (tabId === activeTabId && typeof videoFocusHandleHardNavigation === 'function') {
+            videoFocusHandleHardNavigation();
+        }
         resetWatcherFlags(wv);
         if (e.url && e.url !== 'about:blank') {
             wv.classList.remove('is-blank'); // fix v0.5.1

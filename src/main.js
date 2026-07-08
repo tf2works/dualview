@@ -577,6 +577,27 @@ function createLandscapeWindow() {
                 activeTabType: tabTypes.get(activeTabId) || 'web',
             });
         });
+
+        // ── Mode vidéo seule (v0.9.0) — correctif ────────────────────────────
+        // Un <webview> est un WebContents séparé : tant que le focus clavier
+        // s'y trouve (cas normal dès qu'on interagit avec la vidéo), les
+        // événements keydown ne remontent JAMAIS au document de la fenêtre
+        // hôte — le raccourci Ctrl+Shift+V posé côté renderer
+        // (landscape-settings.js) ne peut donc se déclencher que si le focus
+        // est resté sur la barre d'outils, ce qui n'arrive presque jamais en
+        // pratique. On intercepte donc aussi le raccourci ICI, au niveau du
+        // WebContents de la webview elle-même, qui reçoit l'événement quel
+        // que soit l'endroit où le focus clavier se trouve.
+        wvContents.on('before-input-event', (event, input) => {
+            if (input.type !== 'keyDown' || input.isAutoRepeat) return;
+            if (input.control && input.shift && input.key.toLowerCase() === 'v') {
+                event.preventDefault();
+                landscapeWin.webContents.send('context-menu-action', { action: 'video-focus-toggle' });
+            } else if (input.key === 'Escape' && videoFocusModeActive) {
+                event.preventDefault();
+                landscapeWin.webContents.send('context-menu-action', { action: 'video-focus-exit-request' });
+            }
+        });
     });
 }
 
@@ -613,6 +634,17 @@ function createPortraitWindow() {
     // ── Éviter MaxListenersExceededWarning sur les webviews du portrait (v0.5.1) ─
     portraitWin.webContents.on('did-attach-webview', (_event, wvContents) => {
         wvContents.setMaxListeners(200);
+
+        // v0.9.0 — Mode vidéo seule : même correctif que côté paysage, Échap
+        // ne remonte jamais au document hôte tant que le focus clavier est
+        // dans la webview.
+        wvContents.on('before-input-event', (event, input) => {
+            if (input.type !== 'keyDown' || input.isAutoRepeat) return;
+            if (input.key === 'Escape' && videoFocusModeActive) {
+                event.preventDefault();
+                portraitWin.webContents.send('video-focus-cmd', { action: 'exit-request' });
+            }
+        });
     });
 
     portraitWin.once('ready-to-show', () => {
@@ -799,6 +831,60 @@ ipcMain.on('video-drift-check', (e, t) => {
     const p = portraitWin;
     if (!p || p.isDestroyed()) return;
     p.webContents.send('video-cmd', { action: 'drift-check', currentTime: t });
+});
+
+// ── Mode vidéo seule (v0.9.0) ─────────────────────────────────────────────────
+//
+// Activation possible UNIQUEMENT depuis le paysage (voir landscape-video-focus.js
+// et core/context-menu.js). Le paysage s'active toujours localement en premier ;
+// main.js relaie ensuite au portrait après un court délai pour matérialiser
+// l'effet "l'une après l'autre" demandé, sans dépendre de syncState (c'est un
+// changement d'affichage, pas une donnée de synchronisation vidéo).
+//
+// La sortie (Échap ou bouton "quitter"), elle, peut être déclenchée depuis
+// N'IMPORTE laquelle des deux fenêtres — dans ce cas la fenêtre qui a émis
+// l'IPC s'est déjà désactivée localement, main.js relaie donc uniquement à
+// l'AUTRE fenêtre pour rester synchronisées.
+//
+// IMPORTANT : aucun de ces handlers ne doit jamais provoquer un rechargement
+// ou une navigation de webview (wv.reload()/wv.loadURL()) — l'activation du
+// mode vidéo seule ne doit jamais redéclencher dom-ready/did-navigate, sous
+// peine de réinjecter AUTO_PAUSE_SCRIPT et de mettre la vidéo en pause au
+// mauvais moment (voir garde __dualviewVideoFocusActive côté webview).
+
+const VIDEO_FOCUS_PORTRAIT_DELAY_MS = 400; // paysage d'abord, portrait ensuite
+
+// Reflet côté main.js de l'état actif/inactif — permet de ne préempter la
+// touche Échap au niveau WebContents (avant-input) QUE si le mode est
+// effectivement actif, pour ne jamais avaler un Échap "normal" (fermer un
+// dropdown YouTube, quitter le plein écran natif, etc.) le reste du temps.
+let videoFocusModeActive = false;
+
+ipcMain.on('video-focus-enter', () => {
+    videoFocusModeActive = true;
+    if (!portraitWin || portraitWin.isDestroyed()) return;
+    setTimeout(() => {
+        if (portraitWin && !portraitWin.isDestroyed())
+            portraitWin.webContents.send('video-focus-cmd', { action: 'enter' });
+    }, VIDEO_FOCUS_PORTRAIT_DELAY_MS);
+});
+
+ipcMain.on('video-focus-exit', (event) => {
+    videoFocusModeActive = false;
+    const isFromLandscape = landscapeWin && !landscapeWin.isDestroyed() && event.sender === landscapeWin.webContents;
+    const target = isFromLandscape ? portraitWin : landscapeWin;
+    if (target && !target.isDestroyed())
+        target.webContents.send('video-focus-cmd', { action: 'exit' });
+});
+
+// Contrôle (play/pause/seek) déclenché depuis la barre custom PORTRAIT → relayé
+// vers le paysage, qui reste la source de vérité (la vidéo pilotée est celle
+// de la webview paysage active ; la synchronisation vers portrait se fait
+// ensuite via le protocole vidéo existant video-play/video-pause/video-drift-check).
+ipcMain.on('video-focus-control', (event, payload) => {
+    if (!landscapeWin || landscapeWin.isDestroyed()) return;
+    if (!payload || typeof payload.action !== 'string') return;
+    landscapeWin.webContents.send('video-focus-control-cmd', payload);
 });
 
 // ── Pub YouTube (overlay portrait) ───────────────────────────────────────────
