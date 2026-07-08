@@ -1,7 +1,7 @@
-# DualView — Résumé du TODO (v0.8.0)
+# DualView — Résumé du TODO (v0.9.1)
 
-**Dernière version livrée :** v0.8.0  
-**Date du résumé :** juin 2026  
+**Dernière version livrée :** v0.9.1  
+**Date du résumé :** juillet 2026  
 
 ---
 
@@ -16,9 +16,10 @@
 | **🟡 P3** — Robustesse open source | 3 | **3** | 0 | **0** ✨ |
 | **🟢 P4** — Différenciation | 2 | **2** | 0 | **0** ✨ |
 | **🟢 P5** — Navigateur supplémentaires | 5 | **5** | 0 | **0** ✨ |
+| **🟢 P6** — Confort d'utilisation | 1 | **1** | 0 | **0** ✨ |
 | **Structure** | 3 | **3** | 0 | **0** ✨ |
 | | | | | |
-| **TOTAL** | **31 items** | **30** (97%) | **0** | **1** (3%) |
+| **TOTAL** | **32 items** | **31** (97%) | **0** | **1** (3%) |
 
 ---
 
@@ -122,6 +123,14 @@ Ajouté en juin 2026 pour combler les écarts avec un navigateur classique.
 
 ---
 
+## 🟢 Priorité 6 — Confort d'utilisation
+
+**Status : 100% complété en v0.9.1** ✅
+
+- ✅ **Recherche dans les paramètres** (v0.9.1) — barre unique en haut du panneau Paramètres, recherche globale tolérante aux fautes de frappe, redirection + surlignage vers la bonne section. Portée actuelle : libellés statiques (Services connectés/Export/Scripts & Styles dynamiques pas encore indexés).
+
+---
+
 ## 📈 Graphique d'avancement
 
 ```
@@ -133,7 +142,8 @@ Version 1.0.0 (objectif)
 
 Post-launch
 ├─ Priorité 4 (Différenciation)      ████████████████████ 100% ✅
-└─ Priorité 5 (Navigateur)           ████████████████████ 100% ✅
+├─ Priorité 5 (Navigateur)           ████████████████████ 100% ✅
+└─ Priorité 6 (Confort d'utilisation) ███████████████████ 100% ✅
 
 Structure Open Source                 ████████████████████ 100% ✅
 ```
@@ -175,4 +185,4 @@ Créé pour **compléter progressivement les fonctionnalités de navigateur clas
 
 ---
 
-**Généré automatiquement — à jour avec `/TODO.md` v0.8.0**
+**Généré automatiquement — à jour avec `/TODO.md` v0.9.1**

@@ -417,7 +417,7 @@ Si une page provoque le crash du processus de rendu d'un onglet (JavaScript lour
 
 ## Paramètres
 
-Accessible via **⚙️ → Paramètres** — 6 sections :
+Accessible via **⚙️ → Paramètres** — 7 sections, avec une **barre de recherche** *(v0.9.1)* toujours visible en haut du panneau, quelle que soit la section affichée : tapez un mot-clé (tolérant aux fautes de frappe) pour retrouver un réglage dans n'importe quelle section — un clic (ou `Entrée`) sur un résultat vous y amène directement et surligne la ligne correspondante.
 
 | Section | Contenu |
 |---------|---------|
@@ -427,6 +427,7 @@ Accessible via **⚙️ → Paramètres** — 6 sections :
 | **OBS** | Activation serveur local, port, URL du dock, token |
 | **Raccourcis clavier** | Tableau complet des raccourcis — Windows/Linux vs macOS |
 | **Export / Import** | Sauvegarde et restauration de la configuration (voir ci-dessous) |
+| **Scripts & Styles** | Injection de CSS/JS personnalisé par domaine *(v0.8.0)* |
 
 ### Export / Import de configuration
 

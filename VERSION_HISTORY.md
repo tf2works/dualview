@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.9.0.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.9.1.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -49,6 +49,23 @@
 | ⊞ | Mode comparaison Desktop/Mobile (`Ctrl+Shift+C`) — colonne 390 px mobile côte à côte |
 
 **Raccourcis clavier** (tableau complet dans **Paramètres → Raccourcis clavier** depuis v0.5.1)
+
+---
+
+## v0.9.1 — Juillet 2026
+
+### Nouvelles fonctionnalités
+
+#### 1. Recherche dans les paramètres
+
+Une barre de recherche unique, affichée en permanence en haut du panneau **Paramètres** — quelle que soit la section active (Général, Services connectés, Confidentialité, OBS, Raccourcis clavier, Export/Import, Scripts & Styles).
+
+- **Recherche globale** : tape un mot-clé, les résultats couvrent toutes les sections, regroupés par section d'origine.
+- **Tolérante aux fautes de frappe** : correspondance approximative par mot (distance de Levenshtein), en plus de la correspondance exacte. Insensible à la casse et aux accents.
+- **Redirection automatique** : cliquer (ou valider avec `Entrée`) sur un résultat bascule sur la bonne section et surligne brièvement la ligne correspondante.
+- **Navigation clavier** `↑` `↓` pour parcourir les résultats, `Entrée` pour valider, `Échap` pour effacer — cohérent avec l'omnibar de la barre d'adresse.
+- Nouveau module `landscape-settings-search.js`. Index construit à partir des libellés déjà affichés à l'écran (donc déjà traduits) : fonctionne en FR/EN sans dictionnaire séparé à maintenir.
+- **Portée actuelle** : couvre les libellés statiques des 7 sections. Les entrées entièrement dynamiques (tuiles de Services connectés, cases de la checklist Export/Import, règles Scripts & Styles) ne sont pas encore indexées — prévu pour une itération suivante si besoin.
 
 ---
 

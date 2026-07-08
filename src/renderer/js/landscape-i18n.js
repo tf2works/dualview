@@ -248,6 +248,10 @@ const I18N = {
         compareLabelDesktop: '🖥 Desktop',
         compareLabelMobile: '📱 Mobile',
         scCompareMode: 'Mode comparaison desktop/mobile',
+        // v0.9.1 — Recherche dans les paramètres
+        settingsSearchPlaceholder: 'Rechercher dans les paramètres…',
+        settingsSearchNoResults: 'Aucun résultat',
+        settingsSearchClear: 'Effacer',
     },
     en: {
         syncActive: 'Sync active', syncPaused: 'Sync paused', syncStarting: 'Sync…',
@@ -484,6 +488,10 @@ const I18N = {
         compareLabelDesktop: '🖥 Desktop',
         compareLabelMobile: '📱 Mobile',
         scCompareMode: 'Desktop/mobile compare mode',
+        // v0.9.1 — Settings search
+        settingsSearchPlaceholder: 'Search settings…',
+        settingsSearchNoResults: 'No results',
+        settingsSearchClear: 'Clear',
     }
 };
 let currentLang = 'fr';

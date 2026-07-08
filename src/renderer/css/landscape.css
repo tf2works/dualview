@@ -1308,6 +1308,147 @@ body {
     margin-bottom: 10px
 }
 
+/* ── Recherche dans les paramètres (v0.9.1) ── */
+#s-search-wrap {
+    position: sticky;
+    top: -20px;
+    margin: -20px -24px 16px;
+    padding: 16px 24px 12px;
+    background: var(--bg);
+    z-index: 5
+}
+
+#s-search-box {
+    position: relative
+}
+
+#s-search-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    transition: border-color 0.15s
+}
+
+    #s-search-row:focus-within {
+        border-color: var(--accent)
+    }
+
+#s-search-icon {
+    font-size: 13px;
+    color: var(--fg-muted);
+    flex-shrink: 0
+}
+
+#s-search-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: var(--fg);
+    font-size: 13px;
+    outline: none;
+    font-family: inherit
+}
+
+    #s-search-input::placeholder {
+        color: var(--fg-muted)
+    }
+
+#s-search-clear {
+    border: none;
+    background: transparent;
+    color: var(--fg-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 3px 5px;
+    border-radius: 4px;
+    flex-shrink: 0
+}
+
+    #s-search-clear:hover {
+        background: var(--bg-alt);
+        color: var(--fg)
+    }
+
+    #s-search-clear.hidden {
+        display: none
+    }
+
+#s-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+    z-index: 6;
+    max-height: 320px;
+    overflow-y: auto;
+    display: none
+}
+
+    #s-search-results.open {
+        display: block
+    }
+
+.ssr-section-lbl {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 6px 12px 3px
+}
+
+.ssr-item {
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--fg);
+    cursor: pointer;
+    transition: background 0.1s
+}
+
+    .ssr-item:hover,
+    .ssr-item.selected {
+        background: var(--bg-alt)
+    }
+
+    .ssr-item.selected {
+        border-left: 2px solid var(--accent)
+    }
+
+.ssr-empty {
+    padding: 14px 12px;
+    font-size: 12px;
+    color: var(--fg-muted);
+    text-align: center
+}
+
+.ssr-highlight-pulse {
+    animation: ssrPulseLight 1.4s ease
+}
+
+@keyframes ssrPulseLight {
+    0%   { background: rgba(0,102,204,0.16) }
+    100% { background: transparent }
+}
+
+[data-theme="dark"] .ssr-highlight-pulse {
+    animation-name: ssrPulseDark
+}
+
+@keyframes ssrPulseDark {
+    0%   { background: rgba(77,166,255,0.20) }
+    100% { background: transparent }
+}
+
 /* ── Raccourcis clavier — redesign v0.7.0 ── */
 
 /* Intro : badges plateformes + note */

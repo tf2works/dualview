@@ -7,6 +7,18 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.9.1] — 2026
+
+### Ajouté
+
+- **Recherche dans les paramètres** (`landscape.html`, `landscape.css`, `landscape-i18n.js`, nouveau module `landscape-settings-search.js`)
+  - Champ de recherche unique, affiché en permanence en tête de `.s-content`, visible depuis n'importe quelle section du panneau Paramètres
+  - Recherche **globale** : index construit à partir des libellés statiques des 7 sections (`.s-heading`, `.s-label`, `.s-check-label`, `.s-info-title`, `.sc-card-title`, `.sc-action` + description associée), à partir du texte déjà affiché à l'écran (donc déjà traduit — pas de dictionnaire de recherche séparé)
+  - Matching par mots-clés, insensible à la casse/aux accents, avec **tolérance aux fautes de frappe** (distance de Levenshtein par mot, seuil selon la longueur du mot)
+  - Sélection d'un résultat → redirection vers la bonne section (réutilise le listener `.s-nav` existant, donc redéclenche `loadServicesStatus`/`loadObsInfo`/`buildExportChecklist`/`renderUserScriptsList` si nécessaire) + surlignage temporaire (`.ssr-highlight-pulse`) de la ligne trouvée
+  - Navigation clavier `↑`/`↓`/`Entrée`/`Échap`, cohérente avec l'omnibar de la barre d'adresse
+  - Portée actuelle limitée aux libellés statiques ; les entrées générées dynamiquement (tuiles Services connectés, checklist Export/Import, règles Scripts & Styles) ne sont pas encore indexées
+
 ## [0.9.0] — 2026
 
 ### Ajouté

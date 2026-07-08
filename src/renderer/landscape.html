@@ -235,6 +235,17 @@
             <div class="s-nav" data-section="userscripts"><span class="s-nav-icon">&#128393;</span><span data-i18n="settingsUserScripts">Scripts &amp; Styles</span></div>
         </div>
         <div class="s-content">
+            <!-- Recherche dans les paramètres (v0.9.1) — toujours visible, quelle que soit la section active -->
+            <div id="s-search-wrap">
+                <div id="s-search-box">
+                    <div id="s-search-row">
+                        <span id="s-search-icon">&#128269;</span>
+                        <input type="text" id="s-search-input" data-i18n-placeholder="settingsSearchPlaceholder" placeholder="Rechercher dans les paramètres…" autocomplete="off" spellcheck="false" />
+                        <button id="s-search-clear" class="hidden" aria-label="Effacer">&#10005;</button>
+                    </div>
+                    <div id="s-search-results"></div>
+                </div>
+            </div>
             <!-- Général -->
             <div id="section-general" class="s-section active">
                 <div class="s-heading" data-i18n="settingsGeneral">Général</div>
@@ -773,6 +784,7 @@
     <script src="js/landscape-groups.js"></script>
     <script src="js/landscape-tabs.js"></script>
     <script src="js/landscape-settings.js"></script>
+    <script src="js/landscape-settings-search.js"></script>
     <script src="js/landscape-pollers.js"></script>
 </body>
 </html>

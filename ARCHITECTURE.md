@@ -1,4 +1,4 @@
-# DualView - Architecture v0.9.0
+# DualView - Architecture v0.9.1
 
 ## Vue d'ensemble
 
@@ -923,6 +923,20 @@ dualview/
             |                         + loadUpdateInfo() + listener #s-update-check-btn [v0.7.0]
             |                         + renderUserScriptsList() appelé section userscripts [v0.8.0]
             |                         + raccourci Ctrl+Shift+V + blocage raccourcis nav/onglets [v0.9.0]
+            |-- landscape-settings-search.js Recherche dans les paramètres (v0.9.1)
+            |                               buildSettingsSearchIndex() — index construit à partir
+            |                               des libellés statiques déjà traduits (.s-heading,
+            |                               .s-label, .s-check-label, .s-info-title, .sc-card-title,
+            |                               .sc-action), lazy (1ère recherche)
+            |                               runSettingsSearch() — mots-clés + tolérance aux fautes
+            |                               de frappe (Levenshtein par mot, seuil selon longueur)
+            |                               selectSettingsSearchResult() — redirection via
+            |                               nav.click() (réutilise le listener .s-nav existant,
+            |                               donc loadServicesStatus/loadObsInfo/buildExportChecklist/
+            |                               renderUserScriptsList restent déclenchés normalement)
+            |                               + surlignage temporaire (.ssr-highlight-pulse)
+            |                               Portée v0.9.1 : libellés statiques uniquement (pas les
+            |                               tuiles Services / checklist Export / règles Scripts)
             |-- landscape-pollers.js Polling pub/vidéo/scroll + initialisation
             |                        + pollScroll() sync compare-wv via getCompareWebview() [v0.8.0]
             |                        + retrait getIsDev / toggleDevTools / dev-btn / F12 [v0.5.4]
@@ -1050,6 +1064,7 @@ portraitPreset    | iphone15 / pixel8 / galaxys24 / ipad | Via modale redimensio
 | 0.7.0 | **Crash recovery** : `render-process-gone` + `unresponsive` sur toutes les webviews (landscape + portrait) ; overlay inline `#crash-recovery`/`#crash-overlay` ; auto-reload 10 s ; `recoverCrashedTab()` avec `skipIpc:true`. **Lecteur PDF** : `plugins="true"` sur toutes les `<webview>`. **Vérification mise à jour** : `fetchLatestReleaseTag()` + `isNewerVersion()` + IPC `check-for-update`/`open-external-url` + bouton Paramètres → Général. **Correctifs** : `SERVICE_ICONS/LABELS` github/gitlab (tuiles invisibles depuis v0.4.7) ; `detectServiceKeyFromUrl()` github/gitlab ; `setMaxListeners(50→200)` landscape/portrait/webviews ; `process.on('unhandledRejection')` filtre `ERR_ABORTED` ; `#dev-btn` résiduel supprimé. **Documentation** : bloqueur pub corrigé en "détection pub" (3 niveaux jamais implémentés) ; `landscape-webview.js` référence `landscape-app.js` corrigée. **Raccourcis clavier** redessinés (cartes `.sc-card`, `<kbd>` stylés). |
 | 0.7.1 | **Navigateur P5** : indicateur de chargement (barre 3px theme-aware), recherche dans la page (Ctrl+F, `findInPage`, compteur X/Y), zoom par domaine (Ctrl+/−/0, persistance localStorage), téléchargements configurables (setting allowDownloads/downloadDir/downloadAskPath, mini-gestionnaire ⬇️), PDF natif documenté. |
 | 0.8.0 | **Tests node:test P3-I** : 5 smoke tests (`tests/dualview.spec.js`) + job CI `test` dans `build.yml`. **Injection CSS/JS P4-J** : nouveau module `landscape-injection.js` — `applyUserScripts(wv, url)` sur chaque `dom-ready` et `did-navigate` ; matching domaine exact ou wildcard `*.exemple.com` ; CRUD complet dans Paramètres → Scripts & Styles ; persistance dans `settings.userScripts[]`. **Mode comparaison P4-K** : bouton ⊞ toolbar + `Ctrl+Shift+C` ; colonne 390px UA iPhone 15 ; `_compareSync(url)` sur navigation + changement d'onglet ; `getCompareWebview()` + scroll synchronisé dans `pollScroll()` (même % appliqué à la hauteur scrollable mobile). |
+| 0.9.1 | **Recherche dans les paramètres** : champ unique en haut de `.s-content`, visible dans toutes les sections. Nouveau module `landscape-settings-search.js` : index construit à partir des libellés statiques déjà traduits, recherche par mots-clés tolérante aux fautes de frappe (Levenshtein), redirection vers la bonne section via `nav.click()` (réutilise le listener `.s-nav` existant) + surlignage temporaire de la ligne trouvée. Navigation clavier ↑/↓/Entrée/Échap cohérente avec l'omnibar. Portée actuelle : libellés statiques uniquement (Services connectés/Export/Scripts & Styles dynamiques pas encore indexés). |
 | 0.9.0 | **Mode vidéo seule** : isole la vidéo de l'onglet actif (YouTube/TikTok/Instagram/générique) dans les deux fenêtres, l'une après l'autre (paysage puis portrait, +400 ms). Activation paysage uniquement — clic droit sur une vidéo (`context-menu.js`, `params.mediaType==='video'`) ou `Ctrl+Shift+V` ; nouveau module `landscape-video-focus.js` (paysage) + bloc dédié dans `portrait-app.js`. Ré-parente le `<video>` détecté dans un conteneur plein écran (`FOCUS_VIDEO_ACTIVATE_SCRIPT`/`_DEACTIVATE_SCRIPT`/`_STATE_SCRIPT` dans `landscape-webview.js`/`portrait-webview.js`) plutôt que de masquer le DOM en CSS, ce qui préserve les listeners de `VIDEO_WATCHER_SCRIPT` → play/pause/seek continuent de synchroniser via le protocole vidéo existant (v0.4.3), sans nouveau canal dédié à la lecture. Barre de contrôle custom (lecture/pause, timeline, quitter) superposée à la webview, auto-hide 1 s d'inactivité souris. Sortie (Échap ou bouton) synchronisée entre les deux fenêtres (`video-focus-enter`/`video-focus-exit` IPC) ; contrôle depuis le portrait relayé au paysage (`video-focus-control` → `video-focus-control-cmd`, le paysage reste seul maître de la lecture). Garde `window.__dualviewVideoFocusActive` (contexte page) empêchant `AUTO_PAUSE_SCRIPT` de mettre en pause pendant l'activation ; sortie automatique propre sur navigation complète (`did-navigate`) puisque le conteneur ne survit pas à un changement de page. Raccourcis de changement d'onglet/navigation (`Alt+←/→`, `Ctrl+T/W`, `Ctrl+Shift+T`, `Ctrl+Tab`, `F5`) bloqués tant que le mode est actif (barre d'onglets masquée). |
 
 ---
