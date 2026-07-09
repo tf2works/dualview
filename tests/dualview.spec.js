@@ -59,13 +59,13 @@ test('01 — structure : fichiers principaux présents', () => {
 });
 
 // ── Test 02 — package.json ────────────────────────────────────────────────────
-// Vérifie que la version est 0.9.0 et que les scripts essentiels sont présents.
+// Vérifie que la version est 0.9.3 et que les scripts essentiels sont présents.
 
-test('02 — package.json : version 0.9.0 et scripts corrects', () => {
+test('02 — package.json : version 0.9.3 et scripts corrects', () => {
     const raw = fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8');
     const pkg = JSON.parse(raw);
 
-    assert.equal(pkg.version, '0.9.0', 'Version attendue : 0.9.0');
+    assert.equal(pkg.version, '0.9.3', 'Version attendue : 0.9.3');
     assert.equal(pkg.main, 'src/main.js', 'main doit pointer sur src/main.js');
     assert.ok(pkg.scripts && pkg.scripts.start, 'Script "start" manquant');
     assert.ok(pkg.scripts && pkg.scripts.test,  'Script "test" manquant');
