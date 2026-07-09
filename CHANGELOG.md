@@ -7,6 +7,17 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [0.9.3] — 2026
+
+### Corrigé
+
+- **Sync vidéo — seek non synchronisé pendant la lecture (flèches, j/l, touches 0-9 YouTube)** (`src/main.js`, `src/preload/preload-landscape.js`, `src/renderer/js/landscape-pollers.js`)
+  - Bug : en navigation normale **et** en mode vidéo seule, avancer/reculer la vidéo au clavier (flèches ←/→ sur YouTube, et plus généralement tout raccourci ou scrub qui ne met pas la vidéo en pause) pendant la lecture ne se répercutait pas dans la fenêtre Portrait.
+  - Cause : ce type de seek déclenche un `seeked` isolé (sans `pause` autour). Le protocole existant routait ça vers le chemin PLAY (`seek-to` puis `play`), mais à ce moment le Portrait est déjà en lecture — la garde anti-boucle de `portrait-webview.js` ignore alors le `seek-to`, exactement comme pour le bug corrigé en v0.9.2 côté mode vidéo seule, mais ici au niveau du protocole générique (donc valable pour n'importe quel site/lecteur).
+  - Correctif : nouveau 3e chemin de protocole `video-seek-while-playing` : `pause()` → `seek-to(t)` [+50ms] → `play()` [+150ms]. La branche `seek` de `landscape-pollers.js` route désormais vers ce chemin quand la vidéo landscape est déjà en lecture, au lieu du chemin PLAY.
+  - Effet de bord attendu : micro-pause (~150-200ms) visible côté Portrait à chaque seek en lecture — même compromis déjà accepté pour le chemin PAUSE existant.
+  - Aucune modification de `portrait-webview.js` : le nouveau chemin réutilise les actions `video-cmd` existantes (`pause`, `seek-to`, `play`).
+
 ## [0.9.2] — 2026
 
 ### Corrigé

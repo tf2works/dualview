@@ -2,6 +2,12 @@
  * DualView - Main Process
  * Version: 0.7.1
  *
+ * Changements v0.9.3 :
+ * - Sync vidéo : nouveau 3e chemin de protocole 'video-seek-while-playing'
+ *   (pause → seek-to +50ms → play +150ms), pour les seeks qui arrivent
+ *   pendant que la vidéo landscape est déjà en lecture (flèches ←/→, j/l,
+ *   touches 0-9 YouTube, etc. — voir commentaire au-dessus des handlers IPC).
+ *
  * Changements v0.7.1 :
  * - Téléchargements configurables : setting 'allowDownloads' + 'downloadDir'.
  *   session-security.js géère le will-download ; main.js tracke la liste en
@@ -804,11 +810,23 @@ ipcMain.on('reload-views', () => {
 
 ipcMain.on('relaunch-app', () => { app.relaunch(); app.exit(0); });
 
-// ── Vidéo sync (v0.4.3 — séquençage strict) ──────────────────────────────────
+// ── Vidéo sync (v0.4.3 — séquençage strict ; v0.9.3 — 3e chemin) ─────────────
 //
-// PAUSE  → ① pause()           ② seek-to(t) [+50 ms]
-// PLAY   → ① seek-to(t)        ② play()     [+100 ms]
-// DRIFT  → seek-to(t) SEULEMENT si vidéo portrait est à l'arrêt
+// PAUSE            → ① pause()           ② seek-to(t) [+50 ms]
+// PLAY              → ① seek-to(t)        ② play()     [+100 ms]
+// SEEK (en lecture) → ① pause()           ② seek-to(t) [+50 ms]  ③ play() [+150 ms]
+// DRIFT             → seek-to(t) SEULEMENT si vidéo portrait est à l'arrêt
+//
+// v0.9.3 : le chemin SEEK est nécessaire pour tout seek qui se produit PENDANT
+// que la vidéo landscape est déjà en lecture (ex. flèches ←/→, j/l, touches
+// 0-9 sur YouTube, ou tout site dont le scrub ne pause pas la vidéo). Dans ce
+// cas le portrait est lui aussi déjà en lecture au moment où l'événement
+// arrive : envoyer directement seek-to (comme le fait PLAY) ne fonctionne pas
+// car la garde anti-boucle de portrait-webview.js n'applique seek-to QUE si
+// la vidéo portrait est en pause. On force donc une pause côté portrait
+// d'abord (comme PAUSE), puis on relance la lecture une fois le seek appliqué.
+// Effet de bord assumé : micro-pause (~150-200 ms) visible côté portrait à
+// chaque seek en lecture — même compromis que le chemin PAUSE existant.
 
 ipcMain.on('video-pause', (e, t) => {
     if (syncState !== 'active') return;
@@ -824,6 +842,15 @@ ipcMain.on('video-play', (e, t) => {
     if (!p || p.isDestroyed()) return;
     p.webContents.send('video-cmd', { action: 'seek-to', currentTime: t });
     setTimeout(() => { if (!p.isDestroyed()) p.webContents.send('video-cmd', { action: 'play',    currentTime: t }); }, 100);
+});
+
+ipcMain.on('video-seek-while-playing', (e, t) => {
+    if (syncState !== 'active') return;
+    const p = portraitWin;
+    if (!p || p.isDestroyed()) return;
+    p.webContents.send('video-cmd', { action: 'pause',   currentTime: t });
+    setTimeout(() => { if (!p.isDestroyed()) p.webContents.send('video-cmd', { action: 'seek-to', currentTime: t }); }, 50);
+    setTimeout(() => { if (!p.isDestroyed()) p.webContents.send('video-cmd', { action: 'play',    currentTime: t }); }, 150);
 });
 
 ipcMain.on('video-drift-check', (e, t) => {

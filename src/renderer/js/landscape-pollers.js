@@ -6,6 +6,11 @@
  * polling scroll (100 ms).
  * Initialisation complète de l'application au chargement.
  *
+ * v0.9.3 : branche 'seek' du protocole vidéo — route désormais vers
+ *   sendVideoSeekWhilePlaying() (au lieu de sendVideoPlay()) quand la vidéo
+ *   landscape est déjà en lecture au moment du seek, pour corriger les
+ *   seeks non synchronisés vers portrait (flèches, j/l, touches 0-9 YouTube).
+ *
  * v0.6.1 : restauration des onglets épinglés au démarrage (pinnedTabs
  *   transmis à groupsLoad — désormais persistés entre sessions).
  *
@@ -65,14 +70,21 @@ function pollAdState(wv) {
     }).catch(() => { });
 }
 
-// ── Polling vidéo (v0.4.3 — séquençage strict) ────────────────────────────
+// ── Polling vidéo (v0.4.3 — séquençage strict ; v0.9.3 — 3e chemin) ──────
 //
 // Trois chemins distincts selon l'action détectée :
 //
-//  play  → sendVideoPlay(t)   main.js envoie ① seek-to(t) puis ② play() +100ms
-//  pause → sendVideoPause(t)  main.js envoie ① pause()    puis ② seek-to(t) +50ms
-//  seek  → on lit l'état courant (playing/paused) et on dispatche en play ou pause
-//          (identique à avant mais sans jamais envoyer un play supplémentaire sur seek)
+//  play  → sendVideoPlay(t)             main.js envoie ① seek-to(t) puis ② play() +100ms
+//  pause → sendVideoPause(t)            main.js envoie ① pause()    puis ② seek-to(t) +50ms
+//  seek  → on lit l'état courant (playing/paused) et on dispatche :
+//            - vidéo landscape en pause  → sendVideoPause(t)  (seek-to appliqué directement)
+//            - vidéo landscape en lecture → sendVideoSeekWhilePlaying(t)  (v0.9.3)
+//              main.js envoie ① pause() ② seek-to(t) +50ms ③ play() +150ms
+//              Nécessaire pour tout seek qui arrive SANS pause préalable
+//              (flèches ←/→, j/l, touches 0-9 YouTube, scrub qui ne pause
+//              pas la vidéo...) : à cet instant le portrait est déjà en
+//              lecture lui aussi, donc un simple seek-to serait ignoré par
+//              la garde anti-boucle de portrait-webview.js.
 //
 // Drift guard (toutes les 5s, lecture en cours) :
 //  → sendVideoDriftCheck(t)   portrait n'applique ce seek QUE si sa vidéo est à l'arrêt
@@ -101,12 +113,16 @@ function pollVideoState() {
             showIndicator('Pause (' + evt.platform + ')', true);
             window.dualview.sendVideoPause(evt.time);
         }
-        // seek SPA (YouTube navigation entre vidéos) :
-        // on lit l'état réel du player avant d'envoyer la commande
+        // seek SPA (YouTube navigation entre vidéos) OU seek manuel
+        // (flèches, j/l, touches 0-9, scrub...) : on lit l'état réel du
+        // player avant d'envoyer la commande. v0.9.3 : si la vidéo joue déjà,
+        // on passe par sendVideoSeekWhilePlaying (pause→seek→play) plutôt que
+        // sendVideoPlay, sinon le seek-to est ignoré côté portrait (déjà en
+        // lecture à ce moment-là — voir commentaire du bloc ci-dessus).
         if (evt.type === 'seek') {
             wv.executeJavaScript('(window.__dualviewVideoState&&window.__dualviewVideoState.playing)||false')
                 .then(isPlaying => {
-                    if (isPlaying) window.dualview.sendVideoPlay(evt.time);
+                    if (isPlaying) window.dualview.sendVideoSeekWhilePlaying(evt.time);
                     else window.dualview.sendVideoPause(evt.time);
                 }).catch(() => { });
         }

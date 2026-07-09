@@ -59,13 +59,13 @@ test('01 — structure : fichiers principaux présents', () => {
 });
 
 // ── Test 02 — package.json ────────────────────────────────────────────────────
-// Vérifie que la version est 0.9.2 et que les scripts essentiels sont présents.
+// Vérifie que la version est 0.9.0 et que les scripts essentiels sont présents.
 
-test('02 — package.json : version 0.9.2 et scripts corrects', () => {
+test('02 — package.json : version 0.9.0 et scripts corrects', () => {
     const raw = fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8');
     const pkg = JSON.parse(raw);
 
-    assert.equal(pkg.version, '0.9.2', 'Version attendue : 0.9.2');
+    assert.equal(pkg.version, '0.9.0', 'Version attendue : 0.9.0');
     assert.equal(pkg.main, 'src/main.js', 'main doit pointer sur src/main.js');
     assert.ok(pkg.scripts && pkg.scripts.start, 'Script "start" manquant');
     assert.ok(pkg.scripts && pkg.scripts.test,  'Script "test" manquant');
@@ -204,4 +204,35 @@ test('06 — landscape-webview : focusVideoSeek pause/reprend autour du seek', (
         'focusVideoSeek doit toujours affecter currentTime');
     assert.ok(/setTimeout\([\s\S]*v\.play\(\)/.test(fnSrc),
         'focusVideoSeek doit relancer la lecture après le seek si elle jouait');
+});
+
+// ── Test 07 — Protocole vidéo — 3e chemin 'seek en lecture' (v0.9.3) ─────────
+// Garde de non-régression statique (même limite que le test 06 : pas de vrai
+// process Electron/webview dans node:test). Vérifie la présence bout-en-bout
+// du nouveau chemin qui corrige les seeks non synchronisés pendant la lecture
+// (flèches ←/→, j/l, touches 0-9 YouTube, ou tout seek sans pause préalable).
+test("07 — sync vidéo : chemin 'seek en lecture' présent bout-en-bout", () => {
+    const mainSrc = fs.readFileSync(path.join(ROOT, 'src/main.js'), 'utf8');
+    const preloadSrc = fs.readFileSync(path.join(ROOT, 'src/preload/preload-landscape.js'), 'utf8');
+    const pollersSrc = fs.readFileSync(path.join(ROOT, 'src/renderer/js/landscape-pollers.js'), 'utf8');
+
+    // main.js : handler IPC avec la séquence pause → seek-to → play
+    assert.ok(mainSrc.includes("ipcMain.on('video-seek-while-playing'"),
+        "Handler IPC 'video-seek-while-playing' manquant dans main.js");
+    const handlerMatch = mainSrc.match(/ipcMain\.on\('video-seek-while-playing'[\s\S]*?\n\}\);/);
+    assert.ok(handlerMatch, "Corps du handler 'video-seek-while-playing' introuvable");
+    const handlerSrc = handlerMatch[0];
+    assert.ok(/action:\s*'pause'/.test(handlerSrc),   'Le handler doit envoyer action:pause');
+    assert.ok(/action:\s*'seek-to'/.test(handlerSrc), 'Le handler doit envoyer action:seek-to');
+    assert.ok(/action:\s*'play'/.test(handlerSrc),    'Le handler doit envoyer action:play');
+
+    // preload-landscape.js : pont exposé au renderer
+    assert.ok(preloadSrc.includes('sendVideoSeekWhilePlaying'),
+        'sendVideoSeekWhilePlaying manquant dans preload-landscape.js');
+    assert.ok(preloadSrc.includes("ipcRenderer.send('video-seek-while-playing'"),
+        "Le pont preload doit envoyer le canal 'video-seek-while-playing'");
+
+    // landscape-pollers.js : la branche seek doit appeler ce chemin quand isPlaying
+    assert.ok(pollersSrc.includes('sendVideoSeekWhilePlaying'),
+        'landscape-pollers.js ne route pas encore vers sendVideoSeekWhilePlaying');
 });

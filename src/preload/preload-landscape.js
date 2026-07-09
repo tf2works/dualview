@@ -24,6 +24,10 @@
  *   (document est null dans le preload avec contextIsolation:true).
  *   Le renderer applique data-theme en toute premiere ligne de landscape-ui.js.
  *
+ * Changements v0.9.3 :
+ * - sendVideoSeekWhilePlaying() ajouté — invoke 'video-seek-while-playing'
+ *   (3e chemin du protocole de sync vidéo, voir main.js)
+ *
  * Changements v0.4.3 :
  * - sendVideoDriftCheck() remplace sendVideoTimeUpdate()
  *
@@ -58,6 +62,7 @@ contextBridge.exposeInMainWorld('dualview', {
     sendNavigate: (u) => ipcRenderer.send('sync-navigate', u),
     sendVideoPlay: (t) => ipcRenderer.send('video-play', t),
     sendVideoPause: (t) => ipcRenderer.send('video-pause', t),
+    sendVideoSeekWhilePlaying: (t) => ipcRenderer.send('video-seek-while-playing', t),
     sendVideoDriftCheck: (t) => ipcRenderer.send('video-drift-check', t),
     sendAdState: (payload) => ipcRenderer.send('ad-state', payload),
 

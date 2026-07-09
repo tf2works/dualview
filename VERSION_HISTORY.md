@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.9.2.exe`**
+1. Double-cliquez sur **`DualView-Setup-0.9.3.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -49,6 +49,22 @@
 | ⊞ | Mode comparaison Desktop/Mobile (`Ctrl+Shift+C`) — colonne 390 px mobile côte à côte |
 
 **Raccourcis clavier** (tableau complet dans **Paramètres → Raccourcis clavier** depuis v0.5.1)
+
+---
+
+## v0.9.3 — Juillet 2026
+
+### Corrections
+
+#### 1. Seek non synchronisé pendant la lecture (flèches, j/l, touches 0-9 YouTube)
+
+**Bug** : en navigation normale **et** en mode vidéo seule, avancer/reculer la vidéo au clavier pendant la lecture (flèches gauche/droite, `j`/`l`, touches `0`-`9` sur YouTube, ou plus généralement tout seek qui ne met pas la vidéo en pause au préalable) ne se répercutait pas dans la fenêtre Portrait.
+
+**Cause** : ce type de seek ne déclenche qu'un événement `seeked` isolé, sans `pause`/`play` autour (contrairement à un scrub de barre de progression classique, qui pause généralement le lecteur). Le protocole de synchronisation existant (v0.4.3) routait cet événement vers le chemin PLAY (`seek-to` puis `play`), en présumant que le Portrait était en pause au moment du `seek-to` — hypothèse fausse quand les deux fenêtres étaient déjà en lecture avant le seek. Le `seek-to` était alors ignoré par la garde anti-boucle de `portrait-webview.js`. C'est la même famille de bug que celui corrigé en v0.9.2 pour la barre custom du mode vidéo seule, mais ici au niveau du protocole générique — donc affectant tous les sites, pas seulement le mode vidéo seule.
+
+**Correction** : ajout d'un 3e chemin au protocole (`video-seek-while-playing` dans `src/main.js`) : `pause()` → `seek-to(t)` [+50ms] → `play()` [+150ms]. `src/renderer/js/landscape-pollers.js` route désormais vers ce chemin quand la vidéo landscape est déjà en lecture au moment du seek, au lieu du chemin PLAY. Le pont `sendVideoSeekWhilePlaying()` a été ajouté dans `src/preload/preload-landscape.js`. Aucune modification de `portrait-webview.js` (réutilisation des actions `video-cmd` existantes).
+
+Effet de bord attendu : micro-pause (~150-200 ms) visible côté Portrait à chaque seek en lecture — même compromis déjà accepté pour le chemin PAUSE existant depuis v0.4.3.
 
 ---
 
@@ -939,3 +955,4 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.9.0 | **Mode vidéo seule** : isole la vidéo de l'onglet actif (YouTube, TikTok, Instagram, ou tout site avec un `<video>` détectable) dans les deux fenêtres, l'une après l'autre (paysage puis portrait, +400 ms). Activation depuis la fenêtre Paysage uniquement — clic droit sur une vidéo (`context-menu.js`, "Vidéo seule") ou `Ctrl+Shift+V`. Technique : ré-parentage du `<video>` dans un conteneur plein écran (`FOCUS_VIDEO_ACTIVATE/DEACTIVATE/STATE_SCRIPT`) plutôt que masquage CSS du reste du DOM — préserve les listeners de `VIDEO_WATCHER_SCRIPT`, donc play/pause/seek continuent d'être synchronisés vers portrait via le protocole vidéo existant (v0.4.3) sans nouveau canal de lecture. Barre de contrôle custom (lecture/pause, timeline, quitter), affichée dans les deux fenêtres, auto-hide après 1 s d'inactivité souris. Sortie (`Échap` ou bouton "Quitter") synchronisée entre les deux fenêtres quelle que soit celle où elle est déclenchée. Nouveau module `landscape-video-focus.js` (paysage) + logique dédiée dans `portrait-app.js`/`portrait-webview.js`. Garde `window.__dualviewVideoFocusActive` empêchant `AUTO_PAUSE_SCRIPT` de mettre en pause la vidéo pendant l'activation. Sortie automatique propre sur navigation complète (`did-navigate`). Raccourcis de changement d'onglet/navigation bloqués tant que le mode est actif. |
 | 0.9.1 | **Recherche dans les paramètres** : barre de recherche unique en tête du panneau Paramètres, index construit depuis les libellés déjà affichés (FR/EN sans dictionnaire séparé), tolérance aux fautes de frappe (Levenshtein), redirection + surlignage vers la bonne section, navigation clavier ↑↓/Entrée/Échap. Nouveau module `landscape-settings-search.js`. |
 | 0.9.2 | **Fix mode vidéo seule** : la timeline ne se synchronisait pas vers Portrait quand un seek était fait pendant la lecture (fonctionnait seulement en pause). `focusVideoSeek()` pause désormais la vidéo avant le seek (si elle jouait) puis relance la lecture ~120 ms après, reproduisant la séquence `pause → seek → play` déjà gérée par le protocole de synchro existant (v0.4.3), sans toucher au protocole partagé. |
+| 0.9.3 | **Fix sync vidéo générique** : les seeks au clavier pendant la lecture (flèches ←/→, j/l, touches 0-9 YouTube...) ne se synchronisaient pas vers Portrait, en navigation normale comme en mode vidéo seule. Nouveau 3e chemin de protocole `video-seek-while-playing` (`pause → seek-to → play`) dans `main.js`, routé depuis `landscape-pollers.js` quand la vidéo landscape est déjà en lecture au moment du seek. |
