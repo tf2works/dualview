@@ -81,6 +81,47 @@ window.addEventListener('scroll',()=>{
 },{passive:true});
 })();true;`;
 
+// ── Zoom Ctrl+molette (v1.0.1) ─────────────────────────────────────────────
+// Le geste natif Chromium Ctrl+molette n'est pas garanti à l'intérieur d'un
+// <webview> (out-of-process guest view) — voir diagnostic v1.0.1 dans
+// main.js. On capte donc l'événement 'wheel' directement dans la page via ce
+// script injecté, en préservant le comportement natif du site pour tout
+// scroll SANS Ctrl (aucun preventDefault dans ce cas). Le delta accumulé est
+// lu par pollZoomWheel() dans landscape-pollers.js, qui appelle adjustZoom()
+// (déjà utilisée par les raccourcis clavier Ctrl+/Ctrl-).
+const ZOOM_WHEEL_INJECT = `
+(function(){
+if(window.__dualviewZoomWheelWatcher)return;
+window.__dualviewZoomWheelWatcher=true;
+window.__dualviewZoomWheelDelta=0;
+window.addEventListener('wheel',(e)=>{
+    if(!e.ctrlKey)return;
+    e.preventDefault();
+    window.__dualviewZoomWheelDelta+=e.deltaY;
+},{passive:false});
+})();true;`;
+
+// ── Boutons latéraux souris Retour/Avance (v1.0.2) ─────────────────────────
+// ABANDON définitif des API Electron (before-input-event, app-command) pour
+// ce cas : diagnostic terminal du 17/07/2026 a confirmé qu'AUCUNE des deux
+// ne reçoit jamais l'info, même pour un clic gauche basique, alors que ces
+// mêmes boutons fonctionnent nativement dans Chrome/Firefox/Edge — preuve
+// que le clic n'atteint jamais le contexte de rendu de la <webview> par ces
+// canaux dans cette architecture Electron. Solution : capter l'événement
+// DOM standard 'mousedown' directement DANS la page (garanti, indépendant
+// d'Electron), même principe que ZOOM_WHEEL_INJECT ci-dessus.
+// MouseEvent.button : 3 = bouton arrière (XButton1), 4 = bouton avant (XButton2).
+const MOUSE_NAV_INJECT = `
+(function(){
+if(window.__dualviewMouseNavWatcher)return;
+window.__dualviewMouseNavWatcher=true;
+window.__dualviewMouseNavCmd=null;
+window.addEventListener('mousedown',(e)=>{
+    if(e.button===3){e.preventDefault();window.__dualviewMouseNavCmd='back';}
+    else if(e.button===4){e.preventDefault();window.__dualviewMouseNavCmd='forward';}
+},{capture:true});
+})();true;`;
+
 // ── Pause automatique YouTube (vidéos classiques uniquement) ──────────────────
 // Shorts exclus — aucune interférence avec leur autoplay.
 // Si pub en cours → attendre fin pub → pauser. Sinon → pause directe.

@@ -12,7 +12,7 @@
 - Connexion internet (~30 Mo pour Node.js si absent)
 
 ### Procédure
-1. Double-cliquez sur **`DualView-Setup-0.9.3.exe`**
+1. Double-cliquez sur **`DualView-Setup-1.0.0.exe`**
 2. Si Windows affiche "Éditeur inconnu" → **Plus d'informations** puis **Exécuter quand même**
 3. Acceptez l'élévation Administrateur
 4. Attendez la fin de l'installation (5 à 15 min)
@@ -49,6 +49,42 @@
 | ⊞ | Mode comparaison Desktop/Mobile (`Ctrl+Shift+C`) — colonne 390 px mobile côte à côte |
 
 **Raccourcis clavier** (tableau complet dans **Paramètres → Raccourcis clavier** depuis v0.5.1)
+
+---
+
+## v1.0.0 — Juillet 2026
+
+### Nouvelles fonctionnalités
+
+#### 1. Ouverture de liens en arrière-plan (clic molette / Ctrl+clic / Ctrl+Shift+clic)
+
+- **Clic molette sur un lien** : ouvre le lien dans un nouvel onglet **sans y basculer**.
+- **Ctrl+clic sur un lien** : identique au clic molette (nouvel onglet en arrière-plan).
+- **Ctrl+Shift+clic sur un lien** : ouvre le lien dans un nouvel onglet **et y bascule immédiatement**.
+
+**Implémentation** : `src/main.js` lit le champ `disposition` fourni par Chromium dans `setWindowOpenHandler` (`background-tab` vs `foreground-tab`/`new-window`) et le transmet au renderer via le canal `context-menu-action`. `src/renderer/js/landscape-tabs.js` (`addTabWithUrl`) accepte une nouvelle option `{ background }` pour créer un onglet sans y basculer. Le clic droit → "Ouvrir dans un nouvel onglet" (`core/context-menu.js`) garde son comportement historique (bascule immédiate), non affecté par ce changement.
+
+#### 2. Boutons latéraux souris (Retour/Avance) — réécriture complète
+
+**Correction d'un historique erroné** : la documentation indiquait ces boutons "déjà pris en charge depuis v0.4.1" via `before-input-event`. Un diagnostic terminal approfondi (session de juillet 2026) a établi que cette implémentation n'a **jamais réellement fonctionné** : `before-input-event` ne reçoit aucune information souris dans une architecture `<webview>` imbriquée — vérifié y compris pour un simple clic gauche — alors que ces mêmes boutons sont pleinement fonctionnels dans Chrome/Firefox/Edge sur la même machine (écartant tout souci matériel/pilote). L'API `app-command`, officiellement dédiée à ce cas d'usage sur Windows, s'est révélée tout aussi silencieuse dans ce contexte précis.
+
+**Solution retenue** : un script (`MOUSE_NAV_INJECT`) est désormais injecté dans chaque page chargée (`src/renderer/js/landscape-webview.js`), qui capte l'événement DOM standard `mousedown` (`button===3` = arrière, `button===4` = avant) — une API web basique garantie, indépendante des particularités d'Electron. Le résultat est lu par un polling léger (`pollMouseNav`, 100 ms, `src/renderer/js/landscape-pollers.js`) qui déclenche `window.dualview.navBack()`/`navForward()` — exactement le même chemin que les boutons `←`/`→` de la toolbar, garantissant une synchronisation cohérente avec le portrait et la pile de navigation simulée (v0.9.0).
+
+`app-command` reste présent dans `main.js` en repli silencieux (aucun effet de bord, aucune garantie) au cas où il fonctionnerait sur d'autres configurations.
+
+#### 3. Zoom Ctrl+molette — désormais fiable dans les webviews
+
+Le geste natif Chromium Ctrl+molette n'étant pas garanti à l'intérieur d'une `<webview>` (confirmé non fonctionnel lors du diagnostic ci-dessus), un script injecté (`ZOOM_WHEEL_INJECT`) capte l'événement `wheel` avec `ctrlKey` directement dans la page — le scroll normal (sans Ctrl) n'est jamais intercepté. Le delta accumulé est lu par polling (`pollZoomWheel`, 150 ms) et appliqué via `adjustZoom()`, la fonction déjà utilisée par les raccourcis clavier `Ctrl+`/`Ctrl-`/`Ctrl+0`.
+
+#### 4. Fonctionnalité abandonnée : Alt + molette
+
+Une tentative d'ajouter `Alt`+molette pour Retour/Avance a été explorée puis retirée : elle reposait sur le même mécanisme `before-input-event` confirmé non fonctionnel (voir point 2). Pourrait être réintroduite via le même principe d'injection DOM si le besoin se confirme.
+
+### Corrections
+
+#### 5. Favoris — ajout silencieusement refusé sans message d'erreur
+
+Cliquer sur ★ pour ajouter la page courante aux favoris affichait toujours l'étoile pleine et un toast de succès, **même quand l'ajout échouait réellement** (notamment pour des URLs de domaines considérés à tort comme des pages de connexion). Corrigé à deux niveaux : le clic sur ★ vérifie désormais le retour réel de `favoritesAdd()` (`landscape-settings.js`) et affiche un toast d'avertissement en cas de refus ; la liste `AUTH_DOMAINS_FAV` (`favorites-manager.js`) a été restreinte aux hôtes purement dédiés à l'authentification, ce qui permet de nouveau de mettre en favori une page de profil/chaîne sur Twitter/X, Discord, Instagram, TikTok, Facebook et Steam.
 
 ---
 
@@ -956,3 +992,4 @@ Supprimez `%APPDATA%\DualView\` pour tout effacer.
 | 0.9.1 | **Recherche dans les paramètres** : barre de recherche unique en tête du panneau Paramètres, index construit depuis les libellés déjà affichés (FR/EN sans dictionnaire séparé), tolérance aux fautes de frappe (Levenshtein), redirection + surlignage vers la bonne section, navigation clavier ↑↓/Entrée/Échap. Nouveau module `landscape-settings-search.js`. |
 | 0.9.2 | **Fix mode vidéo seule** : la timeline ne se synchronisait pas vers Portrait quand un seek était fait pendant la lecture (fonctionnait seulement en pause). `focusVideoSeek()` pause désormais la vidéo avant le seek (si elle jouait) puis relance la lecture ~120 ms après, reproduisant la séquence `pause → seek → play` déjà gérée par le protocole de synchro existant (v0.4.3), sans toucher au protocole partagé. |
 | 0.9.3 | **Fix sync vidéo générique** : les seeks au clavier pendant la lecture (flèches ←/→, j/l, touches 0-9 YouTube...) ne se synchronisaient pas vers Portrait, en navigation normale comme en mode vidéo seule. Nouveau 3e chemin de protocole `video-seek-while-playing` (`pause → seek-to → play`) dans `main.js`, routé depuis `landscape-pollers.js` quand la vidéo landscape est déjà en lecture au moment du seek. |
+| 1.0.0 | **Raccourcis souris étendus** : clic molette/Ctrl+clic/Ctrl+Shift+clic pour ouvrir un lien en arrière-plan ou au premier plan (`setWindowOpenHandler` + `addTabWithUrl({background})`). **Boutons latéraux souris réécrits** : `before-input-event`/`app-command` confirmés non fonctionnels dans l'architecture `<webview>` (diagnostic terminal) → remplacés par injection DOM (`MOUSE_NAV_INJECT`) + polling réutilisant `navBack()`/`navForward()`. **Zoom Ctrl+molette fiabilisé** dans les webviews via injection DOM (`ZOOM_WHEEL_INJECT`) + `adjustZoom()`. **Fix favoris** : l'ajout ★ échouant silencieusement (domaines de connexion) affiche désormais un avertissement ; `AUTH_DOMAINS_FAV` restreinte aux hôtes purement d'authentification. |

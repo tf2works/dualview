@@ -547,13 +547,21 @@ function createLandscapeWindow() {
     landscapeWin.on('resize', () => { const [w, h] = landscapeWin.getSize();     configSet('landscapeWindow.width', w); configSet('landscapeWindow.height', h); });
     landscapeWin.on('closed', () => app.quit());
 
-    // ── Boutons souris Retour/Avance (v0.4.1) ────────────────────────────────
-    landscapeWin.webContents.on('before-input-event', (event, input) => {
-        if (input.type !== 'mouseDown') return;
-        if (input.button === 'back') {
+    // ── Boutons latéraux souris Retour/Avance (v1.0.2) ───────────────────────
+    // Solution principale : MOUSE_NAV_INJECT (landscape-webview.js), qui capte
+    // l'événement DOM standard 'mousedown' directement dans la page — voir
+    // ce fichier pour l'historique complet du diagnostic (before-input-event
+    // et app-command confirmés silencieux dans cette configuration, y compris
+    // pour un simple clic gauche, alors que les mêmes boutons fonctionnent
+    // nativement dans Chrome/Firefox/Edge sur la même machine).
+    // 'app-command' conservé ci-dessous en repli silencieux et sans effet de
+    // bord : sur certaines configurations (Windows, hors <webview> imbriquée)
+    // il peut malgré tout être délivré ; aucune garantie ni log ici.
+    landscapeWin.on('app-command', (event, cmd) => {
+        if (cmd === 'browser-backward') {
             event.preventDefault();
             landscapeWin.webContents.send('mouse-nav', 'back');
-        } else if (input.button === 'forward') {
+        } else if (cmd === 'browser-forward') {
             event.preventDefault();
             landscapeWin.webContents.send('mouse-nav', 'forward');
         }
@@ -564,13 +572,20 @@ function createLandscapeWindow() {
         // v0.7.0 : 50 → 200 (même raison que landscapeWin.webContents ci-dessus)
         wvContents.setMaxListeners(200);
 
-        wvContents.setWindowOpenHandler(({ url }) => {
+        wvContents.setWindowOpenHandler(({ url, disposition }) => {
             if (!url || url === 'about:blank') return { action: 'deny' };
             try {
                 const parsed = new URL(url);
                 if (!['http:', 'https:'].includes(parsed.protocol)) return { action: 'deny' };
             } catch { return { action: 'deny' }; }
-            landscapeWin.webContents.send('context-menu-action', { action: 'open-link-new-tab', url });
+            // Chromium renseigne `disposition` selon le geste à l'origine de
+            // l'ouverture :
+            //  - 'background-tab' : clic molette (item 5) ou Ctrl+clic (item 9)
+            //    → nouvel onglet SANS bascule dessus.
+            //  - 'foreground-tab' / 'new-window' : Ctrl+Shift+clic (item 10),
+            //    ou window.open()/target=_blank classique → bascule immédiate.
+            const background = disposition === 'background-tab';
+            landscapeWin.webContents.send('context-menu-action', { action: 'open-link-new-tab', url, background });
             return { action: 'deny' };
         });
 
@@ -584,16 +599,10 @@ function createLandscapeWindow() {
             });
         });
 
-        // ── Mode vidéo seule (v0.9.0) — correctif ────────────────────────────
-        // Un <webview> est un WebContents séparé : tant que le focus clavier
-        // s'y trouve (cas normal dès qu'on interagit avec la vidéo), les
-        // événements keydown ne remontent JAMAIS au document de la fenêtre
-        // hôte — le raccourci Ctrl+Shift+V posé côté renderer
-        // (landscape-settings.js) ne peut donc se déclencher que si le focus
-        // est resté sur la barre d'outils, ce qui n'arrive presque jamais en
-        // pratique. On intercepte donc aussi le raccourci ICI, au niveau du
-        // WebContents de la webview elle-même, qui reçoit l'événement quel
-        // que soit l'endroit où le focus clavier se trouve.
+        // ── Clavier (v0.9.0) — avant-input fonctionne pour le clavier ; les
+        // boutons souris utilisent MOUSE_NAV_INJECT/ZOOM_WHEEL_INJECT (v1.0.2,
+        // voir landscape-webview.js) suite au diagnostic confirmant que
+        // before-input-event ne transporte jamais d'info souris ici.
         wvContents.on('before-input-event', (event, input) => {
             if (input.type !== 'keyDown' || input.isAutoRepeat) return;
             if (input.control && input.shift && input.key.toLowerCase() === 'v') {

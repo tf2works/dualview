@@ -1,4 +1,4 @@
-# DualView v0.8.0
+# DualView v1.0.0
 
 Affichage simultané d'une page web en vue **Desktop (16:9)** et **Mobile (9:16)**
 avec synchronisation en temps réel — optimisé pour la capture OBS,
@@ -157,7 +157,17 @@ Les raccourcis utilisent `Ctrl` sur Windows/Linux et `⌘ Cmd` sur macOS. Les to
 
 ### Boutons souris
 
-Les boutons latéraux de la souris (bouton 4 = retour, bouton 5 = avance) sont pris en charge sur Windows, macOS et Linux.
+Les boutons latéraux de la souris (bouton 4 = retour, bouton 5 = avance) sont pris en charge — capture via injection dans le contenu de la page pour une fiabilité garantie dans la fenêtre paysage *(réécrit en v1.0.0, voir [VERSION_HISTORY.md](VERSION_HISTORY.md))*.
+
+**Ouverture de liens** *(v1.0.0)* :
+
+| Geste | Effet |
+|---|---|
+| Clic molette sur un lien | Nouvel onglet, sans y basculer |
+| `Ctrl` + clic sur un lien | Nouvel onglet, sans y basculer |
+| `Ctrl` + `Shift` + clic sur un lien | Nouvel onglet, avec bascule immédiate |
+
+**Zoom** *(fiabilisé en v1.0.0)* : `Ctrl` + molette zoome/dézoome la page active, quel que soit le site.
 
 ### Liens externes
 
@@ -535,6 +545,7 @@ Supprimez `%APPDATA%\DualView\` pour effacer toutes les données locales.
 
 | Version | Résumé |
 |---------|--------|
+| 1.0.0 | **Raccourcis souris étendus** : ouverture de liens en arrière-plan (clic molette/Ctrl+clic) ou au premier plan (Ctrl+Shift+clic) ; boutons latéraux retour/avance et zoom Ctrl+molette réécrits par injection DOM pour une fiabilité garantie dans les webviews. **Fix favoris** : échec d'ajout silencieux corrigé. |
 | 0.9.0 | **Mode vidéo seule** : isole la vidéo active dans les deux fenêtres (`Ctrl+Shift+V` ou clic droit → "Vidéo seule", paysage uniquement), barre de contrôle custom auto-hide, sortie synchronisée entre les deux fenêtres. |
 | 0.7.1 | **Navigation persistante entre sessions** : pile `navStack[]`/`navIndex` par onglet, persistée dans la config. Boutons `←`/`→` fonctionnels après redémarrage (mode simulé → rechargement URL ; mode natif → cache Chromium). Dropdown ← → alimenté depuis la pile restaurée. Correction bug `_simModeSet` supprimé par le `did-navigate` du chargement initial. |
 | 0.7.0 | Récupération crash webview (render-process-gone, overlay inline, auto-reload 10s) ; lecteur PDF natif (`plugins="true"`) ; vérification de mise à jour (API GitHub, bouton Paramètres → Général) ; corrections : GitHub/GitLab dans Services connectés, `detectServiceKeyFromUrl()`, `MaxListenersExceededWarning` → 200, `ERR_ABORTED` filtrés, `#dev-btn` résiduel supprimé ; raccourcis clavier redessinés |

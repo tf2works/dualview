@@ -93,6 +93,7 @@ const I18N = {
         favoritesEmptyHint: "Cliquez sur l'étoile ★ dans la barre pour ajouter une page.",
         favoriteAdded: '★ Page ajoutée aux favoris',
         favoriteRemoved: '☆ Page retirée des favoris',
+        favoriteBlocked: '⚠ Cette page ne peut pas être ajoutée aux favoris (page de connexion)',
         favoriteSearchPlaceholder: 'Rechercher dans les favoris…',
         // v0.5.0
         focusModeOn: 'Mode Focus activé — Ctrl+Shift+H pour quitter',
@@ -333,6 +334,7 @@ const I18N = {
         favoritesEmptyHint: 'Click the ★ star in the toolbar to bookmark a page.',
         favoriteAdded: '★ Page added to favorites',
         favoriteRemoved: '☆ Page removed from favorites',
+        favoriteBlocked: '⚠ This page cannot be added to favorites (login page)',
         favoriteSearchPlaceholder: 'Search favorites…',
         // v0.5.0
         focusModeOn: 'Focus mode on — Ctrl+Shift+H to exit',

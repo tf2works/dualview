@@ -7,6 +7,36 @@ Versionnage : [Semantic Versioning](https://semver.org/lang/fr/)
 
 ---
 
+## [1.0.0] — 2026
+
+### Ajouté
+
+- **Raccourcis souris étendus — ouverture de liens en arrière-plan** (`src/main.js`, `src/renderer/js/landscape-tabs.js`, `src/renderer/js/landscape-settings.js`)
+  - Clic molette sur un lien → nouvel onglet sans y basculer.
+  - `Ctrl` + clic sur un lien → nouvel onglet sans y basculer.
+  - `Ctrl` + `Shift` + clic sur un lien → nouvel onglet avec bascule immédiate.
+  - Implémentation : `setWindowOpenHandler` (`main.js`) lit le champ `disposition` fourni par Chromium et le transmet au renderer ; `addTabWithUrl()` (`landscape-tabs.js`) accepte une nouvelle option `{ background }`.
+  - Le clic droit → « Ouvrir dans un nouvel onglet » (`core/context-menu.js`) garde son comportement historique (bascule immédiate), non affecté.
+- **Boutons latéraux souris (retour/avance) — réécriture complète** (`src/renderer/js/landscape-webview.js`, `src/renderer/js/landscape-views.js`, `src/renderer/js/landscape-pollers.js`)
+  - Diagnostic terminal a confirmé qu'aucune API Electron (`before-input-event`, `app-command`) ne reçoit jamais l'info souris dans cette architecture `<webview>` imbriquée — y compris pour un simple clic gauche — alors que ces mêmes boutons fonctionnent nativement dans Chrome/Firefox/Edge sur la même machine.
+  - Solution retenue : script injecté dans le contenu de chaque page (`MOUSE_NAV_INJECT`), qui capte l'événement DOM standard `mousedown` (`button===3` = arrière, `button===4` = avant) — garanti, indépendant des particularités d'Electron. Le résultat est lu par un polling léger (`pollMouseNav`, 100 ms, `landscape-pollers.js`) qui réutilise `window.dualview.navBack()`/`navForward()`, exactement le même chemin que les boutons `←`/`→` de la toolbar (aucun nouveau protocole de synchronisation).
+  - `app-command` reste présent dans `main.js` en repli silencieux et sans effet de bord (peut fonctionner sur certaines configurations hors `<webview>`), sans garantie ni log.
+- **Zoom `Ctrl` + molette** (`src/renderer/js/landscape-webview.js`, `src/renderer/js/landscape-views.js`, `src/renderer/js/landscape-pollers.js`)
+  - Le geste natif Chromium n'étant pas garanti à l'intérieur d'une `<webview>`, un script injecté (`ZOOM_WHEEL_INJECT`) capte l'événement `wheel` avec `ctrlKey` directement dans la page (`preventDefault` uniquement dans ce cas — le scroll normal n'est jamais affecté) ; le delta accumulé est lu par polling (`pollZoomWheel`, 150 ms) et appliqué via `adjustZoom()`, la fonction déjà utilisée par les raccourcis clavier `Ctrl+`/`Ctrl-`.
+
+### Corrigé
+
+- **Favoris — ajout silencieusement refusé sans message d'erreur** (`src/core/favorites-manager.js`, `src/renderer/js/landscape-settings.js`, `src/renderer/js/landscape-i18n.js`)
+  - Bug : cliquer sur ★ pour ajouter la page courante aux favoris affichait toujours l'étoile pleine et le toast « Page ajoutée aux favoris », **même quand l'ajout échouait réellement** — notamment pour les URLs de domaines considérés comme des pages de connexion (`AUTH_DOMAINS_FAV` dans `favorites-manager.js` : Google, Microsoft, Facebook, Instagram, TikTok, Twitter/X, Discord, Steam, Twitch). Ces favoris n'apparaissaient donc jamais dans le panneau ⚙️ → Favoris.
+  - Cause : `favoriteBtn` (click handler, `landscape-settings.js`) n'exploitait pas la valeur booléenne retournée par `window.dualview.favoritesAdd()` / `FavoritesManager.add()`.
+  - Correctif (1/2) : le clic sur ★ vérifie désormais le retour de `favoritesAdd()` ; en cas de refus, l'étoile reste inactive et un nouveau toast d'avertissement (`favoriteBlocked`) informe l'utilisateur, plutôt que de laisser croire à un ajout réussi.
+  - Correctif (2/2) : `AUTH_DOMAINS_FAV` (`favorites-manager.js`) a été restreinte aux hôtes **purement** dédiés à l'authentification (`accounts.google.com`, `login.microsoftonline.com`, `login.live.com`, `account.live.com`, `login.steampowered.com`, `passport.twitch.tv`). Les plateformes de contenu (`twitter.com`/`x.com`, `discord.com`, `www.instagram.com`, `www.tiktok.com`, `www.facebook.com`, `store.steampowered.com`) ne sont plus bloquées en bloc : seules leurs pages de connexion le restent, via la détection de chemin existante (`/login`, `/signin`, `/oauth`, `/auth`). Il est donc de nouveau possible de favoriser une page de profil/chaîne/produit sur ces sites.
+  - Effet de bord attendu : une URL de connexion sur ces plateformes dont le chemin ne matcherait pas exactement le motif `/login|/signin|/sign-in|/oauth|/auth` (ex. flow de connexion à chemin inhabituel) ne serait plus bloquée par le domaine seul. Compromis jugé acceptable pour restaurer l'usage principal (favoris de chaînes/profils) — à surveiller si un nouveau cas de fuite d'URL de login apparaît.
+
+### Retiré
+
+- **`Alt` + molette = Retour/Avance** — tentative abandonnée. Reposait sur `before-input-event` (type `mouseWheel`), confirmé non fonctionnel par diagnostic (voir ci-dessus). Pourrait être réintroduit via le même principe d'injection DOM que `MOUSE_NAV_INJECT`/`ZOOM_WHEEL_INJECT` si le besoin se confirme.
+
 ## [0.9.3] — 2026
 
 ### Corrigé

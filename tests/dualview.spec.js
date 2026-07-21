@@ -59,13 +59,13 @@ test('01 — structure : fichiers principaux présents', () => {
 });
 
 // ── Test 02 — package.json ────────────────────────────────────────────────────
-// Vérifie que la version est 0.9.3 et que les scripts essentiels sont présents.
+// Vérifie que la version est 1.0.0 et que les scripts essentiels sont présents.
 
-test('02 — package.json : version 0.9.3 et scripts corrects', () => {
+test('02 — package.json : version 1.0.0 et scripts corrects', () => {
     const raw = fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8');
     const pkg = JSON.parse(raw);
 
-    assert.equal(pkg.version, '0.9.3', 'Version attendue : 0.9.3');
+    assert.equal(pkg.version, '1.0.0', 'Version attendue : 1.0.0');
     assert.equal(pkg.main, 'src/main.js', 'main doit pointer sur src/main.js');
     assert.ok(pkg.scripts && pkg.scripts.start, 'Script "start" manquant');
     assert.ok(pkg.scripts && pkg.scripts.test,  'Script "test" manquant');
@@ -206,7 +206,7 @@ test('06 — landscape-webview : focusVideoSeek pause/reprend autour du seek', (
         'focusVideoSeek doit relancer la lecture après le seek si elle jouait');
 });
 
-// ── Test 07 — Protocole vidéo — 3e chemin 'seek en lecture' (v0.9.3) ─────────
+// ── Test 07 — Protocole vidéo — 3e chemin 'seek en lecture' (v1.0.0) ─────────
 // Garde de non-régression statique (même limite que le test 06 : pas de vrai
 // process Electron/webview dans node:test). Vérifie la présence bout-en-bout
 // du nouveau chemin qui corrige les seeks non synchronisés pendant la lecture

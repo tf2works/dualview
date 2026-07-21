@@ -731,14 +731,24 @@ function addTab() {
     switchTab(id);
 }
 
-function addTabWithUrl(url, title) {
+// v0.9.4 : options.background = true → crée l'onglet sans y basculer
+// (clic molette / Ctrl+clic sur un lien, items 5 et 9 des raccourcis souris).
+function addTabWithUrl(url, title, options) {
+    const { background = false } = options || {};
     const id = 'tab-' + Date.now();
     if (!title) {
         title = '';
         try { title = new URL(url).hostname.replace('www.', ''); } catch { title = url.slice(0, 20); }
     }
     tabs.push({ id, title, url, type: TAB_TYPE_WEB });
-    switchTab(id);
+    if (background) {
+        // Pas de switchTab() : l'onglet actif ne change pas, mais il faut
+        // tout de même le rendre visible dans la barre et le persister.
+        renderTabs();
+        saveTabs();
+    } else {
+        switchTab(id);
+    }
 }
 
 function getNewTabUrl() {

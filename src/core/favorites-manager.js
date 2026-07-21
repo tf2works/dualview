@@ -22,13 +22,18 @@ const path = require('path');
 
 const MAX_ENTRIES = 500;
 
-// Domaines d'auth à ne jamais mettre en favoris
+// Domaines d'auth "purs" : ces hôtes ne servent QUE à l'authentification
+// (jamais de contenu consultable/favorisable dessus) → blocage domaine entier.
+// NB : ne pas y mettre de domaines de plateformes de contenu (Twitter/X, Discord,
+// Instagram, TikTok, Facebook, Steam store…) — sinon on empêche aussi de
+// favoriser une page de profil/chaîne légitime sur ces sites, ce qui est
+// justement l'usage principal de DualView (streaming/multi-diffusion).
+// Ces plateformes sont couvertes via la détection par chemin ci-dessous
+// (/login, /signin, /oauth, /auth) qui cible uniquement leurs pages de connexion.
 const AUTH_DOMAINS_FAV = [
     'accounts.google.com',
     'login.microsoftonline.com', 'login.live.com', 'account.live.com',
-    'www.facebook.com', 'www.instagram.com', 'www.tiktok.com',
-    'twitter.com', 'x.com', 'discord.com',
-    'store.steampowered.com', 'login.steampowered.com', 'passport.twitch.tv',
+    'login.steampowered.com', 'passport.twitch.tv',
 ];
 
 function isAuthUrl(url) {

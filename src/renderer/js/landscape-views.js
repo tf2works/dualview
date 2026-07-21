@@ -530,6 +530,8 @@ function attachWebviewListeners(wv, tabId) {
         resetWatcherFlags(wv);
         injectWatcher(wv);
         wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
+        wv.executeJavaScript(ZOOM_WHEEL_INJECT).catch(() => { }); // v1.0.1 — Ctrl+molette
+        wv.executeJavaScript(MOUSE_NAV_INJECT).catch(() => { }); // v1.0.2 — boutons latéraux
         // Tentative immédiate : player peut déjà être présent sur rechargement
         injectAutoPause(wv);
         // Injection CSS/JS utilisateur (P4-J — v0.8.0)
@@ -697,6 +699,8 @@ function attachWebviewListeners(wv, tabId) {
         // YouTube, etc.) — dom-ready ne se redéclenche pas pour ces navigations
         if (webviewPool.has(tabId)) {
             wv.executeJavaScript(SCROLL_INJECT).catch(() => { });
+            wv.executeJavaScript(ZOOM_WHEEL_INJECT).catch(() => { }); // v1.0.1 — Ctrl+molette
+            wv.executeJavaScript(MOUSE_NAV_INJECT).catch(() => { }); // v1.0.2 — boutons latéraux
             injectWatcher(wv);
             // Pause auto sur navigation SPA (clic vidéo YouTube, nouveau Short)
             // Délai 1.2s : légèrement plus court car le player est déjà initialisé

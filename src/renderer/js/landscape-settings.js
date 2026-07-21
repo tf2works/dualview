@@ -671,9 +671,15 @@ favoriteBtn.addEventListener('click', async () => {
         // Récupérer le titre depuis l'onglet actif
         const tab = typeof tabs !== 'undefined' ? tabs.find(tb => tb.id === activeTabId) : null;
         const title = (tab && tab.title) ? tab.title : '';
-        await window.dualview.favoritesAdd(url, title);
-        updateFavoriteBtn(true);
-        showToast(t('favoriteAdded'));
+        const added = await window.dualview.favoritesAdd(url, title);
+        if (added) {
+            updateFavoriteBtn(true);
+            showToast(t('favoriteAdded'));
+        } else {
+            // Refusé côté main (ex: URL d'authentification) — ne pas mentir sur l'état
+            updateFavoriteBtn(false);
+            showToast(t('favoriteBlocked'));
+        }
     }
     // Rafraîchir le panneau s'il est ouvert
     if (favoritesOpen) {
@@ -1645,11 +1651,14 @@ window.dualview.on('mouse-nav', (direction) => {
 
 // ── Actions du menu contextuel (v0.4.1) ──────────────────────────────────
 // Reçues du main après sélection d'une entrée du menu natif.
-window.dualview.on('context-menu-action', ({ action, url, text, x, y }) => {
+window.dualview.on('context-menu-action', ({ action, url, text, x, y, background }) => {
     const wv = getActiveWebview();
     switch (action) {
+        // v0.9.4 : `background` distingue clic molette/Ctrl+clic (nouvel onglet
+        // sans bascule, items 5 et 9) de Ctrl+Shift+clic ou clic droit menu
+        // contextuel (bascule immédiate, item 10 / comportement historique).
         case 'open-link-new-tab':
-            if (url) addTabWithUrl(url);
+            if (url) addTabWithUrl(url, undefined, { background: !!background });
             break;
         case 'reload':
             document.getElementById('reload-btn').click();

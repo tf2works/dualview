@@ -172,6 +172,43 @@ function pollScroll() {
 }
 setInterval(pollScroll, 100);
 
+// ── Polling zoom Ctrl+molette (v1.0.1) ────────────────────────────────────
+// Lit le delta accumulé par ZOOM_WHEEL_INJECT (landscape-webview.js) et
+// applique le zoom via adjustZoom() — la même fonction déjà utilisée par les
+// raccourcis clavier Ctrl+/Ctrl-/Ctrl+0 (landscape-views.js).
+// Seuil de conversion : ~100 unités de deltaY natif ≈ un cran de molette
+// standard → on le traduit en un pas de zoom de 10% (cohérent avec le pas
+// des raccourcis clavier, qui font ±5% par pression).
+function pollZoomWheel() {
+    const wv = getActiveWebview();
+    if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+    wv.executeJavaScript('(function(){const d=window.__dualviewZoomWheelDelta||0;window.__dualviewZoomWheelDelta=0;return d;})()')
+        .then(delta => {
+            if (typeof delta !== 'number' || delta === 0) return;
+            // deltaY > 0 = molette vers le bas = dézoomer ; < 0 = zoomer
+            const steps = delta / 100;
+            if (typeof adjustZoom === 'function') adjustZoom(steps > 0 ? -0.1 : 0.1);
+        }).catch(() => { });
+}
+setInterval(pollZoomWheel, 150);
+
+// ── Polling boutons latéraux souris (v1.0.2) ──────────────────────────────
+// Lit la commande accumulée par MOUSE_NAV_INJECT (landscape-webview.js) et
+// déclenche la même navigation que les boutons ← → de la toolbar
+// (window.dualview.navBack/navForward, déjà utilisés par backBtn/forwardBtn
+// dans landscape-ui.js — comportement 100% cohérent avec la sync portrait,
+// la pile de navigation simulée, etc.)
+function pollMouseNav() {
+    const wv = getActiveWebview();
+    if (!wv || !wv.getURL || wv.getURL() === 'about:blank') return;
+    wv.executeJavaScript('(function(){const c=window.__dualviewMouseNavCmd;window.__dualviewMouseNavCmd=null;return c;})()')
+        .then(cmd => {
+            if (cmd === 'back' && !backBtn.disabled) window.dualview.navBack();
+            else if (cmd === 'forward' && !forwardBtn.disabled) window.dualview.navForward();
+        }).catch(() => { });
+}
+setInterval(pollMouseNav, 100);
+
 // ── Initialisation ─────────────────────────────────────────────────────────────
 window.dualview.getSyncState().then(state => updateSyncUI(state));
 
